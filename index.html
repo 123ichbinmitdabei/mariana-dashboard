@@ -2,13 +2,35 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Veranstaltungs-Dashboard</title>
-<style>html,body{margin:0;height:100%;background:#08160d;}iframe{border:0;width:100%;height:100vh;display:block;}</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#08160d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Camp-Dashboard">
+<link rel="apple-touch-icon" href="https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png">
+<style>
+  html,body{margin:0;height:100%;background:#08160d;}
+  iframe{border:0;width:100%;height:100vh;height:100dvh;display:block;}
+  #install{position:fixed;right:14px;bottom:14px;z-index:10;background:#f9c74f;color:#08160d;border:0;border-radius:24px;padding:11px 18px;font:600 14px 'Segoe UI',Arial,sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.3);cursor:pointer;display:none;}
+</style>
 </head>
 <body>
 <iframe src="veranstaltungs-dashboard.html"
         allow="camera; microphone; clipboard-read; clipboard-write; fullscreen"
         title="Veranstaltungs-Dashboard"></iframe>
+<button id="install">📲 App installieren</button>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+  let deferred = null;
+  const btn = document.getElementById('install');
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; btn.style.display = 'block'; });
+  btn.addEventListener('click', async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; btn.style.display = 'none'; });
+  window.addEventListener('appinstalled', () => { btn.style.display = 'none'; });
+</script>
 </body>
 </html>

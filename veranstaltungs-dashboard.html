@@ -675,8 +675,13 @@ function cloudPush(eventId,suf,v){
     body:JSON.stringify({event_id:eventId,k:suf,v:v,updated_at:new Date().toISOString()})})
     .then(r=>setSync(r.ok?'ok':'Fehler '+r.status)).catch(()=>setSync('offline'));
 }
+function pushAllLocal(){
+  if(!cloudOn()) return;
+  SYNC_SUFFIXES.forEach(suf=>{ const v=LS.get('evtdash_'+suf+'_'+currentId, null); if(v!==null) cloudPush(cloudNS(), suf, v); });
+}
 async function refreshCloud(){
   if(!cloudOn()){ setSync('aus'); return; }
+  if(typeof navigator!=='undefined' && navigator.onLine===false){ setSync('offline'); return; }
   setSync('lade…');
   try{
     const r=await fetch(CLOUD.url+'/rest/v1/event_dashboard?event_id=eq.'+encodeURIComponent(cloudNS())+'&select=k,v',{headers:cloudHeaders()});
@@ -1790,7 +1795,10 @@ updateSyncBtn();
 renderNotesTasks();
 refreshCloud().finally(()=>reloadData());
 renderWeather(); renderFeedback();
-setInterval(()=>{ if(cloudOn() && !document.hidden) refreshCloud(); }, 30000);
+setInterval(()=>{ if(cloudOn() && !document.hidden && navigator.onLine!==false) refreshCloud(); }, 30000);
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+window.addEventListener('online', ()=>{ if(cloudOn()){ pushAllLocal(); setSync('online – sync…'); setTimeout(()=>refreshCloud(),1800); } });
+window.addEventListener('offline', ()=> setSync('offline (lokal gespeichert)'));
 </script>
 </body>
 </html>

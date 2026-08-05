@@ -1,0 +1,19 @@
+{
+  "name": "Mariana Veranstaltungs-Dashboard",
+  "short_name": "Camp-Dashboard",
+  "description": "Veranstaltung von Anmeldung bis Check-in verwalten.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#08160d",
+  "theme_color": "#08160d",
+  "icons": [
+    {
+      "src": "https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png",
+      "sizes": "192x192 512x512 any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
