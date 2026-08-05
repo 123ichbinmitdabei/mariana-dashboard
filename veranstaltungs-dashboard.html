@@ -173,6 +173,9 @@
     <h2>🔗 Community &amp; Schnellzugriff</h2>
     <div class="body">
       <div class="row-flex" id="quickLinks"></div>
+      <div class="row-flex" style="margin-top:8px">
+        <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="downloadIcs()">📅 Termin (.ics) speichern</button>
+      </div>
     </div>
   </div>
 
@@ -190,6 +193,7 @@
     <h2>💶 Orga &amp; Finanzen <span class="spacer"></span></h2>
     <div class="body">
       <div class="totbox" id="totbox"></div>
+      <div id="budgetWarn"></div>
       <div class="grid2">
         <div>
           <div class="chart-box" style="border:0;padding:0;">
@@ -284,6 +288,7 @@
     <h2>✉️ Kommunikations-Bausteine</h2>
     <div class="body">
       <div class="hint">Fertige Texte zum Kopieren für WhatsApp/Mail. Passt sich an die aktuellen Daten an.</div>
+      <div class="row-flex" style="margin-bottom:10px"><button class="btn sm" onclick="mahnliste()">📧 Mahnliste: Mail an offene Zahler</button></div>
       <div id="comms"></div>
     </div>
   </div>
@@ -319,6 +324,19 @@
         <input id="shopQty" placeholder="Menge" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <input id="shopWho" placeholder="besorgt wer?" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <button class="btn sm" onclick="addShop()">+ Hinzufügen</button>
+        <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="loadPackliste()">📋 Camp-Vorlage laden</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🔢 Zähler &amp; Strichlisten</h2>
+    <div class="body">
+      <div class="hint">Zählt vor Ort mit – z. B. Volcano-Nutzung, Getränke, Rosinpresse. Synchron im Team.</div>
+      <div id="counters"></div>
+      <div class="row-flex" style="margin-top:10px">
+        <input id="ctName" placeholder="Neuer Zähler (z.B. Volcano-Bar)" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
+        <button class="btn sm" onclick="addCounter()">+ Zähler</button>
       </div>
     </div>
   </div>
@@ -456,10 +474,10 @@ const DEFAULT_EVENT = {
   whatsapp:'https://chat.whatsapp.com/JMAxhkCvdpvLy9HC9Z1NwW',
   form:'https://docs.google.com/forms/d/e/1FAIpQLSciP9noXHs2zsHJNoEBo-d7gw9dJmKunqTKZLOANM5DI6omVw/viewform',
   price:8.40, cashStart:0, badgeW:90, badgeH:54, capacity:0,
-  place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null
+  place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid'];
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -477,6 +495,7 @@ const kChk  =()=>'evtdash_checkin_'+currentId;
 const kAg   =()=>'evtdash_agenda_'+currentId;
 const kPaid =()=>'evtdash_paid_'+currentId;
 const kWa   =()=>'evtdash_wa_'+currentId;
+const kCount=()=>'evtdash_count_'+currentId;
 const LOGO='https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png';
 
 let DATA = [];      // parsed sheet rows (array of {header:value})
@@ -644,7 +663,55 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); renderWa(); renderGallery(); renderSetupBanner(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderSetupBanner(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+
+/* ===== Zähler / Strichlisten ===== */
+function renderCounters(){
+  const box=document.getElementById('counters'); if(!box)return;
+  const list=LS.get(kCount(),[]);
+  box.innerHTML = list.length ? '<div class="wx" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">'+list.map((c,i)=>
+    `<div class="d" style="text-align:left"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:13px">${esc(c.name)}</b><button class="btn danger sm" style="padding:0 6px" onclick="delCounter(${i})">×</button></div>
+     <div style="display:flex;align-items:center;gap:10px;margin-top:6px"><button class="btn sm" style="background:#a33;padding:4px 12px" onclick="incCounter(${i},-1)">−</button><span style="font-size:24px;font-weight:800;color:var(--green);min-width:34px;text-align:center">${c.count||0}</span><button class="btn sm" style="padding:4px 12px" onclick="incCounter(${i},1)">+</button></div></div>`).join('')+'</div>'
+    : '<div class="status" style="color:var(--muted)">Noch keine Zähler.</div>';
+}
+function addCounter(){ const n=document.getElementById('ctName').value.trim(); if(!n)return; const l=LS.get(kCount(),[]); l.push({name:n,count:0}); LS.set(kCount(),l); document.getElementById('ctName').value=''; renderCounters(); }
+function incCounter(i,d){ const l=LS.get(kCount(),[]); l[i].count=Math.max(0,(l[i].count||0)+d); LS.set(kCount(),l); renderCounters(); }
+function delCounter(i){ const l=LS.get(kCount(),[]); l.splice(i,1); LS.set(kCount(),l); renderCounters(); }
+
+/* ===== Kalender (.ics) ===== */
+function downloadIcs(){
+  const e=ev(); if(!e.eventDate){ alert('Kein Datum hinterlegt (Assistent).'); return; }
+  const d=e.eventDate.replace(/-/g,''); // YYYYMMDD
+  const dt=new Date(e.eventDate); const end=new Date(dt.getTime()+2*86400000); const de=end.toISOString().slice(0,10).replace(/-/g,'');
+  const esc2=s=>String(s||'').replace(/([,;\\])/g,'\\$1').replace(/\n/g,'\\n');
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Mariana Dashboard//DE','BEGIN:VEVENT',
+    'UID:'+e.id+'@mariana-dashboard','DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z',
+    'DTSTART;VALUE=DATE:'+d,'DTEND;VALUE=DATE:'+de,'SUMMARY:'+esc2(e.name),
+    'LOCATION:'+esc2(e.place),'DESCRIPTION:'+esc2('Veranstaltung – Dashboard: https://123ichbinmitdabei.github.io/mariana-dashboard/'),
+    'END:VEVENT','END:VCALENDAR'].join('\r\n');
+  const a=document.createElement('a'); a.href='data:text/calendar;charset=utf-8,'+encodeURIComponent(ics);
+  a.download=(e.name||'event').replace(/[^\w-]+/g,'_')+'.ics'; a.click();
+}
+
+/* ===== Mahnliste (Mail an offene Zahler) ===== */
+function mahnliste(){
+  const e=ev();
+  const open=DATA.filter(r=>payState(r)!=='paid').map(r=>mailOf(r)).filter(m=>/@/.test(m));
+  if(!open.length){ alert('Keine offenen Zahler – alles bezahlt. 🎉'); return; }
+  const subj=encodeURIComponent('Zahlungserinnerung – '+e.name);
+  const body=encodeURIComponent(`Hallo,\n\nfür ${e.name} ist Dein Beitrag von ${eur(e.price)} pro Person noch offen.\nBitte zahle ihn in den PayPal-Pool: ${e.paypal}\n(Mailadresse und Personenzahl im Nachrichtenfeld angeben.)\n\nDanke!\nEuer CSC Marburg Team`);
+  const bcc=encodeURIComponent(open.join(','));
+  window.location.href=`mailto:?bcc=${bcc}&subject=${subj}&body=${body}`;
+}
+
+/* ===== Packlisten-Vorlage ===== */
+function loadPackliste(){
+  const items=['Grillkohle','Anzünder/Feuerzeug','Grillzange & Besteck','Müllsäcke','Toilettenpapier','Erste-Hilfe-Set','Küchenrolle','Spülmittel & Lappen','Pavillon/Zelt (bei Regen)','Verlängerungskabel & Mehrfachstecker','Wasserkanister','Sitzkissen','Warnwesten (Parkplatz)','Feuerlöscher','Taschenlampen/Laternen','Ersatz-Gasflasche'];
+  if(!confirm('Camp-Packliste ('+items.length+' Einträge) zur Einkaufsliste hinzufügen?'))return;
+  const l=LS.get(kShop(),[]); const have=new Set(l.map(x=>(x.text||'').toLowerCase()));
+  items.forEach(t=>{ if(!have.has(t.toLowerCase())) l.push({text:t,qty:'',who:'',done:false}); });
+  LS.set(kShop(),l); renderShop();
+}
 
 function renderQuick(){
   const e=ev();
@@ -795,7 +862,9 @@ function renderParticipants(){
         cAnr=findCol('reist Du an','anreise'),cFahr=findCol('fahrdienst'),
         cAuf=findCol('aufräumen','aufraumen','sonntag'),cQuiz=findCol('quiz'),
         cBring=findCol('bringst du etwas','hilft'),cNote=findCol('mitteilen'),cTs=findCol('timestamp','zeitstempel');
-  document.getElementById('pCount').textContent=DATA.length+' Einträge';
+  const mailCounts={}; DATA.forEach(r=>{const m=mailOf(r).toLowerCase(); if(m)mailCounts[m]=(mailCounts[m]||0)+1;});
+  const dupes=Object.values(mailCounts).filter(n=>n>1).length;
+  document.getElementById('pCount').innerHTML=DATA.length+' Einträge'+(dupes?` · <span style="color:#a33">${dupes} mögliche Doppelanmeldung(en)</span>`:'');
   const wl=waitlistSet();
   // cards
   const cards=DATA.map((r,i)=>{
@@ -807,7 +876,7 @@ function renderParticipants(){
       <div class="h">
         <div><b>${esc(displayName(r))}</b> <button class="btn ghost sm" title="Anzeigename ändern" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="editName('${esc(mail)}')">✎</button>
           <div style="font-size:11px;color:var(--muted);word-break:break-all;">${esc(mail)}</div></div>
-        <span style="text-align:right;">${wl.has(mail)?'<span class="pill" style="background:#fde2c0;color:#8a5a12">Warteliste</span> ':''}${r.__manual?'<span class="pill man">manuell</span> ':''}${payPill(st)}
+        <span style="text-align:right;">${mailCounts[mail.toLowerCase()]>1?'<span class="pill off">doppelt</span> ':''}${wl.has(mail)?'<span class="pill" style="background:#fde2c0;color:#8a5a12">Warteliste</span> ':''}${r.__manual?'<span class="pill man">manuell</span> ':''}${payPill(st)}
           <label style="display:block;font-size:11px;color:var(--muted);margin-top:4px;cursor:pointer;"><input type="checkbox" class="ci" ${isChecked(r)?'checked':''} onchange="toggleCheckin('${esc(mail)}')"> da</label></span></div>
       <div class="rows">
         ${line('Verein',val(r,cVer))}
@@ -859,12 +928,14 @@ function renderFinance(){
   let cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0);
   const ausgaben=cashList.filter(c=>c.amount<0).reduce((s,c)=>s+(-c.amount),0);
   const liquide=ppNow+cashBal;
+  const budget=+e.budget||0; const over=budget>0 && ausgaben>budget;
   document.getElementById('totbox').innerHTML=`
     <div class="t"><div class="v">${eur(pers*e.price)}</div><div class="l">Beiträge Soll</div></div>
     <div class="t"><div class="v">${eur(ppNow)}</div><div class="l">PayPal-Pool aktuell</div></div>
     <div class="t"><div class="v">${eur(cashBal)}</div><div class="l">Handkasse-Stand</div></div>
-    <div class="t"><div class="v" style="color:#a33">${eur(ausgaben)}</div><div class="l">Ausgaben (bar)</div></div>
+    <div class="t"><div class="v" style="color:${over?'#a33':'inherit'}">${eur(ausgaben)}${budget>0?' / '+eur(budget):''}</div><div class="l">Ausgaben${budget>0?' (Budget)':' (bar)'}</div></div>
     <div class="t big"><div class="v">${eur(liquide)}</div><div class="l">Gesamt liquide (PayPal + Kasse)</div></div>`;
+  document.getElementById('budgetWarn').innerHTML = over ? `<div class="banner warn" style="background:#f7eaea;border-color:#c0504d;margin:12px 0 0"><span>⚠️ <b>Budget überschritten</b> — Ausgaben ${eur(ausgaben)} über dem Budget von ${eur(budget)} (${eur(ausgaben-budget)} drüber).</span></div>` : '';
   renderCash();
 }
 function agMin(t){ const m=(t||'').match(/(\d{1,2}):(\d{2})/); return m?(+m[1]*60+ +m[2]):null; }
@@ -1269,7 +1340,11 @@ async function renderWeather(){
     html+='</div>';
     if(e.eventDate && !d.time.includes(e.eventDate)){ const diff=Math.round((new Date(e.eventDate)-new Date())/86400000);
       html+=`<div class="status" style="color:var(--muted);margin-top:8px">Für den Event-Tag (${new Date(e.eventDate).toLocaleDateString('de-DE')}) gibt es noch keine Vorhersage — verfügbar ab ~16 Tage vorher${diff>0?` (noch ${diff} Tage)`:''}.</div>`; }
-    box.innerHTML=html; _wxSig=sig;
+    let warnHtml='';
+    const wi = e.eventDate ? d.time.indexOf(e.eventDate) : 0;
+    if(wi>-1){ const wc=d.weather_code[wi], pr=d.precipitation_probability_max[wi]||0;
+      if(pr>=60 || (wc>=61 && wc<=99)) warnHtml=`<div class="banner" style="background:#f7eaea;border-color:#c0504d;margin-bottom:12px"><span>⚠️ <b>Regen/Unwetter wahrscheinlich</b> am ${new Date(d.time[wi]).toLocaleDateString('de-DE')} (${pr}% Niederschlag) — Pavillon/Zelt einplanen.</span></div>`; }
+    box.innerHTML=warnHtml+html; _wxSig=sig;
   }catch(err){ box.innerHTML='<div class="status" style="color:var(--muted)">Wetter konnte nicht geladen werden.</div>'; }
 }
 
@@ -1342,7 +1417,8 @@ const WIZ_STEPS=[
   {t:'Geld 💶',fields:[
     {k:'paypal',l:'PayPal-Pool-Link',ph:'https://www.paypal.com/pool/…'},
     {k:'price',l:'Preis pro Person (€)',type:'number'},
-    {k:'cashStart',l:'Handkasse-Startbestand (€)',type:'number'} ]},
+    {k:'cashStart',l:'Handkasse-Startbestand (€)',type:'number'},
+    {k:'budget',l:'Ausgaben-Budget (€, 0 = keins)',type:'number'} ]},
   {t:'Kommunikation 📱',fields:[
     {k:'whatsapp',l:'WhatsApp-Gruppen-/Community-Link',ph:'https://chat.whatsapp.com/…'},
     {k:'form',l:'Anmeldeformular-Link (für QR-Aushang)',ph:'https://docs.google.com/forms/…'} ]},
