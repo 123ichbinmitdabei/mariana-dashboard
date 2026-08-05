@@ -108,6 +108,15 @@
   .ciov video{width:100%;max-width:420px;border-radius:12px;display:block;margin:0 auto 10px;background:#000;}
   .ciov .scanwrap{text-align:center;}
   .ciov .close{margin-left:auto;background:#3a5044;color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:700;}
+  .banner{background:#fdf4dc;border:1px solid #f9c74f;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;}
+  .wizsteps{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .wizsteps .s{flex:1;min-width:20px;height:6px;border-radius:3px;background:var(--line);}
+  .wizsteps .s.done{background:var(--mgreen);} .wizsteps .s.cur{background:var(--green);}
+  .wx{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;}
+  .wx .d{background:var(--green-l);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;}
+  .wx .d.hl{background:#fdf4dc;border-color:#f9c74f;}
+  .wx .d .day{font-size:11px;color:var(--muted);text-transform:uppercase;} .wx .d .ic{font-size:26px;margin:4px 0;} .wx .d .tp{font-weight:700;} .wx .d .pr{font-size:11px;color:#2f7ec6;}
+  .fbrow{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;} .fbrow .bar{height:10px;background:var(--mgreen);border-radius:5px;} .fbrow .lb{min-width:120px;} .fbrow .ct{color:var(--muted);}
 </style>
 </head>
 <body>
@@ -123,6 +132,7 @@
   <span class="status" id="syncStat" style="min-width:60px;"></span>
   <button class="btn ghost sm" id="cloudBtn" onclick="toggleCloud()" title="Cloud-Synchronisation an/aus">☁ Sync</button>
   <button class="btn ghost sm" onclick="manualSync()">↻ Aktualisieren</button>
+  <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
   <button class="btn ghost sm" onclick="openSettings()">⚙ Einstellungen</button>
   <button class="btn sm" onclick="newEvent()">+ Veranstaltung</button>
   <button class="btn sm" style="background:#c9922b;color:#08160d" onclick="openCheckin()">✅ Check-in-Modus</button>
@@ -151,6 +161,7 @@
 
 <div class="wrap">
   <div class="status" id="loadStatus"></div>
+  <div id="setupBanner"></div>
 
   <div class="kpis" id="kpis"></div>
 
@@ -164,6 +175,11 @@
   <div class="section">
     <h2>📊 Grafische Auswertung</h2>
     <div class="body"><div class="charts" id="charts"></div></div>
+  </div>
+
+  <div class="section" id="weatherSection" style="display:none">
+    <h2>🌦️ Wetter fürs Event</h2>
+    <div class="body"><div id="weather"></div></div>
   </div>
 
   <div class="section">
@@ -324,6 +340,22 @@
     </div>
   </div>
 
+  <div class="section" id="feedbackSection" style="display:none">
+    <h2>⭐ Feedback</h2>
+    <div class="body">
+      <div class="row-flex" style="margin-bottom:10px"><a class="btn sm" id="fbLink" target="_blank" rel="noopener" style="display:none">↗ Feedback-Formular öffnen</a></div>
+      <div id="feedback"></div>
+    </div>
+  </div>
+
+  <div class="section" id="gallerySection" style="display:none">
+    <h2>📸 Foto-Galerie</h2>
+    <div class="body">
+      <a class="btn sm" id="galleryLink" target="_blank" rel="noopener" style="margin-bottom:10px;display:inline-block">↗ Galerie öffnen</a>
+      <iframe class="embed" id="galleryFrame" title="Galerie" style="display:none"></iframe>
+    </div>
+  </div>
+
   <div style="text-align:center;color:var(--muted);font-size:11px;padding:10px 0 30px;">
     Veranstaltungs-Dashboard · Daten live aus Google&nbsp;Tabellen · lokal gespeicherte Ergänzungen bleiben in diesem Browser.
   </div>
@@ -386,6 +418,23 @@
   </div>
 </div>
 
+<!-- Einrichtungs-Assistent -->
+<div class="modal" id="wizModal">
+  <div class="box" style="max-width:620px">
+    <div class="wizsteps" id="wizSteps"></div>
+    <h3 id="wizTitle" style="margin-bottom:4px"></h3>
+    <div class="status" id="wizSub" style="color:var(--muted);margin-bottom:14px"></div>
+    <div id="wizBody"></div>
+    <div class="row-flex" style="justify-content:space-between;margin-top:16px">
+      <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('wizModal')">Später</button>
+      <div class="row-flex">
+        <button class="btn ghost sm" style="color:#333;border-color:#ccc" id="wizBack" onclick="wizNav(-1)">Zurück</button>
+        <button class="btn" id="wizNext" onclick="wizNav(1)">Weiter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ============ Storage / Events ============ */
 const LS = {
@@ -401,7 +450,8 @@ const DEFAULT_EVENT = {
   bottle:'https://bringabottle.de/list/a938e7b2-1725-45dd-8a55-b81e0fa652f8',
   whatsapp:'https://chat.whatsapp.com/JMAxhkCvdpvLy9HC9Z1NwW',
   form:'https://docs.google.com/forms/d/e/1FAIpQLSciP9noXHs2zsHJNoEBo-d7gw9dJmKunqTKZLOANM5DI6omVw/viewform',
-  price:8.40, cashStart:0, badgeW:90, badgeH:54, capacity:0
+  price:8.40, cashStart:0, badgeW:90, badgeH:54, capacity:0,
+  place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid'];
@@ -589,7 +639,7 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); renderWa(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); renderWa(); renderGallery(); renderSetupBanner(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
 
 function renderQuick(){
   const e=ev();
@@ -1166,6 +1216,154 @@ function renderPpImport(res){
     <div style="font-size:12px;color:var(--muted)">${res.details&&res.details.length?('Zugeordnet: '+res.details.slice(0,12).map(esc).join(', ')):'Keine eindeutige Zuordnung gefunden — prüfe, ob die CSV Name/Mail-Spalten enthält.'}</div>`;
 }
 
+/* ===== Wetter (open-meteo, mit automatischer Ortssuche) ===== */
+function wxIcon(c){ if(c==null)return'❓'; if(c===0)return'☀️'; if(c<=2)return'🌤️'; if(c===3)return'☁️'; if(c<=48)return'🌫️'; if(c<=67)return'🌧️'; if(c<=77)return'🌨️'; if(c<=82)return'🌦️'; if(c<=86)return'🌨️'; return'⛈️'; }
+let _wxSig='';
+async function renderWeather(){
+  const e=ev(); const sec=document.getElementById('weatherSection'), box=document.getElementById('weather'); if(!sec)return;
+  if(!e.place){ sec.style.display='none'; return; }
+  sec.style.display='';
+  const sig=e.place+'|'+e.eventDate;
+  if(_wxSig===sig && box.innerHTML.trim()) return;
+  box.innerHTML='<div class="status" style="color:var(--muted)">Lade Wetter…</div>';
+  try{
+    let lat=e.lat, lon=e.lon;
+    if(lat==null||lon==null){
+      const tryGeo=async(q)=>{ if(!q)return null; try{ const g=await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=de&name='+encodeURIComponent(q)); const gj=await g.json(); return (gj.results&&gj.results[0])||null; }catch(e){ return null; } };
+      const clean=e.place.replace(/\(.*?\)/g,'').replace(/[,/].*$/,'').trim();
+      let res=await tryGeo(clean) || await tryGeo(e.place) || await tryGeo(clean.split(' ')[0]);
+      if(res){ lat=res.latitude; lon=res.longitude; e.lat=lat; e.lon=lon; LS.set('evtdash_events',events); }
+    }
+    if(lat==null){ box.innerHTML='<div class="status" style="color:var(--muted)">Ort „'+esc(e.place)+'" nicht gefunden — im Assistenten anpassen.</div>'; return; }
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBerlin&forecast_days=16`);
+    const j=await r.json(); const d=j.daily;
+    if(!d){ box.innerHTML='<div class="status">Keine Vorhersage verfügbar.</div>'; return; }
+    let html='<div class="wx">';
+    d.time.forEach((dt,i)=>{ const hl=e.eventDate&&dt===e.eventDate; const dd=new Date(dt);
+      html+=`<div class="d ${hl?'hl':''}"><div class="day">${dd.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'})}</div><div class="ic">${wxIcon(d.weather_code[i])}</div><div class="tp">${Math.round(d.temperature_2m_max[i])}° / ${Math.round(d.temperature_2m_min[i])}°</div><div class="pr">💧 ${d.precipitation_probability_max[i]??0}%</div></div>`; });
+    html+='</div>';
+    if(e.eventDate && !d.time.includes(e.eventDate)){ const diff=Math.round((new Date(e.eventDate)-new Date())/86400000);
+      html+=`<div class="status" style="color:var(--muted);margin-top:8px">Für den Event-Tag (${new Date(e.eventDate).toLocaleDateString('de-DE')}) gibt es noch keine Vorhersage — verfügbar ab ~16 Tage vorher${diff>0?` (noch ${diff} Tage)`:''}.</div>`; }
+    box.innerHTML=html; _wxSig=sig;
+  }catch(err){ box.innerHTML='<div class="status" style="color:var(--muted)">Wetter konnte nicht geladen werden.</div>'; }
+}
+
+/* ===== Feedback-Auswertung ===== */
+function renderFeedback(){
+  const e=ev(); const sec=document.getElementById('feedbackSection'), box=document.getElementById('feedback'), link=document.getElementById('fbLink'); if(!sec)return;
+  if(!e.feedbackForm && !e.feedbackSheet){ sec.style.display='none'; return; }
+  sec.style.display='';
+  if(e.feedbackForm){ link.href=e.feedbackForm; link.style.display=''; } else link.style.display='none';
+  if(!e.feedbackSheet){ box.innerHTML='<div class="status" style="color:var(--muted)">Feedback-Formular hinterlegt. Für die Auswertung im Assistenten die Antwort-Tabelle ergänzen.</div>'; return; }
+  box.innerHTML='<div class="status" style="color:var(--muted)">Lade Feedback…</div>';
+  const id=sheetId(e.feedbackSheet); const cb='fbcb_'+Math.random().toString(36).slice(2);
+  window[cb]=function(resp){ try{
+    const t=resp.table; let headers=t.cols.map(c=>c.label||''); let rows=t.rows||[];
+    if(headers.every(h=>!h)&&rows.length){headers=rows[0].c.map(c=>c?(c.f||c.v||''):'');rows=rows.slice(1);}
+    const data=rows.map(r=>{const o={};(r.c||[]).forEach((cell,i)=>{o[headers[i]||('c'+i)]=cell?(cell.f!=null?cell.f:cell.v):'';});return o;}).filter(o=>Object.values(o).some(v=>v!==''&&v!=null));
+    renderFeedbackData(headers.filter(h=>h), data);
+  }catch(err){ box.innerHTML='<div class="status">Feedback-Tabelle nicht lesbar.</div>'; } delete window[cb]; };
+  const s=document.createElement('script'); s.src='https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:json;responseHandler:'+cb+'&sheet='+encodeURIComponent(e.feedbackTab||'')+'&headers=1';
+  s.onerror=()=>{box.innerHTML='<div class="status" style="color:var(--muted)">Feedback-Tabelle nicht erreichbar (Freigabe prüfen).</div>';delete window[cb];};
+  document.body.appendChild(s);
+}
+function renderFeedbackData(headers, data){
+  const box=document.getElementById('feedback');
+  if(!data.length){ box.innerHTML='<div class="status" style="color:var(--muted)">Noch keine Feedback-Antworten.</div>'; return; }
+  let html='<div class="totbox" style="grid-template-columns:repeat(auto-fit,minmax(90px,1fr));margin-bottom:10px"><div class="t"><div class="v">'+data.length+'</div><div class="l">Antworten</div></div></div>';
+  headers.forEach(h=>{
+    if(/timestamp|zeitstempel|mail/i.test(h))return;
+    const vals=data.map(r=>String(r[h]==null?'':r[h]).trim()).filter(Boolean); if(!vals.length)return;
+    const uniq=[...new Set(vals)];
+    if(uniq.length<=8 && vals.every(v=>v.length<40)){
+      const counts={}; vals.forEach(v=>counts[v]=(counts[v]||0)+1); const max=Math.max(...Object.values(counts));
+      html+=`<div style="margin-top:10px"><b style="font-size:12.5px">${esc(h)}</b>${Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="fbrow"><span class="lb">${esc(k.slice(0,26))}</span><span class="bar" style="width:${Math.max(8,Math.round(v/max*140))}px"></span><span class="ct">${v}</span></div>`).join('')}</div>`;
+    } else {
+      html+=`<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12.5px;color:var(--accent)">${esc(h)} (${vals.length} Freitext)</summary>${vals.slice(0,15).map(v=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px dashed var(--line)">${esc(v.slice(0,150))}</div>`).join('')}</details>`;
+    }
+  });
+  box.innerHTML=html;
+}
+
+/* ===== Galerie ===== */
+function renderGallery(){
+  const e=ev(); const sec=document.getElementById('gallerySection'); if(!sec)return;
+  if(!e.gallery){ sec.style.display='none'; return; }
+  sec.style.display=''; document.getElementById('galleryLink').href=e.gallery;
+  const f=document.getElementById('galleryFrame'); f.src=e.gallery; f.style.display='';
+}
+
+/* ===== Vollständigkeits-Erinnerung ===== */
+function missingFields(){
+  const e=ev(); const m=[];
+  if(!e.sheet)m.push('Anmeldungen-Tabelle'); if(!e.paypal)m.push('PayPal-Pool'); if(!e.whatsapp)m.push('WhatsApp-Gruppe');
+  if(!e.form)m.push('Anmeldeformular'); if(!e.price)m.push('Preis'); if(!e.place)m.push('Ort'); if(!e.eventDate)m.push('Datum');
+  return m;
+}
+function renderSetupBanner(){
+  const el=document.getElementById('setupBanner'); if(!el)return; const m=missingFields();
+  el.innerHTML = m.length ? `<div class="banner"><span>🧭 <b>Einrichtung unvollständig</b> — es fehlt noch: ${m.map(esc).join(', ')}.</span><button class="btn sm" style="margin-left:auto" onclick="openWizard()">Assistent öffnen</button></div>` : '';
+}
+
+/* ===== Einrichtungs-Assistent (Wizard) ===== */
+const WIZ_STEPS=[
+  {t:'Willkommen 👋',sub:'Der Assistent erhebt Schritt für Schritt alle Daten. Vorhandenes ist schon ausgefüllt.',fields:[
+    {k:'name',l:'Name der Veranstaltung',ph:'z.B. 1. Mariana-Camp'},
+    {k:'eventDate',l:'Datum (Start)',type:'date'},
+    {k:'place',l:'Ort (für Wetter — wird automatisch gesucht)',ph:'z.B. Weimar (Lahn)'} ]},
+  {t:'Anmeldungen 📄',sub:'Google-Tabelle mit den Formular-Antworten (auf „Jeder mit dem Link" freigeben).',fields:[
+    {k:'sheet',l:'Google-Tabellen-Link',ph:'https://docs.google.com/spreadsheets/…'},
+    {k:'tab',l:'Tabellenblatt',ph:'Form Responses 1'} ]},
+  {t:'Geld 💶',fields:[
+    {k:'paypal',l:'PayPal-Pool-Link',ph:'https://www.paypal.com/pool/…'},
+    {k:'price',l:'Preis pro Person (€)',type:'number'},
+    {k:'cashStart',l:'Handkasse-Startbestand (€)',type:'number'} ]},
+  {t:'Kommunikation 📱',fields:[
+    {k:'whatsapp',l:'WhatsApp-Gruppen-/Community-Link',ph:'https://chat.whatsapp.com/…'},
+    {k:'form',l:'Anmeldeformular-Link (für QR-Aushang)',ph:'https://docs.google.com/forms/…'} ]},
+  {t:'Listen & Extras 🎒',fields:[
+    {k:'bottle',l:'Bottle-/Mitbringliste-Link',ph:'https://bringabottle.de/list/…'},
+    {k:'gallery',l:'Foto-Galerie-Link',ph:'z.B. Google-Fotos-Album'},
+    {k:'feedbackForm',l:'Feedback-Formular-Link',ph:'https://docs.google.com/forms/…'},
+    {k:'feedbackSheet',l:'Feedback-Antwort-Tabelle (für Auswertung)',ph:'Google-Tabellen-Link'} ]},
+  {t:'Kapazität & Schilder 🏷️',fields:[
+    {k:'capacity',l:'Maximale Plätze (0 = unbegrenzt)',type:'number'},
+    {k:'badgeW',l:'Namensschild Breite (mm)',type:'number'},
+    {k:'badgeH',l:'Namensschild Höhe (mm)',type:'number'} ]},
+  {t:'Team & Abschluss ✅',sub:'Team-Code: nur wer denselben Code hat, teilt die Cloud-Daten mit euch.',last:true,fields:[
+    {k:'__team',l:'Team-Code (Cloud-Zugang)',ph:'z.B. marburg2026'} ]}
+];
+let wizIdx=0;
+function openWizard(){ wizIdx=0; document.getElementById('wizModal').classList.add('open'); wizRender(); }
+function wizRender(){
+  const step=WIZ_STEPS[wizIdx], e=ev();
+  document.getElementById('wizTitle').textContent=step.t;
+  document.getElementById('wizSub').textContent=step.sub||'';
+  document.getElementById('wizSteps').innerHTML=WIZ_STEPS.map((_,i)=>`<div class="s ${i<wizIdx?'done':''} ${i===wizIdx?'cur':''}"></div>`).join('');
+  document.getElementById('wizBody').innerHTML=step.fields.map(f=>{
+    const v=f.k==='__team'?teamCode():(e[f.k]!=null?e[f.k]:'');
+    return `<div class="field"><label>${esc(f.l)}</label><input id="wz_${f.k}" type="${f.type||'text'}" value="${esc(v)}" placeholder="${esc(f.ph||'')}"></div>`;
+  }).join('') + (step.last?wizSummary():'');
+  document.getElementById('wizBack').style.visibility=wizIdx>0?'visible':'hidden';
+  document.getElementById('wizNext').textContent=step.last?'Fertig ✓':'Weiter';
+}
+function wizSummary(){ const m=missingFields();
+  return m.length?`<div class="banner" style="margin-top:12px">Hinweis: danach fehlt noch ${m.map(esc).join(', ')}. Du kannst den Assistenten jederzeit erneut öffnen.</div>`:'<div class="hint" style="margin-top:12px">Alles vollständig — super! 🎉</div>'; }
+function wizSaveStep(){
+  const step=WIZ_STEPS[wizIdx], e=ev();
+  step.fields.forEach(f=>{ const el=document.getElementById('wz_'+f.k); if(!el)return; const v=el.value.trim();
+    if(f.k==='__team'){ localStorage.setItem('evtdash_teamcode', JSON.stringify(v)); return; }
+    if(f.type==='number') e[f.k]=parseFloat(v)||0; else e[f.k]=v;
+    if(f.k==='place'){ e.lat=null; e.lon=null; _wxSig=''; }
+  });
+  LS.set('evtdash_events',events);
+}
+function wizNav(dir){
+  wizSaveStep(); const step=WIZ_STEPS[wizIdx];
+  if(dir>0 && step.last){ closeModal('wizModal'); refreshCloud().finally(()=>{ reloadData(); renderWeather(); renderFeedback(); }); return; }
+  wizIdx=Math.max(0,Math.min(WIZ_STEPS.length-1,wizIdx+dir)); wizRender();
+}
+
 /* ============ Check-in-Modus (Vor Ort) ============ */
 function openCheckin(){ document.getElementById('ciov').classList.add('open'); document.getElementById('ciSearch').value=''; renderCheckin(); setTimeout(()=>document.getElementById('ciSearch').focus(),100); }
 function closeCheckin(){ stopScan(); document.getElementById('ciov').classList.remove('open'); }
@@ -1340,9 +1538,9 @@ function saveSettings(){const e=ev();
 function newEvent(){
   const name=prompt('Name der neuen Veranstaltung:');if(!name)return;
   const id='evt-'+Date.now();
-  events.push({id,name,sheet:'',tab:'Form Responses 1',paypal:'',bottle:'',whatsapp:'',form:'',price:0,cashStart:0,badgeW:90,badgeH:54,capacity:0});
+  events.push({id,name,sheet:'',tab:'Form Responses 1',paypal:'',bottle:'',whatsapp:'',form:'',price:0,cashStart:0,badgeW:90,badgeH:54,capacity:0,place:'',eventDate:'',gallery:'',feedbackForm:'',feedbackSheet:'',feedbackTab:'Form Responses 1',lat:null,lon:null});
   LS.set('evtdash_events',events);currentId=id;LS.set('evtdash_current',currentId);
-  switchEvent(id,true);openSettings();
+  switchEvent(id,true);openWizard();
 }
 function deleteEvent(){
   if(events.length<2){alert('Die letzte Veranstaltung kann nicht gelöscht werden.');return;}
@@ -1351,7 +1549,7 @@ function deleteEvent(){
   events=events.filter(e=>e.id!==currentId);LS.set('evtdash_events',events);
   currentId=events[0].id;LS.set('evtdash_current',currentId);closeModal('settingsModal');switchEvent(currentId,true);
 }
-function switchEvent(id){currentId=id;LS.set('evtdash_current',id);updateSyncBtn();renderNotesTasks();refreshCloud().finally(()=>reloadData());}
+function switchEvent(id){currentId=id;LS.set('evtdash_current',id);updateSyncBtn();_wxSig='';renderNotesTasks();refreshCloud().finally(()=>reloadData());renderWeather();renderFeedback();}
 document.getElementById('evtSwitch').addEventListener('change',e=>switchEvent(e.target.value));
 
 function openAdd(){document.getElementById('addModal').classList.add('open');}
@@ -1369,6 +1567,7 @@ function addParticipant(){
 updateSyncBtn();
 renderNotesTasks();
 refreshCloud().finally(()=>reloadData());
+renderWeather(); renderFeedback();
 setInterval(()=>{ if(cloudOn() && !document.hidden) refreshCloud(); }, 30000);
 </script>
 </body>
