@@ -189,6 +189,15 @@
     <div class="body"><div id="weather"></div></div>
   </div>
 
+  <div class="section" id="compareSection" style="display:none">
+    <h2>📊 Veranstaltungs-Vergleich</h2>
+    <div class="body">
+      <div class="hint">Vergleicht die angelegten Veranstaltungen (Anmeldungen, Personen, Zahlungsquote) – lädt die jeweiligen Tabellen live.</div>
+      <button class="btn sm" onclick="compareEvents()">Vergleich laden</button>
+      <div id="compareBox" style="margin-top:12px"></div>
+    </div>
+  </div>
+
   <div class="section">
     <h2>💶 Orga &amp; Finanzen <span class="spacer"></span></h2>
     <div class="body">
@@ -222,6 +231,7 @@
           <div class="row-flex" style="margin-top:10px;">
             <input id="cashText" placeholder="Beschreibung (z.B. Bar Dirk, Einkauf Kohle)" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
             <input id="cashAmt" type="number" step="0.01" placeholder="± €" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+            <label class="btn ghost sm" style="color:var(--accent);border-color:var(--line);cursor:pointer" title="Beleg-Foto anhängen">📷<input type="file" id="cashPhoto" accept="image/*" style="display:none"></label>
             <button class="btn sm" onclick="addCash()">+ Buchen</button>
           </div>
         </div>
@@ -372,11 +382,16 @@
     </div>
   </div>
 
-  <div class="section" id="gallerySection" style="display:none">
+  <div class="section" id="gallerySection">
     <h2>📸 Foto-Galerie</h2>
     <div class="body">
-      <a class="btn sm" id="galleryLink" target="_blank" rel="noopener" style="margin-bottom:10px;display:inline-block">↗ Galerie öffnen</a>
-      <iframe class="embed" id="galleryFrame" title="Galerie" style="display:none"></iframe>
+      <div class="row-flex" style="margin-bottom:10px">
+        <a class="btn sm" id="galleryLink" target="_blank" rel="noopener" style="display:none">↗ Externe Galerie öffnen</a>
+        <label class="btn sm" style="cursor:pointer">📷 Fotos hinzufügen<input type="file" id="photoInput" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)"></label>
+      </div>
+      <div class="hint">Fotos werden verkleinert und lokal in diesem Browser gespeichert (nicht in der Cloud).</div>
+      <div id="photoGrid" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      <iframe class="embed" id="galleryFrame" title="Galerie" style="display:none;margin-top:10px"></iframe>
     </div>
   </div>
 
@@ -498,7 +513,15 @@ const kPaid =()=>'evtdash_paid_'+currentId;
 const kWa   =()=>'evtdash_wa_'+currentId;
 const kCount=()=>'evtdash_count_'+currentId;
 const kRole =()=>'evtdash_role_'+currentId;
+const kReceipts=()=>'evtdash_receipts_'+currentId; // lokal (Bilder, nicht synchronisiert)
+const kPhotos=()=>'evtdash_photos_'+currentId;     // lokal
 const ROLE_COLORS={'Mitglied':'#f9c74f','Orga':'#8e5cc6','Gast':'#2f7ec6'};
+function resizeImage(file, maxW, cb){
+  const rd=new FileReader();
+  rd.onload=()=>{ const img=new Image(); img.onload=()=>{ let w=img.width,h=img.height; if(w>maxW){h=Math.round(h*maxW/w);w=maxW;} const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); try{cb(c.toDataURL('image/jpeg',0.6));}catch(e){cb(null);} }; img.onerror=()=>cb(null); img.src=rd.result; };
+  rd.onerror=()=>cb(null); rd.readAsDataURL(file);
+}
+function showImg(src){ const o=document.createElement('div'); o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px'; o.innerHTML='<img src="'+src+'" style="max-width:95%;max-height:95%;border-radius:6px">'; o.onclick=()=>o.remove(); document.body.appendChild(o); }
 const LOGO='https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png';
 
 let DATA = [];      // parsed sheet rows (array of {header:value})
@@ -762,6 +785,7 @@ function renderTop(){
   document.getElementById('evtSub').textContent=DATA.length+' Anmeldungen · Preis '+eur(e.price);
   const sw=document.getElementById('evtSwitch');
   sw.innerHTML=events.map(x=>`<option value="${x.id}" ${x.id===currentId?'selected':''}>${x.name}</option>`).join('');
+  const cs=document.getElementById('compareSection'); if(cs) cs.style.display = events.length>1?'':'none';
 }
 
 function renderKPIs(){
@@ -1430,9 +1454,55 @@ function renderFeedbackData(headers, data){
 /* ===== Galerie ===== */
 function renderGallery(){
   const e=ev(); const sec=document.getElementById('gallerySection'); if(!sec)return;
-  if(!e.gallery){ sec.style.display='none'; return; }
-  sec.style.display=''; document.getElementById('galleryLink').href=e.gallery;
-  const f=document.getElementById('galleryFrame'); f.src=e.gallery; f.style.display='';
+  sec.style.display='';
+  const link=document.getElementById('galleryLink'); const f=document.getElementById('galleryFrame');
+  if(e.gallery){ link.href=e.gallery; link.style.display=''; f.src=e.gallery; f.style.display=''; }
+  else { link.style.display='none'; f.style.display='none'; f.removeAttribute('src'); }
+  renderPhotoGrid();
+}
+function renderPhotoGrid(){
+  const box=document.getElementById('photoGrid'); if(!box)return;
+  const ph=LS.get(kPhotos(),[]);
+  box.innerHTML = ph.length ? ph.map((src,i)=>`<div style="position:relative"><img src="${src}" style="height:90px;border-radius:6px;cursor:zoom-in;object-fit:cover" onclick="viewPhoto(${i})"><button class="btn danger sm" style="position:absolute;top:2px;right:2px;padding:0 6px;line-height:1.4" onclick="delPhoto(${i})">×</button></div>`).join('') : '<div class="status" style="color:var(--muted)">Noch keine Fotos hochgeladen.</div>';
+}
+function uploadPhotos(input){
+  const files=[...input.files]; if(!files.length)return; input.value='';
+  let done=0; const ph=LS.get(kPhotos(),[]);
+  files.forEach(f=>resizeImage(f,1200,(d)=>{ if(d)ph.push(d); if(++done===files.length){ try{LS.set(kPhotos(),ph);}catch(e){alert('Speicher voll — bitte weniger/kleinere Fotos.');} renderPhotoGrid(); } }));
+}
+function delPhoto(i){ const ph=LS.get(kPhotos(),[]); ph.splice(i,1); LS.set(kPhotos(),ph); renderPhotoGrid(); }
+function viewPhoto(i){ const ph=LS.get(kPhotos(),[]); if(ph[i])showImg(ph[i]); }
+
+/* ===== Veranstaltungs-Vergleich ===== */
+function computeEventStats(headers, rows){
+  const fc=(...ks)=>{for(const k of ks){const h=headers.find(h=>h&&h.toLowerCase().includes(k.toLowerCase()));if(h)return h;}return null;};
+  const cBeg=fc('mitbringen','begleit'), cZahl=fc('daran gedacht','zahl');
+  const persOf=r=>{const v=(r[cBeg]||'').toString().toLowerCase(); if(!v||v.includes('allein'))return 1; const m=v.match(/\+\s*(\d+)/); return m?1+ +m[1]:1;};
+  const paidOf=r=>{const v=(r[cZahl]||'').toString().toLowerCase(); return v.includes('berwiesen')||v.includes('bezahlt');};
+  let pers=0,paid=0; rows.forEach(r=>{pers+=persOf(r); if(paidOf(r))paid++;});
+  return {anm:rows.length, pers, paidPct: rows.length?Math.round(paid/rows.length*100):0};
+}
+function compareEvents(){
+  const box=document.getElementById('compareBox'); box.innerHTML='<div class="status" style="color:var(--muted)">Lade…</div>';
+  const evs=events.filter(x=>x.sheet); if(!evs.length){box.innerHTML='<div class="status" style="color:var(--muted)">Keine Tabellen konfiguriert.</div>';return;}
+  const results=[]; let done=0;
+  const finish=()=>{ if(++done===evs.length) renderCompare(results); };
+  evs.forEach(x=>{
+    const id=sheetId(x.sheet); const cb='cmp_'+Math.random().toString(36).slice(2);
+    window[cb]=function(resp){ try{
+      const t=resp.table; let headers=t.cols.map(c=>c.label||''); let rows=t.rows||[];
+      if(headers.every(h=>!h)&&rows.length){headers=rows[0].c.map(c=>c?(c.f||c.v||''):'');rows=rows.slice(1);}
+      const data=rows.map(r=>{const o={};(r.c||[]).forEach((cell,i)=>{o[headers[i]||('c'+i)]=cell?(cell.f!=null?cell.f:cell.v):'';});return o;}).filter(o=>Object.values(o).some(v=>v!==''&&v!=null));
+      results.push(Object.assign({name:x.name}, computeEventStats(headers.filter(h=>h), data)));
+    }catch(e){ results.push({name:x.name, anm:'?',pers:'?',paidPct:'?'}); } delete window[cb]; finish(); };
+    const s=document.createElement('script'); s.src='https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:json;responseHandler:'+cb+'&sheet='+encodeURIComponent(x.tab||'')+'&headers=1';
+    s.onerror=()=>{ results.push({name:x.name,anm:'n/a',pers:'n/a',paidPct:'n/a'}); delete window[cb]; finish(); };
+    document.body.appendChild(s);
+  });
+}
+function renderCompare(results){
+  document.getElementById('compareBox').innerHTML='<table class="grid"><thead><tr><th>Veranstaltung</th><th>Anmeldungen</th><th>Personen</th><th>Zahlungsquote</th></tr></thead><tbody>'+
+    results.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.anm}</td><td>${r.pers}</td><td>${r.paidPct}${typeof r.paidPct==='number'?'%':''}</td></tr>`).join('')+'</tbody></table>';
 }
 
 /* ===== Vollständigkeits-Erinnerung ===== */
@@ -1622,18 +1692,23 @@ function beep(ok){
 }
 function renderCash(){
   const e=ev();
-  const list=LS.get(kCash(),[]);
+  const list=LS.get(kCash(),[]); const rc=LS.get(kReceipts(),{});
   let bal=+e.cashStart||0;
   let html=`<div class="cashline"><span>Startbestand</span><span class="amt money">${eur(+e.cashStart||0)}</span></div>`;
-  list.forEach((c,i)=>{bal+=+c.amount;html+=`<div class="cashline"><span>${c.text||'—'}</span><span class="amt money ${c.amount<0?'neg':'pos'}">${(c.amount<0?'':'+')+(+c.amount).toLocaleString('de-DE',{minimumFractionDigits:2})} €</span><button class="btn danger sm" style="padding:1px 6px" onclick="delCash(${i})">×</button></div>`;});
+  list.forEach((c,i)=>{bal+=+c.amount; const rid=c.id||c.date; const rec=rc[rid];
+    html+=`<div class="cashline"><span>${c.text||'—'}</span><span class="amt money ${c.amount<0?'neg':'pos'}">${(c.amount<0?'':'+')+(+c.amount).toLocaleString('de-DE',{minimumFractionDigits:2})} €</span>${rec?`<img src="${rec}" title="Beleg ansehen" style="height:22px;border-radius:3px;cursor:zoom-in;margin-left:6px" onclick="viewReceipt(${rid})">`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delCash(${i})">×</button></div>`;});
   document.getElementById('cashList').innerHTML=html;
   document.getElementById('cashBalance').textContent=eur(bal);
 }
+function viewReceipt(id){ const r=LS.get(kReceipts(),{}); if(r[id])showImg(r[id]); }
 function addCash(){
   const t=document.getElementById('cashText').value.trim();
   const a=parseFloat(document.getElementById('cashAmt').value);
   if(!isFinite(a)){alert('Bitte Betrag angeben (negativ für Ausgabe).');return;}
-  const list=LS.get(kCash(),[]); list.push({text:t,amount:a,date:Date.now()}); LS.set(kCash(),list);
+  const id=Date.now();
+  const list=LS.get(kCash(),[]); list.push({id,text:t,amount:a,date:id}); LS.set(kCash(),list);
+  const pf=document.getElementById('cashPhoto');
+  if(pf&&pf.files&&pf.files[0]){ resizeImage(pf.files[0],1000,(d)=>{ if(d){const r=LS.get(kReceipts(),{});r[id]=d;LS.set(kReceipts(),r);renderCash();} }); pf.value=''; }
   document.getElementById('cashText').value='';document.getElementById('cashAmt').value='';
   renderCash();
 }
