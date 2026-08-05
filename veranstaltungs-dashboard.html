@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root{
     --green:#1f7554; --green-d:#12301c; --green-l:#eaf4ee; --dark:#08160d;
@@ -254,12 +255,13 @@
     <h2>🖨️ Namensschilder &amp; Listen</h2>
     <div class="body">
       <div class="hint">Erzeugt druckfertige Seiten aus der aktuellen Teilnehmerliste (öffnet ein Druckfenster). Namen lassen sich pro Teilnehmer im Bereich „Teilnehmer" anpassen (✎).</div>
-      <div class="row-flex">
-        <button class="btn" onclick="printBadges()">🏷️ Namensschilder drucken (90×54 mm)</button>
-        <button class="btn" onclick="printList()">📋 Teilnehmer-/Check-in-Liste</button>
-        <button class="btn" onclick="printHours()">📜 Teilnahme-Nachweise (eingecheckt)</button>
-        <button class="btn" onclick="printFinance()">🧾 Finanz-Abschlussbericht</button>
-      </div>
+      <div class="hint" style="background:#eaf4ee;border-color:var(--mgreen)">„Drucken" öffnet den Druckdialog (dort auch „Als PDF speichern", beste Qualität mit Logo). „PDF" lädt direkt eine PDF-Datei herunter.</div>
+      <table class="grid" style="max-width:560px">
+        <tr><td>🏷️ Namensschilder (90×54 mm)</td><td style="text-align:right"><button class="btn sm" onclick="printBadges()">Drucken</button></td></tr>
+        <tr><td>📋 Teilnehmer-/Check-in-Liste</td><td style="text-align:right"><button class="btn sm" onclick="printList()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfList()">⬇ PDF</button></td></tr>
+        <tr><td>📜 Teilnahme-Nachweise (eingecheckt)</td><td style="text-align:right"><button class="btn sm" onclick="printHours()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfHours()">⬇ PDF</button></td></tr>
+        <tr><td>🧾 Finanz-Abschlussbericht</td><td style="text-align:right"><button class="btn sm" onclick="printFinance()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfFinance()">⬇ PDF</button></td></tr>
+      </table>
       <div class="row-flex" style="margin-top:8px;">
         <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="printAushang('whatsapp')">📱 QR-Aushang WhatsApp</button>
         <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="printAushang('form')">📝 QR-Aushang Anmeldung</button>
@@ -605,7 +607,7 @@ function mapManual(m){
 function cloudOn(){ return LS.get('evtdash_cloud', true) && !!CLOUD.url && !!CLOUD.key; }
 function teamCode(){ return (LS.get('evtdash_teamcode','')||'').trim(); }
 function cloudNS(){ const c=teamCode(); return (c?c+'|':'')+currentId; }
-function cloudHeaders(extra){ return Object.assign({apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key,'Content-Type':'application/json'}, extra||{}); }
+function cloudHeaders(extra){ return Object.assign({apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key,'Content-Type':'application/json','x-team-code':teamCode()}, extra||{}); }
 let _pushT={};
 function cloudMaybePush(k,v){
   if(!cloudOn()) return;
@@ -951,7 +953,7 @@ function printAushang(kind){
   openPrint(html);
 }
 /* ===== Print: Teilnehmer-/Check-in-Liste ===== */
-function printList(){
+function listDoc(){
   const e=ev(); const cVer=findCol('verein'), cWann=findCol('wann kommst','wann'), cUeb=findCol('übernacht','ubernacht');
   const rows=DATA.map((r,i)=>`<tr>
     <td>${i+1}</td><td><b>${esc(displayName(r))}</b><br><span style="color:#777;font-size:8pt">${esc(mailOf(r))}</span></td>
@@ -969,12 +971,28 @@ function printList(){
     <div class="sub">Stand: ${new Date().toLocaleString('de-DE')} · ${DATA.length} Anmeldungen · ${DATA.reduce((s,r)=>s+personsOf(r),0)} Personen</div>
     <table><thead><tr><th>#</th><th>Name / Mail</th><th>Verein</th><th>Pers.</th><th>Kommt</th><th>Bezahlt</th><th>Da ✓</th><th>Unterschrift</th></tr></thead>
     <tbody>${rows}</tbody></table></body></html>`;
-  openPrint(html);
+  return html;
 }
+function printList(){ openPrint(listDoc()); }
+function pdfList(){ savePdf(listDoc(),'teilnehmer-checkinliste.pdf','portrait'); }
 function openPrint(html){
   const w=window.open('','_blank');
   if(!w){alert('Bitte Pop-ups für diese Seite erlauben, dann erneut klicken.');return;}
   w.document.open(); w.document.write(html); w.document.close();
+}
+function savePdf(fullHtml, filename, orientation){
+  if(typeof html2pdf==='undefined'){ alert('PDF-Bibliothek noch nicht geladen — bitte kurz warten und erneut versuchen.'); return; }
+  const ifr=document.createElement('iframe');
+  ifr.style.position='fixed'; ifr.style.left='-9999px'; ifr.style.top='0'; ifr.style.width='210mm'; ifr.style.height='297mm'; ifr.style.border='0';
+  document.body.appendChild(ifr);
+  const d=ifr.contentDocument; d.open(); d.write(fullHtml.replace(/onload=\"[^\"]*\"/,'')); d.close();
+  setTimeout(()=>{
+    html2pdf().set({margin:[8,8,8,8],filename:filename,image:{type:'jpeg',quality:.96},
+      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:'a4',orientation:orientation||'portrait'},
+      pagebreak:{mode:['css','legacy']}})
+      .from(d.body).save().then(()=>ifr.remove()).catch((e)=>{ifr.remove(); alert('PDF-Erstellung fehlgeschlagen: '+e.message);});
+  },700);
 }
 /* ===== CSV export ===== */
 function exportCSV(){
@@ -1039,10 +1057,10 @@ function renderComms(){
 function copyText(id){ const t=document.getElementById(id); t.select(); try{document.execCommand('copy');}catch(e){} if(navigator.clipboard)navigator.clipboard.writeText(t.value); const b=event.target; const o=b.textContent; b.textContent='✓ Kopiert'; setTimeout(()=>b.textContent=o,1200); }
 
 /* ===== PDF-Nachweise (Druck → als PDF speichern) ===== */
-function printHours(){
+function hoursDoc(){
   const e=ev(); const cVer=findCol('verein');
   const list=DATA.filter(r=>isChecked(r));
-  if(!list.length){ alert('Noch niemand eingecheckt. Der Teilnahme-Nachweis wird aus den eingecheckten Personen erstellt — bitte zuerst im Check-in-Modus einchecken.'); return; }
+  if(!list.length){ return ''; }
   const today=new Date().toLocaleDateString('de-DE');
   const pages=list.map(r=>`
     <div class="cert">
@@ -1065,9 +1083,11 @@ function printHours(){
     .sig{margin-top:auto;display:flex;justify-content:space-between;gap:20mm;font-size:10pt;color:#4a5c50;}
     .sig div{border-top:1px solid #333;padding-top:2mm;flex:1;text-align:center;}
   </style></head><body onload="setTimeout(()=>window.print(),400)">${pages}</body></html>`;
-  openPrint(html);
+  return html;
 }
-function printFinance(){
+function printHours(){ const h=hoursDoc(); if(!h){alert('Noch niemand eingecheckt — bitte zuerst im Check-in-Modus einchecken.');return;} openPrint(h); }
+function pdfHours(){ const h=hoursDoc(); if(!h){alert('Noch niemand eingecheckt.');return;} savePdf(h,'teilnahme-nachweise.pdf','portrait'); }
+function financeDoc(){
   const e=ev();
   const pers=DATA.reduce((s,r)=>s+personsOf(r),0);
   let paid=0,onsite=0,open=0;
@@ -1102,8 +1122,10 @@ function printFinance(){
       <tr><td>Startbestand</td><td class="r">${eur(+e.cashStart||0)}</td></tr>${rowsC}
       <tr><td><b>Endstand</b></td><td class="r"><b>${eur(cashBal)}</b></td></tr></table>
   </body></html>`;
-  openPrint(html);
+  return html;
 }
+function printFinance(){ openPrint(financeDoc()); }
+function pdfFinance(){ savePdf(financeDoc(),'finanzbericht.pdf','portrait'); }
 
 /* ===== Backup Export / Import ===== */
 function exportJSON(){
