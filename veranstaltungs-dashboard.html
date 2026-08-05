@@ -17,8 +17,9 @@
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink);}
   a{color:var(--accent);}
-  .topbar{background:var(--dark);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:50;}
-  .topbar .logo{width:6px;height:30px;background:var(--yellow);border-radius:3px;}
+  .topbar{background:linear-gradient(180deg,#0b1f13,#08160d);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:50;border-bottom:3px solid var(--yellow);box-shadow:0 2px 10px rgba(0,0,0,.15);}
+  .topbar .brandlogo{background:#fff;border-radius:8px;padding:4px 8px;display:flex;align-items:center;}
+  .topbar .brandlogo img{height:26px;display:block;}
   .topbar h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.3px;}
   .topbar .sub{color:#8fbba1;font-size:12px;}
   .topbar .spacer{flex:1;}
@@ -31,12 +32,13 @@
   .wrap{max-width:1180px;margin:0 auto;padding:20px;}
   .status{font-size:12px;color:#8fbba1;}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
-  .kpi{background:var(--card);border-radius:10px;padding:16px 18px;border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.03);}
+  .kpi{background:var(--card);border-radius:10px;padding:15px 18px;border:1px solid var(--line);border-top:3px solid var(--mgreen);box-shadow:0 1px 3px rgba(0,0,0,.05);transition:transform .1s,box-shadow .1s;}
+  .kpi:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.08);}
   .kpi .num{font-size:28px;font-weight:800;color:var(--green);line-height:1;}
   .kpi .lbl{font-size:12px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.5px;}
   .kpi .sub2{font-size:12px;color:var(--muted);margin-top:4px;}
   .section{background:var(--card);border-radius:10px;border:1px solid var(--line);margin-bottom:20px;overflow:hidden;}
-  .section > h2{margin:0;padding:14px 18px;font-size:15px;background:var(--green-l);border-bottom:1px solid var(--line);color:var(--green-d);display:flex;align-items:center;gap:8px;}
+  .section > h2{margin:0;padding:13px 18px 13px 16px;font-size:15px;background:linear-gradient(90deg,#e3efe8,#eef5f0);border-bottom:1px solid var(--line);border-left:4px solid var(--green);color:var(--green-d);display:flex;align-items:center;gap:8px;}
   .section .body{padding:18px;}
   .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;}
   .chart-box{border:1px solid var(--line);border-radius:8px;padding:12px;}
@@ -123,7 +125,7 @@
 <body>
 
 <div class="topbar">
-  <div class="logo"></div>
+  <div class="brandlogo"><img src="https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png" alt="Mariana"></div>
   <div>
     <h1 id="evtName">Veranstaltungs-Dashboard</h1>
     <div class="sub" id="evtSub">Lade…</div>
@@ -133,6 +135,7 @@
   <span class="status" id="syncStat" style="min-width:60px;"></span>
   <button class="btn ghost sm" id="cloudBtn" onclick="toggleCloud()" title="Cloud-Synchronisation an/aus">☁ Sync</button>
   <button class="btn ghost sm" onclick="manualSync()">↻ Aktualisieren</button>
+  <a class="btn ghost sm" href="dashboard-anleitung.html" target="_blank" rel="noopener" style="text-decoration:none">❓ Anleitung</a>
   <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
   <button class="btn ghost sm" onclick="openSettings()">⚙ Einstellungen</button>
   <button class="btn sm" onclick="newEvent()">+ Veranstaltung</button>

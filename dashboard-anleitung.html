@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bedienungsanleitung – Veranstaltungs-Dashboard</title>
+<style>
+  :root{--green:#1f7554;--dark:#08160d;--yellow:#f9c74f;--accent:#1c6b3f;--ink:#22322a;--muted:#5f6f65;--line:#dfe7e1;--bg:#eef2ef;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',Arial,Helvetica,sans-serif;line-height:1.55;}
+  .page{max-width:820px;margin:0 auto;background:#fff;}
+  .hero{background:var(--dark);color:#fff;padding:34px 44px;border-top:6px solid var(--yellow);}
+  .hero .kick{color:var(--yellow);font-size:12px;font-weight:bold;letter-spacing:3px;text-transform:uppercase;}
+  .hero h1{margin:8px 0 6px;font-size:30px;letter-spacing:.5px;}
+  .hero .u{color:#8fbba1;font-size:13px;word-break:break-all;}
+  .hero .u a{color:#5cc183;}
+  .body{padding:10px 44px 44px;}
+  h2{color:var(--green);font-size:19px;margin:28px 0 6px;padding-bottom:6px;border-bottom:2px solid var(--line);}
+  h3{color:var(--dark);font-size:15px;margin:16px 0 4px;}
+  p{margin:6px 0;}
+  ul,ol{margin:6px 0 6px 4px;padding-left:22px;}
+  li{margin:4px 0;}
+  .tag{display:inline-block;background:#eaf4ee;color:var(--accent);border-radius:5px;padding:1px 7px;font-size:12px;font-weight:600;}
+  .tip{background:#fdf4dc;border-left:4px solid var(--yellow);padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0;font-size:14px;}
+  .warn{background:#f7eaea;border-left:4px solid #c0504d;padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0;font-size:14px;}
+  .steps{counter-reset:s;list-style:none;padding-left:0;}
+  .steps li{counter-increment:s;position:relative;padding-left:34px;margin:8px 0;}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:0;width:24px;height:24px;background:var(--green);color:#fff;border-radius:50%;text-align:center;line-height:24px;font-weight:700;font-size:13px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0;}
+  .card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;}
+  .card b{color:var(--green);}
+  .foot{background:var(--dark);color:#8fbba1;padding:18px 44px;font-size:12px;}
+  .foot b{color:var(--yellow);}
+  @media print{ body{background:#fff;} .page{max-width:none;} h2{break-after:avoid;} .card,.tip,.warn{break-inside:avoid;} }
+  @media(max-width:600px){ .grid{grid-template-columns:1fr;} .hero,.body,.foot{padding-left:22px;padding-right:22px;} }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hero">
+    <div class="kick">CSC Marburg · Mariana Cannabis</div>
+    <h1>Veranstaltungs-Dashboard – Bedienungsanleitung</h1>
+    <div class="u">🔗 <a href="https://123ichbinmitdabei.github.io/mariana-dashboard/">123ichbinmitdabei.github.io/mariana-dashboard/veranstaltungs-dashboard.html</a></div>
+  </div>
+
+  <div class="body">
+
+    <p>Mit dem Dashboard verwaltet ihr eine Veranstaltung von der Anmeldung bis zum Check-in vor Ort – Teilnehmer, Finanzen, Namensschilder, Listen und mehr, an einem Ort. Die Anmeldungen kommen automatisch aus der Google-Tabelle; Ergänzungen (Check-in, Kasse, Notizen) teilt ihr im Team über die Cloud.</p>
+
+    <h2>1 · Öffnen &amp; im Team gemeinsam arbeiten</h2>
+    <ol class="steps">
+      <li>Den Link oben im Browser öffnen (Handy, Tablet oder PC). Am besten als Lesezeichen speichern.</li>
+      <li>Oben rechts auf <span class="tag">⚙ Einstellungen</span> oder <span class="tag">🧭 Assistent</span> → den <b>Team-Code</b> eintragen. <b>Wichtig:</b> Alle im Orga-Team tragen denselben Code ein – nur dann seht und bearbeitet ihr dieselben Daten.</li>
+      <li>Der Sync-Status oben rechts (<span class="tag">☁ Sync</span>) zeigt, ob die Cloud verbunden ist. Änderungen werden automatisch gespeichert und alle 30 Sekunden abgeglichen.</li>
+    </ol>
+    <div class="tip">Ohne Team-Code funktioniert alles trotzdem – dann bleiben eure Ergänzungen nur auf dem jeweiligen Gerät. Mit gemeinsamem Code sind eure Daten außerdem vor fremdem Zugriff geschützt.</div>
+
+    <h2>2 · Einrichtungs-Assistent</h2>
+    <p>Der <span class="tag">🧭 Assistent</span> führt in wenigen Schritten durch alle Angaben (Name, Datum, Ort, Anmelde-Tabelle, PayPal, Preis, WhatsApp, Formular, Kapazität, Namensschild-Größe, Team-Code). Vorhandenes ist schon ausgefüllt. Fehlt etwas Wichtiges, erscheint oben ein Hinweis mit Knopf „Assistent öffnen".</p>
+    <div class="warn">Damit die Anmeldungen automatisch geladen werden, muss die Google-Tabelle auf <b>„Jeder mit dem Link – Betrachter"</b> freigegeben sein.</div>
+
+    <h2>3 · Überblick &amp; Auswertungen</h2>
+    <p>Oben seht ihr die Kennzahlen (Anmeldungen, Personen, eingecheckt, bezahlt, ausstehend, Übernachtungen, Kapazität-Ampel). Darunter die farbigen Diagramme: Anreise, Ankunftszeiten, Zahlungsstatus, Übernachtung, Gruppengröße, Check-in-Stand u. a. Mit <span class="tag">↻ Aktualisieren</span> holt ihr den neuesten Stand.</p>
+
+    <h2>4 · Teilnehmer</h2>
+    <ul>
+      <li>Jede Anmeldung ist eine Karte mit allen Antworten (aufklappbar unter „Alle Antworten"). Umschaltbar auf Tabellenansicht.</li>
+      <li><b>Anzeigename</b> anpassen: auf das ✎ neben dem Namen tippen (wird für Namensschilder und Listen genutzt).</li>
+      <li><b>Nachzügler</b> ergänzen: „+ Teilnehmer hinzufügen".</li>
+      <li>Das Häkchen <b>„da"</b> checkt jemanden ein (auch im Check-in-Modus, siehe unten).</li>
+    </ul>
+
+    <h2>5 · Vor Ort: Check-in-Modus</h2>
+    <p>Der große Knopf <span class="tag">✅ Check-in-Modus</span> (oben rechts) ist für den Einlass gedacht:</p>
+    <div class="grid">
+      <div class="card"><b>Suchen &amp; Einchecken</b><br>Name eintippen → auf „Einchecken" tippen. Live-Zähler zeigt „X/Y da".</div>
+      <div class="card"><b>📷 QR scannen</b><br>Kamera startet und checkt per Badge-QR ein (funktioniert über die Web-Adresse, nicht bei lokaler Datei).</div>
+      <div class="card"><b>💶 Bar kassieren</b><br>Bei „vor Ort"-Zahlern erscheint „8,40 € kassiert" – markiert bezahlt, bucht in die Handkasse und checkt ein.</div>
+      <div class="card"><b>🧍 Kiosk-Modus</b><br>Vereinfachte Ansicht, in der Gäste sich selbst suchen und einchecken.</div>
+    </div>
+
+    <h2>6 · Finanzen &amp; Handkasse</h2>
+    <ul>
+      <li>Oben die Gesamtübersicht: Soll, PayPal-Poolstand, Handkassen-Stand, Ausgaben, „gesamt liquide".</li>
+      <li><b>PayPal-Poolstand</b> tragt ihr von Hand ein (PayPal-Pools lassen sich technisch nicht automatisch auslesen).</li>
+      <li><b>Handkasse:</b> Einnahmen/Ausgaben buchen (Betrag negativ = Ausgabe). Der Kassenstand rechnet automatisch.</li>
+    </ul>
+
+    <h2>7 · Namensschilder, Listen &amp; Nachweise</h2>
+    <ul>
+      <li><b>🏷️ Namensschilder</b> (90×54 mm, mit Logo und QR) → „Drucken".</li>
+      <li><b>📋 Teilnehmer-/Check-in-Liste</b>, <b>📜 Teilnahme-Nachweise</b> (nur Eingecheckte), <b>🧾 Finanzbericht</b> → je „Drucken" oder <b>„⬇ PDF"</b> (lädt direkt eine PDF-Datei).</li>
+      <li><b>📱 QR-Aushänge</b> für WhatsApp-Gruppe und Anmeldeformular – zum Aufhängen.</li>
+      <li><b>Export:</b> CSV der Teilnehmer, oder komplettes <b>Backup</b> als Datei (und wieder importierbar).</li>
+    </ul>
+    <div class="tip">Beim Drucken bietet der Browser „Als PDF speichern" – das gibt die beste Qualität (mit Logo). Der „⬇ PDF"-Knopf lädt eine Datei ohne Umweg.</div>
+
+    <h2>8 · Kommunikation &amp; Mitfahr-Börse</h2>
+    <ul>
+      <li><b>Kommunikations-Bausteine:</b> fertige Texte (Zahlungserinnerung, letzte Infos, Mitfahr-Aufruf) mit „Kopieren".</li>
+      <li><b>Mitfahr-Börse:</b> stellt „bietet Platz" und „sucht Mitfahrt" gegenüber und schlägt automatisch Fahrgemeinschaften nach Richtung vor.</li>
+    </ul>
+
+    <h2>9 · Daten-Import (WhatsApp &amp; PayPal)</h2>
+    <ul>
+      <li><b>WhatsApp:</b> in der Gruppe „Chat exportieren → Ohne Medien" → die .txt hochladen. Das Dashboard erkennt Mitbringen, Mitfahrt, Zahlungshinweise und Zusagen.</li>
+      <li><b>PayPal:</b> Aktivitäten als CSV herunterladen → hochladen. Zahlungen werden mit Teilnehmern abgeglichen und als „bezahlt" markiert.</li>
+    </ul>
+
+    <h2>10 · Weitere Bereiche</h2>
+    <p><b>Ablaufplan</b> mit Live-Timer (hebt den laufenden Punkt hervor) · <b>Einkaufsliste</b> fürs Orga-Team · <b>Wetter</b> fürs Event-Wochenende · <b>Feedback-Auswertung</b> (wenn die Antwort-Tabelle hinterlegt ist) · <b>Foto-Galerie</b> · <b>Bottle-/Mitbringliste</b> als eingebettete Ansicht.</p>
+
+    <h2>11 · Gut zu wissen</h2>
+    <ul>
+      <li>Änderungen speichern sich automatisch; mit Team-Code sind sie für alle sichtbar.</li>
+      <li>Der <b>Kamera-Scan</b> braucht die Web-Adresse (https); als lokal geöffnete Datei bleibt der Such-Check-in nutzbar.</li>
+      <li><b>Nicht automatisch möglich</b> (keine Schnittstelle): PayPal-Poolstand, WhatsApp-Nachrichten und die Bottle-Liste – dafür gibt es die Datei-Importe bzw. die eingebettete Ansicht.</li>
+      <li>Für eine weitere Veranstaltung: <span class="tag">+ Veranstaltung</span> → der Assistent öffnet sich automatisch.</li>
+    </ul>
+
+  </div>
+
+  <div class="foot">
+    <b>Veranstaltungs-Dashboard</b> · CSC Marburg Team · Bei Fragen einfach im Orga-Team melden.
+  </div>
+
+</div>
+</body>
+</html>
