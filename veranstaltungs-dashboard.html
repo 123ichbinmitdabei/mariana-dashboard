@@ -268,6 +268,27 @@
   </div>
 
   <div class="section">
+    <h2>📥 Daten-Import (WhatsApp &amp; PayPal)</h2>
+    <div class="body">
+      <div class="hint">WhatsApp und PayPal bieten keine automatische Schnittstelle — aber lade hier die Export-Dateien hoch, dann lese ich die Inhalte aus und werte sie aus. Alles bleibt in diesem Browser.</div>
+      <div class="grid2">
+        <div>
+          <b style="font-size:13px">📲 WhatsApp-Chat-Export (.txt)</b>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 8px">In WhatsApp: Gruppe öffnen → ⋮ / Gruppenname → „Chat exportieren" → „Ohne Medien" → die .txt hier hochladen.</div>
+          <label class="btn sm" style="cursor:pointer">Datei wählen<input type="file" accept=".txt,text/plain" style="display:none" onchange="importWhatsApp(this)"></label>
+          <div id="waResult" style="margin-top:10px"></div>
+        </div>
+        <div>
+          <b style="font-size:13px">💳 PayPal-CSV</b>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 8px">PayPal → Aktivitäten → Herunterladen → CSV. Ich gleiche Zahlungen mit Teilnehmern ab und markiere sie als „bezahlt".</div>
+          <label class="btn sm" style="cursor:pointer">Datei wählen<input type="file" accept=".csv,text/csv" style="display:none" onchange="importPaypal(this)"></label>
+          <div id="ppResult" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <h2>🛒 Einkaufsliste</h2>
     <div class="body">
       <div class="hint">Interne Besorgungsliste fürs Orga-Team (was muss gekauft/mitgebracht werden). Wird lokal in diesem Browser gespeichert.</div>
@@ -400,6 +421,7 @@ const kNames=()=>'evtdash_names_'+currentId;
 const kChk  =()=>'evtdash_checkin_'+currentId;
 const kAg   =()=>'evtdash_agenda_'+currentId;
 const kPaid =()=>'evtdash_paid_'+currentId;
+const kWa   =()=>'evtdash_wa_'+currentId;
 const LOGO='https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png';
 
 let DATA = [];      // parsed sheet rows (array of {header:value})
@@ -567,7 +589,7 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); renderWa(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
 
 function renderQuick(){
   const e=ev();
@@ -1053,6 +1075,96 @@ function importJSON(input){
   rd.readAsText(f); input.value='';
 }
 function manualSync(){ refreshCloud().then(()=>reloadData()); }
+
+/* ===== WhatsApp-Chat-Import ===== */
+function importWhatsApp(input){
+  const f=input.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{ const msgs=parseWhatsApp(rd.result); LS.set(kWa(),msgs); renderWa(); alert(msgs.length+' Nachrichten eingelesen und ausgewertet.'); };
+  rd.readAsText(f,'utf-8'); input.value='';
+}
+function parseWhatsApp(text){
+  const lines=text.split(/\r?\n/); const msgs=[];
+  const re1=/^\[?(\d{1,2}\.\d{1,2}\.\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\]?\s*[-  ]*\s*([^:]{1,40}?):\s?(.*)$/;
+  lines.forEach(l=>{
+    const m=l.match(re1);
+    if(m && !/:\/\//.test(m[3])){ msgs.push({date:m[1],time:m[2],author:m[3].trim(),text:m[4]||''}); }
+    else if(msgs.length && l.trim()){ msgs[msgs.length-1].text += '\n'+l; }
+  });
+  // Systemnachrichten grob rausfiltern
+  return msgs.filter(m=>!/verschlüsselt|hat gewechselt|hinzugefügt|hat die Gruppe|Sicherheitsnummer/i.test(m.text) && m.author);
+}
+function renderWa(){
+  const box=document.getElementById('waResult'); if(!box)return;
+  const msgs=LS.get(kWa(),[]);
+  if(!msgs.length){ box.innerHTML='<div class="status" style="color:var(--muted)">Noch kein Chat importiert.</div>'; return; }
+  const authors={}; msgs.forEach(m=>authors[m.author]=(authors[m.author]||0)+1);
+  const cat=(re)=>msgs.filter(m=>re.test(m.text));
+  const bring=cat(/\bbring|mitbring|besorg|kauf|nehme .* mit/i), mit=cat(/mitfahr|fahre|platz.*auto|auto.*platz|abhol|mitnehmen/i),
+        pay=cat(/überwiesen|uberwiesen|bezahlt|paypal|eingezahlt|überwiesen/i), zu=cat(/bin dabei|bin da|komme|zusage|dabei!|freu mich/i);
+  const top=Object.entries(authors).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const catBlock=(t,arr)=>arr.length?`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px;color:var(--accent)">${t} (${arr.length})</summary>${arr.slice(0,12).map(m=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px dashed var(--line)"><b>${esc(m.author)}:</b> ${esc(m.text.replace(/\n/g,' ').slice(0,110))}</div>`).join('')}</details>`:'';
+  box.innerHTML=`<div class="totbox" style="grid-template-columns:repeat(auto-fit,minmax(80px,1fr));margin-bottom:8px">
+      <div class="t"><div class="v">${msgs.length}</div><div class="l">Nachrichten</div></div>
+      <div class="t"><div class="v">${Object.keys(authors).length}</div><div class="l">Aktive</div></div>
+      <div class="t"><div class="v">${bring.length}</div><div class="l">Mitbringen</div></div>
+      <div class="t"><div class="v">${mit.length}</div><div class="l">Mitfahrt</div></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted)">Aktivste: ${top.map(t=>esc(t[0])+' ('+t[1]+')').join(', ')}</div>
+    ${catBlock('🎒 Mitbringen',bring)}${catBlock('🚗 Mitfahrt',mit)}${catBlock('💶 Zahlungshinweise',pay)}${catBlock('✅ Zusagen',zu)}
+    <div style="margin-top:8px"><button class="btn danger sm" onclick="LS.set(kWa(),[]);renderWa();">Import löschen</button></div>`;
+}
+
+/* ===== PayPal-CSV-Import ===== */
+function parseCSV(text){
+  const rows=[]; let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c==='"')q=true; else if(c===','||c===';'){row.push(cur);cur='';} else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';} else if(c!=='\r')cur+=c; }
+  }
+  if(cur.length||row.length){row.push(cur);rows.push(row);}
+  return rows.filter(r=>r.length>1);
+}
+function importPaypal(input){
+  const f=input.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{ renderPpImport(parsePaypal(rd.result)); };
+  rd.readAsText(f,'utf-8'); input.value='';
+}
+function parsePaypal(text){
+  const rows=parseCSV(text); if(rows.length<2) return {total:0,matched:0,details:[]};
+  const head=rows[0].map(h=>(h||'').toLowerCase().trim());
+  const find=(...ks)=>head.findIndex(h=>ks.some(k=>h.includes(k)));
+  const idxAmt=find('brutto','betrag','amount','gross','netto');
+  const idxMail=find('absender-e-mail','absender e','from email','e-mail-adresse','e-mail','email','mail');
+  const idxName=find('name');
+  const idxNote=find('hinweis','mitteilung','betreff','note','subject','artikel');
+  let total=0, matched=0; const details=[];
+  const po=LS.get(kPaid(),{});
+  const parts=DATA.map(r=>({mail:mailOf(r).toLowerCase(), name:displayName(r).toLowerCase()})).filter(p=>p.mail);
+  rows.slice(1).forEach(cols=>{
+    if(idxAmt<0)return;
+    const amt=parseFloat((cols[idxAmt]||'').replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.'));
+    if(!(amt>0))return; total++;
+    const mail=(idxMail>-1?cols[idxMail]:'').toLowerCase().trim();
+    const name=(idxName>-1?cols[idxName]:'').toLowerCase().trim();
+    const note=(idxNote>-1?cols[idxNote]:'').toLowerCase();
+    let hit=parts.find(p=>p.mail && (mail===p.mail||mail.includes(p.mail)||note.includes(p.mail)));
+    if(!hit && name){ const fn=name.split(' ')[0]; hit=parts.find(p=>p.name===name||p.name.includes(fn)||(fn.length>2&&p.name.split(' ')[0]===fn)); }
+    if(hit && !po[hit.mail]){ matched++; po[hit.mail]=true; details.push(hit.mail+' ('+amt.toFixed(2)+' €)'); }
+    else if(hit) details.push(hit.mail+' (bereits bezahlt)');
+  });
+  LS.set(kPaid(),po); rebuildData();
+  return {total, matched, details};
+}
+function renderPpImport(res){
+  const box=document.getElementById('ppResult'); if(!box)return;
+  box.innerHTML=`<div class="totbox" style="grid-template-columns:repeat(auto-fit,minmax(90px,1fr));margin-bottom:8px">
+      <div class="t"><div class="v">${res.total||0}</div><div class="l">Zahlungseingänge</div></div>
+      <div class="t"><div class="v">${res.matched||0}</div><div class="l">neu zugeordnet</div></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">${res.details&&res.details.length?('Zugeordnet: '+res.details.slice(0,12).map(esc).join(', ')):'Keine eindeutige Zuordnung gefunden — prüfe, ob die CSV Name/Mail-Spalten enthält.'}</div>`;
+}
 
 /* ============ Check-in-Modus (Vor Ort) ============ */
 function openCheckin(){ document.getElementById('ciov').classList.add('open'); document.getElementById('ciSearch').value=''; renderCheckin(); setTimeout(()=>document.getElementById('ciSearch').focus(),100); }
