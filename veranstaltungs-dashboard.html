@@ -268,6 +268,7 @@
         <tr><td>📋 Teilnehmer-/Check-in-Liste</td><td style="text-align:right"><button class="btn sm" onclick="printList()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfList()">⬇ PDF</button></td></tr>
         <tr><td>📜 Teilnahme-Nachweise (eingecheckt)</td><td style="text-align:right"><button class="btn sm" onclick="printHours()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfHours()">⬇ PDF</button></td></tr>
         <tr><td>🧾 Finanz-Abschlussbericht</td><td style="text-align:right"><button class="btn sm" onclick="printFinance()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfFinance()">⬇ PDF</button></td></tr>
+        <tr><td>📄 <b>Gesamtbericht</b> (Überblick + Finanzen + Teilnehmer)</td><td style="text-align:right"><button class="btn sm" onclick="printReport()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfReport()">⬇ PDF</button></td></tr>
       </table>
       <div class="row-flex" style="margin-top:8px;">
         <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="printAushang('whatsapp')">📱 QR-Aushang WhatsApp</button>
@@ -477,7 +478,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count'];
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -496,6 +497,8 @@ const kAg   =()=>'evtdash_agenda_'+currentId;
 const kPaid =()=>'evtdash_paid_'+currentId;
 const kWa   =()=>'evtdash_wa_'+currentId;
 const kCount=()=>'evtdash_count_'+currentId;
+const kRole =()=>'evtdash_role_'+currentId;
+const ROLE_COLORS={'Mitglied':'#f9c74f','Orga':'#8e5cc6','Gast':'#2f7ec6'};
 const LOGO='https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png';
 
 let DATA = [];      // parsed sheet rows (array of {header:value})
@@ -542,7 +545,10 @@ function displayName(row){
   return lp||mail||'(ohne Name)';
 }
 function isChecked(row){ const s=LS.get(kChk(),{}); return !!s[mailOf(row)]; }
-function toggleCheckin(mail){ const s=LS.get(kChk(),{}); if(s[mail])delete s[mail]; else s[mail]=true; LS.set(kChk(),s); renderKPIs(); renderParticipants(); }
+function checkedAt(row){ const s=LS.get(kChk(),{}); const v=s[mailOf(row)]; return (typeof v==='number')?v:0; }
+function roleOf(row){ const r=LS.get(kRole(),{}); return r[mailOf(row)]||'Mitglied'; }
+function cycleRole(mail){ const order=['Mitglied','Orga','Gast']; const r=LS.get(kRole(),{}); const cur=r[mail]||'Mitglied'; r[mail]=order[(order.indexOf(cur)+1)%order.length]; LS.set(kRole(),r); renderParticipants(); }
+function toggleCheckin(mail){ const s=LS.get(kChk(),{}); if(s[mail])delete s[mail]; else s[mail]=Date.now(); LS.set(kChk(),s); renderKPIs(); renderParticipants(); }
 function editName(mail){
   const names=LS.get(kNames(),{});
   const cur=names[mail]||'';
@@ -874,7 +880,9 @@ function renderParticipants(){
     const allRows=HEADERS.filter(h=>val(r,h)).map(h=>`<div class="r"><span class="k">${h.length>28?h.slice(0,26)+'…':h}</span><span>${val(r,h)}</span></div>`).join('');
     return `<div class="pcard" style="${isChecked(r)?'border-color:#30a46c;box-shadow:0 0 0 1px #30a46c inset;':''}">
       <div class="h">
-        <div><b>${esc(displayName(r))}</b> <button class="btn ghost sm" title="Anzeigename ändern" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="editName('${esc(mail)}')">✎</button>
+        <div><b>${esc(displayName(r))}</b>
+          <button class="btn ghost sm" title="Anzeigename ändern" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="editName('${esc(mail)}')">✎</button>
+          <button class="btn sm" title="Rolle wechseln (Mitglied/Orga/Gast)" style="padding:1px 7px;font-size:11px;background:${ROLE_COLORS[roleOf(r)]};color:#08160d;border:0" onclick="cycleRole('${esc(mail)}')">${roleOf(r)}</button>
           <div style="font-size:11px;color:var(--muted);word-break:break-all;">${esc(mail)}</div></div>
         <span style="text-align:right;">${mailCounts[mail.toLowerCase()]>1?'<span class="pill off">doppelt</span> ':''}${wl.has(mail)?'<span class="pill" style="background:#fde2c0;color:#8a5a12">Warteliste</span> ':''}${r.__manual?'<span class="pill man">manuell</span> ':''}${payPill(st)}
           <label style="display:block;font-size:11px;color:var(--muted);margin-top:4px;cursor:pointer;"><input type="checkbox" class="ci" ${isChecked(r)?'checked':''} onchange="toggleCheckin('${esc(mail)}')"> da</label></span></div>
@@ -968,41 +976,48 @@ function qrDataURL(text){
   catch(e){ return ''; }
 }
 /* ===== Print: Namensschilder (konfigurierbar, Standard 90×54 mm) ===== */
-function printBadges(){
-  const e=ev(); const cVer=findCol('verein');
-  const W=(+e.badgeW||90), H=(+e.badgeH||54);
-  let cells='';
-  DATA.forEach(r=>{
-    cells+=badgeHTML(esc(displayName(r)), esc(val(r,cVer)), false, qrDataURL(mailOf(r)));
-    const g=personsOf(r)-1;
-    for(let i=0;i<g;i++) cells+=badgeHTML('Gast', 'Begleitung: '+esc(displayName(r)), true, '');
-  });
-  if(!cells){alert('Keine Teilnehmer vorhanden.');return;}
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Namensschilder</title><style>
+function badgesWrapper(cells){
+  const e=ev(); const W=(+e.badgeW||90), H=(+e.badgeH||54);
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Namensschilder</title><style>
     @page{size:A4;margin:8mm;} *{box-sizing:border-box;}
     body{margin:0;font-family:Arial,Helvetica,sans-serif;display:flex;flex-wrap:wrap;gap:3mm;align-content:flex-start;}
     .badge{position:relative;width:${W}mm;height:${H}mm;border:1px dashed #b9c6bd;overflow:hidden;display:flex;flex-direction:column;page-break-inside:avoid;background:#fff;}
-    .bar{height:5mm;background:#f9c74f;flex-shrink:0;}
+    .bar{height:5mm;flex-shrink:0;}
     .top{display:flex;align-items:center;gap:3mm;padding:3mm 5mm 0;}
     .top img.logo{height:9mm;}
     .top .ev{font-size:8pt;color:#1f7554;font-weight:bold;letter-spacing:.3pt;text-transform:uppercase;line-height:1.15;}
     .mid{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 14mm 0 5mm;}
     .mid .nm{font-size:20pt;font-weight:800;color:#08160d;line-height:1.03;}
     .mid .ver{font-size:10.5pt;color:#4a5c50;margin-top:1.5mm;}
-    .guest .nm{color:#1c6b3f;}
+    .rl{position:absolute;left:3mm;bottom:2.5mm;font-size:7pt;font-weight:bold;color:#4a5c50;text-transform:uppercase;letter-spacing:.5pt;}
     .qr{position:absolute;right:3mm;bottom:7mm;width:13mm;height:13mm;}
-    .foot{background:#08160d;color:#8fbba1;font-size:7pt;text-align:center;padding:1.5mm;flex-shrink:0;}
+    .foot{height:4mm;flex-shrink:0;}
   </style></head><body onload="setTimeout(()=>window.print(),400)">${cells}</body></html>`;
-  openPrint(html);
 }
-function badgeHTML(name, sub, guest, qr){
-  const e=ev();
-  return `<div class="badge ${guest?'guest':''}">
-    <div class="bar"></div>
+function badgeHTML(name, sub, role, qr){
+  const e=ev(); const col=ROLE_COLORS[role]||'#f9c74f';
+  return `<div class="badge">
+    <div class="bar" style="background:${col}"></div>
     <div class="top"><img class="logo" src="${LOGO}" alt=""><div class="ev">${esc(e.name)}</div></div>
     <div class="mid"><div class="nm">${name}</div><div class="ver">${sub||''}</div></div>
+    <div class="rl" style="color:${col==='#f9c74f'?'#8a6d1f':col}">${esc(role||'')}</div>
     ${qr?`<img class="qr" src="${qr}" alt="">`:''}
-    <div class="foot">${esc(e.name)}</div></div>`;
+    <div class="foot" style="background:${col}"></div></div>`;
+}
+function printBadges(){
+  const cVer=findCol('verein'); let cells='';
+  DATA.forEach(r=>{
+    cells+=badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)));
+    const g=personsOf(r)-1;
+    for(let i=0;i<g;i++) cells+=badgeHTML('Gast', 'Begleitung: '+esc(displayName(r)), 'Gast', '');
+  });
+  if(!cells){alert('Keine Teilnehmer vorhanden.');return;}
+  openPrint(badgesWrapper(cells));
+}
+function printOneBadge(mail){
+  const r=DATA.find(x=>mailOf(x)===mail); if(!r)return;
+  const cVer=findCol('verein');
+  openPrint(badgesWrapper(badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)))));
 }
 /* ===== QR-Aushang (WhatsApp / Anmeldung) ===== */
 function printAushang(kind){
@@ -1200,6 +1215,33 @@ function financeDoc(){
 }
 function printFinance(){ openPrint(financeDoc()); }
 function pdfFinance(){ savePdf(financeDoc(),'finanzbericht.pdf','portrait'); }
+function reportDoc(){
+  const e=ev(); const anm=DATA.length, pers=DATA.reduce((s,r)=>s+personsOf(r),0), checked=DATA.filter(r=>isChecked(r)).length;
+  let paid=0,onsite=0,open=0; DATA.forEach(r=>{const p=personsOf(r)*e.price;const st=payState(r);if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
+  const ppNow=parseFloat(LS.get(kPP(),''))||0; const cashList=LS.get(kCash(),[]); const cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0);
+  const cVer=findCol('verein');
+  const prows=DATA.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(displayName(r))}</td><td>${esc(val(r,cVer))}</td><td style="text-align:center">${personsOf(r)}</td><td style="text-align:center">${isChecked(r)?'✔':''}</td><td style="text-align:center">${payState(r)==='paid'?'bezahlt':payState(r)==='onsite'?'vor Ort':'offen'}</td></tr>`).join('');
+  const counters=LS.get(kCount(),[]);
+  const crows=counters.length?('<h2>Zähler</h2><table>'+counters.map(c=>`<tr><td>${esc(c.name)}</td><td style="text-align:right">${c.count||0}</td></tr>`).join('')+'</table>'):'';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Gesamtbericht</title><style>
+    @page{size:A4 portrait;margin:14mm;} body{font-family:Arial,sans-serif;color:#222;}
+    h1{color:#1f7554;font-size:19pt;margin:0 0 1mm;} h2{color:#12301c;font-size:13pt;margin:6mm 0 2mm;border-bottom:1px solid #ccc;padding-bottom:1mm;}
+    .sub{color:#666;font-size:9pt;margin-bottom:5mm;} table{width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:3mm;} td,th{border:1px solid #ccc;padding:1.6mm 2.5mm;} th{background:#eaf4ee;text-align:left;}
+    .kv td:last-child{text-align:right;font-weight:bold;} tr{page-break-inside:avoid;}
+  </style></head><body onload="setTimeout(()=>window.print(),400)">
+    <h1>Gesamtbericht — ${esc(e.name)}</h1>
+    <div class="sub">Stand: ${new Date().toLocaleString('de-DE')}${e.eventDate?' · Datum: '+new Date(e.eventDate).toLocaleDateString('de-DE'):''}${e.place?' · '+esc(e.place):''}</div>
+    <h2>Überblick</h2>
+    <table class="kv"><tr><td>Anmeldungen</td><td>${anm}</td></tr><tr><td>Personen gesamt</td><td>${pers}</td></tr><tr><td>Eingecheckt</td><td>${checked} / ${anm}</td></tr></table>
+    <h2>Finanzen</h2>
+    <table class="kv"><tr><td>Beiträge Soll</td><td>${eur(pers*e.price)}</td></tr><tr><td>Bezahlt / überwiesen</td><td>${eur(paid)}</td></tr><tr><td>Vor Ort erwartet</td><td>${eur(onsite)}</td></tr><tr><td>Offen</td><td>${eur(open)}</td></tr><tr><td>PayPal-Pool aktuell</td><td>${eur(ppNow)}</td></tr><tr><td>Handkasse-Stand</td><td>${eur(cashBal)}</td></tr><tr><td>Gesamt liquide</td><td>${eur(ppNow+cashBal)}</td></tr></table>
+    ${crows}
+    <h2>Teilnehmer (${anm})</h2>
+    <table><thead><tr><th>#</th><th>Name</th><th>Verein</th><th>Pers.</th><th>Da</th><th>Zahlung</th></tr></thead><tbody>${prows}</tbody></table>
+  </body></html>`;
+}
+function printReport(){ openPrint(reportDoc()); }
+function pdfReport(){ savePdf(reportDoc(),'gesamtbericht.pdf','portrait'); }
 
 /* ===== Backup Export / Import ===== */
 function exportJSON(){
@@ -1498,7 +1540,10 @@ function renderCheckin(){
         }).join('') || '<div class="cnt" style="text-align:center;padding:30px">Kein Treffer. Bitte beim Orga-Team melden.</div>');
     return;
   }
-  document.getElementById('ciList').innerHTML = list.map(r=>{
+  const recent=DATA.filter(r=>checkedAt(r)>0).sort((a,b)=>checkedAt(b)-checkedAt(a)).slice(0,6);
+  const ago=t=>{const m=Math.round((Date.now()-t)/60000);return m<1?'gerade':(m<60?('vor '+m+' Min'):('vor '+Math.round(m/60)+' Std'));};
+  const ticker=recent.length?`<div style="background:#14261a;border:1px solid #30a46c;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:13px"><b style="color:#5cc183">🟢 Zuletzt eingecheckt:</b> ${recent.map(r=>esc(displayName(r))+' <span style="color:#8fbba1">('+ago(checkedAt(r))+')</span>').join(' &nbsp;·&nbsp; ')}</div>`:'';
+  document.getElementById('ciList').innerHTML = ticker + (list.map(r=>{
     const mail=mailOf(r), inn=isChecked(r), st=payState(r), np=personsOf(r);
     return `<div class="cirow ${inn?'in':''}">
       <div>
@@ -1506,15 +1551,16 @@ function renderCheckin(){
         <div class="mt">${esc(mail)}${val(r,cVer)?' · '+esc(val(r,cVer)):''} · ${np} Pers.${st!=='paid'?' · <span style=\"color:#e8b04b\">'+(st==='onsite'?'zahlt vor Ort':'offen')+'</span>':' · bezahlt'}</div>
       </div>
       <div class="sp"></div>
+      <button class="bigbtn" style="background:#3a5044" title="Namensschild drucken" onclick="printOneBadge('${esc(mail)}')">🏷️</button>
       ${st!=='paid'?`<button class="bigbtn pay" onclick="ciPay('${esc(mail)}')">${eur(np*ev().price)} kassiert</button>`:''}
       <button class="bigbtn ${inn?'undo':''}" onclick="ciToggle('${esc(mail)}')">${inn?'↩ rückgängig':'Einchecken'}</button>
     </div>`;
-  }).join('') || '<div class="cnt" style="text-align:center;padding:30px">Kein Treffer.</div>';
+  }).join('') || '<div class="cnt" style="text-align:center;padding:30px">Kein Treffer.</div>');
 }
 function ciToggle(mail){ toggleCheckin(mail); renderCheckin(); }
 function ciKioskCheck(mail){
   const row=DATA.find(r=>mailOf(r)===mail); if(!row)return;
-  const s=LS.get(kChk(),{}); s[mail]=true; LS.set(kChk(),s); rebuildData(); beep(true);
+  const s=LS.get(kChk(),{}); s[mail]=Date.now(); LS.set(kChk(),s); rebuildData(); beep(true);
   const sp=document.getElementById('kioskSplash');
   document.getElementById('ciList').style.display='none';
   document.getElementById('ciSearch').style.display='none';
@@ -1526,7 +1572,7 @@ function ciPay(mail){
   const amt=personsOf(row)*ev().price;
   const po=LS.get(kPaid(),{}); po[mail]=true; LS.set(kPaid(),po);
   const cash=LS.get(kCash(),[]); cash.push({text:'Bar kassiert: '+displayName(row),amount:amt,date:Date.now()}); LS.set(kCash(),cash);
-  const s=LS.get(kChk(),{}); if(!s[mail]){s[mail]=true;LS.set(kChk(),s);} // auto check-in
+  const s=LS.get(kChk(),{}); if(!s[mail]){s[mail]=Date.now();LS.set(kChk(),s);} // auto check-in
   rebuildData(); renderCheckin(); beep(true);
 }
 /* ---- QR-Scanner ---- */
@@ -1565,7 +1611,7 @@ function onScan(text){
   const row=DATA.find(r=>mailOf(r).toLowerCase()===mail);
   const msg=document.getElementById('scanMsg');
   if(!row){ msg.textContent='❓ Unbekannter Code: '+text; beep(false); return; }
-  const s=LS.get(kChk(),{}); s[mailOf(row)]=true; LS.set(kChk(),s);
+  const s=LS.get(kChk(),{}); s[mailOf(row)]=Date.now(); LS.set(kChk(),s);
   msg.innerHTML='✅ Eingecheckt: <b>'+esc(displayName(row))+'</b>';
   rebuildData(); renderCheckin(); beep(true);
 }
