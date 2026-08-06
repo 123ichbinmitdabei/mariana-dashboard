@@ -366,6 +366,7 @@
         <input id="agWho" placeholder="verantwortlich" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <button class="btn sm" onclick="addAgenda()">+ Hinzufügen</button>
       </div>
+      <div class="row-flex" style="margin-top:8px"><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="printAgendaFlyer()">🖨️ Programm-Aushang (PDF)</button><span class="status" style="color:var(--muted);font-size:11px">Öffentliche Live-Ansicht: „📺 Info-Screen" oben.</span></div>
     </div>
   </div>
 
@@ -462,6 +463,31 @@
             <label class="btn ghost sm" style="cursor:pointer;color:var(--accent);border-color:var(--line)">Datei direkt wählen<input type="file" accept=".csv,text/csv" style="display:none" onchange="importPaypal(this)"></label></div>
           <div id="ppResult" style="margin-top:10px"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🆘 Notfall, Fundsachen &amp; Lageplan</h2>
+    <div class="body">
+      <div class="grid2">
+        <div>
+          <b style="font-size:13px">📞 Notfallkontakte &amp; Sanitäter</b>
+          <textarea id="emergContacts" rows="4" style="width:100%;margin-top:6px;padding:8px;border:1px solid var(--line);border-radius:6px" placeholder="z.B. Notruf 112 · Sanitäter vor Ort: … · Platzwart: … · Orga-Leitung: …" onchange="saveEmerg()"></textarea>
+        </div>
+        <div>
+          <b style="font-size:13px">🧦 Fundsachen (Verloren &amp; Gefunden)</b>
+          <textarea id="emergLost" rows="4" style="width:100%;margin-top:6px;padding:8px;border:1px solid var(--line);border-radius:6px" placeholder="Gefundene Gegenstände hier notieren (Was, wo, wann)…" onchange="saveEmerg()"></textarea>
+        </div>
+      </div>
+      <div style="margin-top:12px"><b style="font-size:13px">🗺️ Lageplan</b>
+        <div class="hint">Bild des Geländes hochladen (Zelte, Bühne, Kasse, Toiletten) — zum Anzeigen und Aushängen.</div>
+        <div class="row-flex" style="margin:6px 0">
+          <label class="btn sm" style="cursor:pointer">🖼️ Lageplan hochladen<input type="file" id="lageInput" accept="image/*" style="display:none" onchange="uploadLage(this)"></label>
+          <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="printLage()">🖨️ Aushang drucken</button>
+          <button class="btn danger sm" onclick="delLage()">Entfernen</button>
+        </div>
+        <div id="lageBox"></div>
       </div>
     </div>
   </div>
@@ -565,6 +591,7 @@
         <input id="shopQty" placeholder="Menge" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <input id="shopWho" placeholder="besorgt wer?" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <button class="btn sm" onclick="addShop()">+ Hinzufügen</button>
+        <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="generateShopFromPlan()">🧮 Aus Kalkulation &amp; Material erzeugen</button>
         <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="loadPackliste()">📋 Camp-Vorlage laden</button>
       </div>
     </div>
@@ -868,8 +895,8 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.5';
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort'];
+const APP_VERSION='2.6';
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -903,6 +930,8 @@ const kInv  =()=>'evtdash_inv_'+currentId;      // Material/Inventar
 const kCalc =()=>'evtdash_calc_'+currentId;     // Verbrauchs-Kalkulation
 const kInvite=()=>'evtdash_invite_'+currentId;  // Einladungsliste
 const kSponsor=()=>'evtdash_sponsor_'+currentId;// Sponsoren/Partner
+const kEmerg=()=>'evtdash_emerg_'+currentId;    // Notfallkontakte + Fundsachen {contacts,lost}
+const kLage=()=>'evtdash_lage_'+currentId;      // Lageplan-Bild (lokal, nicht synchron)
 function extraOf(mail){ return (LS.get(kExtra(),{})[mail])||{}; }
 function phoneOf(row){
   const mail=mailOf(row);
@@ -1145,7 +1174,7 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderQuiz(); renderInv(); renderCalc(); renderInvite(); renderSponsors(); renderReport(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderQuiz(); renderInv(); renderCalc(); renderInvite(); renderSponsors(); renderEmerg(); renderReport(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
 
 /* ===== Sprache (DE/EN, Bereichs-Überschriften) ===== */
 const HDR_EN={ 'Community & Schnellzugriff':'Community & Quick Access','Grafische Auswertung':'Charts & Analysis','Wetter fürs Event':'Weather','Veranstaltungs-Vergleich':'Event Comparison','Orga & Finanzen':'Organization & Finance','Ablaufplan':'Schedule','Namensschilder & Listen':'Badges & Lists','Mitfahr-Börse & Fahrdienst':'Ride Share','Kommunikations-Bausteine':'Message Templates','Daten-Import (WhatsApp & PayPal)':'Data Import (WhatsApp & PayPal)','Zähler & Strichlisten':'Counters','Einkaufsliste':'Shopping List','Mitbring-Liste (Bottle-Liste)':'Bring List (Bottle List)','Teilnehmer':'Participants','Feedback':'Feedback','Foto-Galerie':'Photo Gallery' };
@@ -1254,6 +1283,17 @@ function loadPackliste(){
   LS.set(kShop(),l); renderShop();
 }
 
+function generateShopFromPlan(){
+  const calc=LS.get(kCalc(),[]); const inv=LS.get(kInv(),[]).filter(x=>x.status==='besorgen');
+  if(!calc.length && !inv.length){ alert('Keine Kalkulations-Positionen und keine „zu besorgen"-Materialien vorhanden. Lege sie in „🧮 Kalkulation" bzw. „📦 Material" an.'); return; }
+  const pers=calcPersons();
+  if(!confirm('Einkaufsliste erzeugen aus Kalkulation ('+calc.length+' Pos., '+pers+' Pers.) und Material „zu besorgen" ('+inv.length+')? Vorhandene Einträge bleiben erhalten.'))return;
+  const l=LS.get(kShop(),[]); const have=new Set(l.map(x=>(x.text||'').toLowerCase()));
+  calc.forEach(c=>{ const t=(c.name||'').trim(); if(!t||have.has(t.toLowerCase()))return; const qty=Math.round((+c.per||0)*pers*10)/10; l.push({text:t,qty:(qty?qty+' '+(c.unit||''):''),who:'',done:false}); have.add(t.toLowerCase()); });
+  inv.forEach(x=>{ const t=(x.name||'').trim(); if(!t||have.has(t.toLowerCase()))return; l.push({text:t,qty:((+x.qty>1)?('×'+x.qty):''),who:x.who||'',done:false}); have.add(t.toLowerCase()); });
+  LS.set(kShop(),l); renderShop();
+  alert('Einkaufsliste aktualisiert.');
+}
 function renderQuick(){
   const e=ev();
   const id=sheetId(e.sheet);
@@ -2938,7 +2978,19 @@ const QUIZ_DB=[
   {type:'game',title:'Schätzspiel',notes:'Der Moderator stellt Schätzfragen (z.B. „Wie viele Gäste sind heute da?", „Wie schwer ist der Grill?"). Wer am nächsten dran ist, bekommt Punkte. 3–5 Runden, Punkte hier eintragen.'},
   {type:'game',title:'Stadt-Land-Fluss (Camp-Edition)',notes:'Kategorien: Stadt · Pflanze · Sorte · Band · Essen. Buchstabe auslosen, 60 Sekunden Zeit, dann Punkte vergeben (10 = einzigartig, 5 = doppelt, 0 = leer).'},
   {type:'game',title:'„Wer bin ich?"',notes:'Jede Person bekommt einen Zettel mit einem Begriff/Promi auf die Stirn und errät ihn per Ja/Nein-Fragen. Punkte für jeden erratenen Begriff.'},
-  {type:'game',title:'Musik-Quiz (Intros erraten)',notes:'Kurze Song-Anfänge abspielen, Teams erraten Titel/Interpret. 10 Runden. Tipp: Playlist als Vortrag/Link hinterlegen.'}
+  {type:'game',title:'Musik-Quiz (Intros erraten)',notes:'Kurze Song-Anfänge abspielen, Teams erraten Titel/Interpret. 10 Runden. Tipp: Playlist als Vortrag/Link hinterlegen.'},
+  {type:'quiz',title:'CanG & CSC — Recht & Regeln',questions:[
+    {q:'Wie viele Mitglieder darf ein Anbauverein maximal haben?',opts:['200','500','Unbegrenzt'],correct:1},
+    {q:'Wie viel Gramm darf man legal öffentlich mitführen?',opts:['10 g','25 g','50 g'],correct:1},
+    {q:'Konsumverbot gilt u. a. in Sichtweite von …',opts:['Spielplätzen & Schulen','Supermärkten','Bushaltestellen'],correct:0}
+  ]},
+  {type:'quiz',title:'Erste Hilfe & Safer Use',questions:[
+    {q:'Was tun bei Kreislaufproblemen nach Konsum?',opts:['Hinlegen, Beine hoch, Ruhe, Wasser','Weiter konsumieren','Kalt duschen'],correct:0},
+    {q:'Notruf in Deutschland?',opts:['110','112','116117'],correct:1},
+    {q:'Cannabis nie mischen mit …',opts:['Wasser','Alkohol','Tee'],correct:1}
+  ]},
+  {type:'game',title:'Team-Kahoot (analog)',notes:'Moderator liest Multiple-Choice-Fragen vor, Teams halten A/B/C/D-Karten hoch. Punkte für richtige Antworten + Bonus für Schnelligkeit. Fragen aus den Quiz-Vorlagen nutzbar.'},
+  {type:'game',title:'Pflanzen-Bingo',notes:'Bingo-Karten mit Begriffen (Terpene, Sorten, Werkzeuge). Moderator zieht Begriffe; wer eine Reihe voll hat, ruft „Bingo!". Material: vorbereitete Karten.'}
 ];
 function loadQuizTemplates(){
   const box=document.getElementById('quizList'); if(!box)return;
@@ -3168,6 +3220,29 @@ function delSponsor(i){ const l=LS.get(kSponsor(),[]); l.splice(i,1); LS.set(kSp
 function renderSponsors(){ const box=document.getElementById('sponsorList'); if(!box)return; const l=LS.get(kSponsor(),[]);
   box.innerHTML = l.length ? l.map((s,i)=>`<div style="position:relative;border:1px solid var(--line);border-radius:8px;padding:10px;width:150px;text-align:center">${s.logo?`<img src="${s.logo}" style="max-height:50px;max-width:120px;margin-bottom:6px">`:'<div style="height:50px;display:flex;align-items:center;justify-content:center;color:var(--muted)">(kein Logo)</div>'}<div style="font-size:12px;font-weight:700">${esc(s.name)}</div>${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">↗ Link</a>`:''}<button class="btn danger sm" style="position:absolute;top:2px;right:2px;padding:0 6px" onclick="delSponsor(${i})">×</button></div>`).join('') : '<div class="status" style="color:var(--muted)">Noch keine Partner erfasst.</div>';
 }
+/* ===== Notfall / Fundsachen / Lageplan ===== */
+function renderEmerg(){
+  const d=LS.get(kEmerg(),{}); const c=document.getElementById('emergContacts'), l=document.getElementById('emergLost');
+  if(c&&document.activeElement!==c)c.value=d.contacts||''; if(l&&document.activeElement!==l)l.value=d.lost||'';
+  const box=document.getElementById('lageBox'); if(box){ const img=LS.get(kLage(),''); box.innerHTML=img?`<img src="${img}" style="max-width:100%;max-height:320px;border-radius:8px;border:1px solid var(--line)">`:'<div class="status" style="color:var(--muted)">Kein Lageplan hochgeladen.</div>'; }
+}
+function saveEmerg(){ LS.set(kEmerg(),{contacts:(document.getElementById('emergContacts')||{}).value||'',lost:(document.getElementById('emergLost')||{}).value||''}); }
+function uploadLage(input){ const f=input.files[0]; if(!f)return; resizeImage(f,1600,(dd)=>{ if(dd){ try{LS.set(kLage(),dd);}catch(e){alert('Bild zu groß für den Speicher.');} renderEmerg(); } }); input.value=''; }
+function delLage(){ if(confirm('Lageplan entfernen?')){ localStorage.removeItem(kLage()); renderEmerg(); } }
+function printLage(){ const img=LS.get(kLage(),''); if(!img){alert('Kein Lageplan vorhanden.');return;} openPrint(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lageplan</title><style>@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;text-align:center}h1{color:#1f7554}img{max-width:100%;max-height:80vh}</style></head><body onload="setTimeout(()=>window.print(),300)"><h1>Lageplan — ${esc(ev().name)}</h1><img src="${img}"></body></html>`); }
+function printAgendaFlyer(){
+  const e=ev(); const list=LS.get(kAg(),[]); if(!list.length){alert('Noch kein Programm eingetragen.');return;}
+  const rows=(arr)=>arr.map(a=>`<div class="row"><span class="tm">${esc(a.time||'')}</span><span class="tx">${esc(a.text||'')}</span>${a.who?`<span class="wh">${esc(a.who)}</span>`:''}</div>`).join('');
+  const days=[...new Set(list.map(a=>a.day||''))]; let body='';
+  if(days.filter(x=>x).length>0 && days.length>1){ days.forEach(dd=>{ body+=`<h2>${dd?esc(dd):'Programm'}</h2>`+rows(list.filter(a=>(a.day||'')===dd)); }); }
+  else body=rows(list);
+  openPrint(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Programm</title><style>
+    @page{size:A4;margin:0} body{font-family:Arial,sans-serif;margin:0;color:#22322a}
+    .bar{height:14mm;background:#f9c74f} .hd{text-align:center;padding:8mm 0 4mm} .hd img{height:22mm} h1{color:#1f7554;font-size:24pt;margin:4mm 0 1mm} .sub{color:#4a5c50}
+    .wrap{padding:0 18mm 18mm} h2{color:#1f7554;border-bottom:2px solid #f9c74f;padding-bottom:4px;margin:8mm 0 3mm;font-size:15pt}
+    .row{display:flex;gap:6mm;padding:3mm 0;border-bottom:1px dashed #dfe7e1;font-size:13pt} .tm{width:34mm;font-weight:700;color:#1f7554} .tx{flex:1} .wh{color:#4a5c50;font-size:11pt}
+  </style></head><body onload="setTimeout(()=>window.print(),400)"><div class="bar"></div><div class="hd"><img src="${LOGO}"><h1>${esc(e.name)}</h1><div class="sub">${e.eventDate?new Date(e.eventDate).toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'}):''}${e.place?(' · '+esc(e.place)):''}</div></div><div class="wrap">${body}</div></body></html>`);
+}
 function printSponsors(){ const l=LS.get(kSponsor(),[]); if(!l.length){alert('Noch keine Sponsoren erfasst.');return;} const cells=l.map(s=>`<div class="sp">${s.logo?`<img src="${s.logo}">`:''}<div class="nm">${esc(s.name)}</div></div>`).join(''); const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sponsoren</title><style>@page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;text-align:center}h1{color:#1f7554;border-bottom:3px solid #f9c74f;padding-bottom:8px}.g{display:flex;flex-wrap:wrap;gap:14mm;justify-content:center;margin-top:14mm}.sp{width:60mm}.sp img{max-width:55mm;max-height:35mm}.nm{font-weight:700;margin-top:4mm;font-size:13pt}</style></head><body onload="setTimeout(()=>window.print(),400)"><h1>Vielen Dank an unsere Partner</h1><div style="color:#4a5c50">${esc(ev().name)}</div><div class="g">${cells}</div></body></html>`; openPrint(html); }
 
 /* ===== Info-Screen (read-only, fürs Foyer) ===== */
@@ -3192,21 +3267,26 @@ function infoRender(){
   `;
 }
 
+const TASK_STAT={offen:{t:'offen',c:'#a33',bg:'#f7eaea'},laeuft:{t:'läuft',c:'#c9922b',bg:'#fdf4dc'},erledigt:{t:'erledigt',c:'#1c8a4e',bg:'#e6f4ec'}};
+function taskStatus(t){ return t.status || (t.done?'erledigt':'offen'); }
 function renderTasks(){
   const list=LS.get(kTasks(),[]);
   const today=new Date(); today.setHours(0,0,0,0);
+  const rank={offen:0,laeuft:1,erledigt:2};
   const order=list.map((t,i)=>({t,i})).sort((a,b)=>{
-    if(a.t.done!==b.t.done) return a.t.done?1:-1;
-    const da=a.t.due?new Date(a.t.due).getTime():Infinity, db=b.t.due?new Date(b.t.due).getTime():Infinity;
-    return da-db;
+    const ra=rank[taskStatus(a.t)], rb=rank[taskStatus(b.t)]; if(ra!==rb)return ra-rb;
+    const da=a.t.due?new Date(a.t.due).getTime():Infinity, db=b.t.due?new Date(b.t.due).getTime():Infinity; return da-db;
   });
-  document.getElementById('taskList').innerHTML=order.map(({t,i})=>{
-    const due=t.due?new Date(t.due):null; const overdue=due&&!t.done&&due<today;
-    const soon=due&&!t.done&&!overdue&&((due-today)/86400000<=2);
+  const counts={offen:0,laeuft:0,erledigt:0}; list.forEach(t=>counts[taskStatus(t)]++);
+  const head=`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">🔴 ${counts.offen} offen · 🟡 ${counts.laeuft} läuft · 🟢 ${counts.erledigt} erledigt</div>`;
+  document.getElementById('taskList').innerHTML=head+(order.map(({t,i})=>{
+    const stt=taskStatus(t); const st=TASK_STAT[stt]; const done=stt==='erledigt';
+    const due=t.due?new Date(t.due):null; const overdue=due&&!done&&due<today; const soon=due&&!done&&!overdue&&((due-today)/86400000<=2);
     const dueStr=due?`<span style="font-size:11px;color:${overdue?'#a33':(soon?'#c9922b':'var(--muted)')};font-weight:${overdue?'700':'400'}">📅 ${due.toLocaleDateString('de-DE')}${overdue?' (überfällig)':''}</span>`:'';
-    return `<div class="t ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${i})"><span style="flex:1">${esc(t.text)}${t.who?` <span style="font-size:11px;color:var(--muted)">· ${esc(t.who)}</span>`:''} ${dueStr}</span>${t.due&&!t.done?`<button class="btn ghost sm" title="Termin als Kalender (.ics)" style="padding:1px 6px;color:var(--accent);border-color:var(--line)" onclick="taskIcs(${i})">📅</button>`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delTask(${i})">×</button></div>`;
-  }).join('') || '<div class="status">Noch keine Aufgaben.</div>';
+    return `<div class="t ${done?'done':''}" style="align-items:center"><button onclick="cycleTaskStatus(${i})" title="Status wechseln (offen → läuft → erledigt)" style="cursor:pointer;border:0;border-radius:10px;padding:3px 8px;font-size:10px;font-weight:700;color:${st.c};background:${st.bg};min-width:54px">${st.t}</button><span style="flex:1;${done?'text-decoration:line-through;color:var(--muted)':''}">${esc(t.text)}${t.who?` <span style="font-size:11px;color:var(--muted)">· ${esc(t.who)}</span>`:''} ${dueStr}</span>${t.due&&!done?`<button class="btn ghost sm" title="Termin als Kalender (.ics)" style="padding:1px 6px;color:var(--accent);border-color:var(--line)" onclick="taskIcs(${i})">📅</button>`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delTask(${i})">×</button></div>`;
+  }).join('') || '<div class="status">Noch keine Aufgaben.</div>');
 }
+function cycleTaskStatus(i){ const l=LS.get(kTasks(),[]); if(!l[i])return; const order=['offen','laeuft','erledigt']; l[i].status=order[(order.indexOf(taskStatus(l[i]))+1)%3]; l[i].done=l[i].status==='erledigt'; LS.set(kTasks(),l); renderTasks(); }
 function addTask(){const v=document.getElementById('taskText').value.trim();if(!v)return;const who=(document.getElementById('taskWho')||{}).value||'';const due=(document.getElementById('taskDue')||{}).value||'';const l=LS.get(kTasks(),[]);l.push({text:v,done:false,who:who.trim(),due});LS.set(kTasks(),l);['taskText','taskWho','taskDue'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});renderTasks();}
 function toggleTask(i){const l=LS.get(kTasks(),[]);l[i].done=!l[i].done;LS.set(kTasks(),l);renderTasks();}
 function delTask(i){const l=LS.get(kTasks(),[]);l.splice(i,1);LS.set(kTasks(),l);renderTasks();}
