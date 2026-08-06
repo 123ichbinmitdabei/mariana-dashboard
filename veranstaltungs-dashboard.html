@@ -769,6 +769,7 @@
       <div class="field" style="flex:1"><label>Telefon (für Erinnerungen)</label><input id="aPhone" placeholder="z.B. 0151 …"></div>
       <div class="field" style="flex:1"><label>Orga-Funktion (bei Rolle Orga)</label><input id="aOrgaRole" placeholder="z.B. Einlass, Grill, Leitung"></div>
     </div>
+    <div class="field" id="aFeeWrap"><label>Eintrittsbeitrag</label><select id="aFee"><option value="ja">Ja — zahlt den Beitrag</option><option value="nein">Nein — kein Beitrag (z.B. Orga mit Vorfinanzierung)</option></select></div>
     <div class="field" id="aOrgaPaidWrap" style="display:none"><label>Orga-Einzahlung / Vorfinanzierung (€) — fließt in den Orga-Pool</label><input id="aOrgaPaid" type="number" step="0.01" placeholder="z.B. 50"></div>
     <div class="field"><label>Notiz</label><input id="aNote"></div>
     <div class="row-flex" style="justify-content:flex-end;margin-top:8px;">
@@ -898,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.8.2';
+const APP_VERSION='2.9.1';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1359,25 +1360,25 @@ function renderKPIs(){
   const anm=DATA.length;
   const pers=DATA.reduce((s,r)=>s+personsOf(r),0);
   let paid=0,onsite=0,open=0;
-  DATA.forEach(r=>{const p=personsOf(r)*e.price;const st=payState(r);if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
+  DATA.forEach(r=>{const ff=personFeeFree(r);const st=payState(r);const p=ff?0:personsOf(r)*e.price;if(ff){}else if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
   const cU=findCol('übernacht','ubernacht');
   const nights=DATA.filter(r=>{const v=val(r,cU).toLowerCase();return v.includes('ja')||v.includes('freitag auf')||v.includes('samstag auf');}).length;
   const guests=DATA.reduce((s,r)=>s+Math.max(0,personsOf(r)-1),0);
   const checked=DATA.filter(r=>isChecked(r)).length;
-  const oc=orgaCount();
+  const oc=orgaCount(); const oX=orgaExtraPersons(); const oT=orgaTotalPersons();
   const cap=+e.capacity||0;
   const kpis=[
     {num:anm,lbl:'Anmeldungen'},
-    {num:pers+oc,lbl:'Personen gesamt',sub:guests+' Gäste'+(oc?' · '+oc+' Orga':'')},
+    {num:pers+oX,lbl:'Personen gesamt',sub:guests+' Gäste'+(oT?' · '+oT+' Orga':'')},
     {num:checked+'/'+anm,lbl:'Eingecheckt'},
     {num:eur(paid),lbl:'Bezahlt (PayPal)'},
     {num:eur(onsite+open),lbl:'Ausstehend',sub:eur(onsite)+' vor Ort'},
     {num:nights,lbl:'Übernachten'},
   ];
   if(cap>0){
-    const free=cap-pers; const wl=waitlistSet().size;
+    const free=cap-(pers+oX); const wl=waitlistSet().size;
     const col=free<=0?'#a33':(free<=cap*0.15?'#c9922b':'#1c8a4e');
-    kpis.push({num:`<span style="color:${col}">${pers}/${cap}</span>`, lbl:'Kapazität', sub: free>0?(free+' Plätze frei'):(wl+' auf Warteliste')});
+    kpis.push({num:`<span style="color:${col}">${pers+oX}/${cap}</span>`, lbl:'Kapazität', sub: free>0?(free+' Plätze frei'):(wl+' auf Warteliste')});
   }
   document.getElementById('kpis').innerHTML=kpis.map(k=>
     `<div class="kpi"><div class="num">${k.num}</div><div class="lbl">${k.lbl}</div>${k.sub?`<div class="sub2">${k.sub}</div>`:''}</div>`).join('');
@@ -1634,10 +1635,10 @@ function renderFinance(){
   const e=ev();
   const pers=DATA.reduce((s,r)=>s+personsOf(r),0);
   let paid=0,onsite=0,open=0;
-  DATA.forEach(r=>{const p=personsOf(r)*e.price;const st=payState(r);if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
+  DATA.forEach(r=>{const ff=personFeeFree(r);const st=payState(r);const p=ff?0:personsOf(r)*e.price;if(ff){}else if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
   document.getElementById('fPrice').textContent=e.price.toLocaleString('de-DE');
-  document.getElementById('fPers').textContent=pers;
-  document.getElementById('fSoll').textContent=eur(pers*e.price);
+  document.getElementById('fPers').textContent=DATA.reduce((s,r)=>s+(personFeeFree(r)?0:personsOf(r)),0);
+  document.getElementById('fSoll').textContent=eur(paid+onsite+open);
   document.getElementById('fPaid').textContent=eur(paid);
   document.getElementById('fOnsite').textContent=eur(onsite);
   document.getElementById('fOpen').textContent=eur(onsite+open);
@@ -1654,7 +1655,7 @@ function renderFinance(){
   const budget=+e.budget||0; const over=budget>0 && ausgaben>budget;
   const posIncome=Math.max(0,+e.cashStart||0)+cashList.filter(c=>+c.amount>0).reduce((s,c)=>s+ +c.amount,0);
   document.getElementById('totbox').innerHTML=`
-    <div class="t"><div class="v">${eur(pers*e.price)}</div><div class="l">Beiträge Soll</div></div>
+    <div class="t"><div class="v">${eur(paid+onsite+open)}</div><div class="l">Beiträge Soll</div></div>
     <div class="t"><div class="v" style="color:#1c6b3f">${eur(paid)}</div><div class="l">Beiträge bezahlt</div></div>
     <div class="t"><div class="v">${eur(ppNow)}</div><div class="l">PayPal-Pool aktuell</div></div>
     <div class="t"><div class="v" style="color:#1c6b3f">${eur(posIncome)}</div><div class="l">Einnahmen bar / Orga-Vorfinanz.</div></div>
@@ -2046,7 +2047,7 @@ function financeDoc(){
   const e=ev();
   const pers=DATA.reduce((s,r)=>s+personsOf(r),0);
   let paid=0,onsite=0,open=0;
-  DATA.forEach(r=>{const p=personsOf(r)*e.price;const st=payState(r);if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
+  DATA.forEach(r=>{const ff=personFeeFree(r);const st=payState(r);const p=ff?0:personsOf(r)*e.price;if(ff){}else if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
   const ppNow=parseFloat(LS.get(kPP(),''))||0;
   const cashList=LS.get(kCash(),[]);
   const cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0);
@@ -2061,7 +2062,7 @@ function financeDoc(){
     <div class="sub">Stand: ${new Date().toLocaleString('de-DE')}</div>
     <h2>Teilnehmerbeiträge</h2>
     <table>
-      <tr><td>Soll (${pers} Personen × ${e.price.toLocaleString('de-DE')} €)</td><td class="r">${eur(pers*e.price)}</td></tr>
+      <tr><td>Soll (${pers} Personen × ${e.price.toLocaleString('de-DE')} €)</td><td class="r">${eur(paid+onsite+open)}</td></tr>
       <tr><td>Bezahlt / überwiesen</td><td class="r">${eur(paid)}</td></tr>
       <tr><td>Vor Ort erwartet</td><td class="r">${eur(onsite)}</td></tr>
       <tr><td>Noch offen</td><td class="r">${eur(open)}</td></tr>
@@ -2083,7 +2084,7 @@ function printFinance(){ openPrint(financeDoc()); }
 function pdfFinance(){ savePdf(financeDoc(),'finanzbericht.pdf','portrait'); }
 function reportDoc(){
   const e=ev(); const anm=DATA.length, pers=DATA.reduce((s,r)=>s+personsOf(r),0), checked=DATA.filter(r=>isChecked(r)).length;
-  let paid=0,onsite=0,open=0; DATA.forEach(r=>{const p=personsOf(r)*e.price;const st=payState(r);if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
+  let paid=0,onsite=0,open=0; DATA.forEach(r=>{const ff=personFeeFree(r);const st=payState(r);const p=ff?0:personsOf(r)*e.price;if(ff){}else if(st==='paid')paid+=p;else if(st==='onsite')onsite+=p;else open+=p;});
   const ppNow=parseFloat(LS.get(kPP(),''))||0; const cashList=LS.get(kCash(),[]); const cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0);
   const cVer=findCol('verein');
   const prows=DATA.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(displayName(r))}</td><td>${esc(val(r,cVer))}</td><td style="text-align:center">${personsOf(r)}</td><td style="text-align:center">${isChecked(r)?'✔':''}</td><td style="text-align:center">${payState(r)==='paid'?'bezahlt':payState(r)==='onsite'?'vor Ort':'offen'}</td></tr>`).join('');
@@ -2098,9 +2099,9 @@ function reportDoc(){
     <h1>Gesamtbericht — ${esc(e.name)}</h1>
     <div class="sub">Stand: ${new Date().toLocaleString('de-DE')}${e.eventDate?' · Datum: '+new Date(e.eventDate).toLocaleDateString('de-DE'):''}${e.place?' · '+esc(e.place):''}</div>
     <h2>Überblick</h2>
-    <table class="kv"><tr><td>Anmeldungen</td><td>${anm}</td></tr><tr><td>Personen gesamt</td><td>${pers}</td></tr><tr><td>Eingecheckt</td><td>${checked} / ${anm}</td></tr></table>
+    <table class="kv"><tr><td>Anmeldungen</td><td>${anm}</td></tr><tr><td>Personen gesamt</td><td>${pers+orgaExtraPersons()}</td></tr><tr><td>Eingecheckt</td><td>${checked} / ${anm}</td></tr></table>
     <h2>Finanzen</h2>
-    <table class="kv"><tr><td>Beiträge Soll</td><td>${eur(pers*e.price)}</td></tr><tr><td>Bezahlt / überwiesen</td><td>${eur(paid)}</td></tr><tr><td>Vor Ort erwartet</td><td>${eur(onsite)}</td></tr><tr><td>Offen</td><td>${eur(open)}</td></tr><tr><td>PayPal-Pool aktuell</td><td>${eur(ppNow)}</td></tr><tr><td>Handkasse-Stand</td><td>${eur(cashBal)}</td></tr><tr><td>Gesamt liquide</td><td>${eur(ppNow+cashBal)}</td></tr></table>
+    <table class="kv"><tr><td>Beiträge Soll</td><td>${eur(paid+onsite+open)}</td></tr><tr><td>Bezahlt / überwiesen</td><td>${eur(paid)}</td></tr><tr><td>Vor Ort erwartet</td><td>${eur(onsite)}</td></tr><tr><td>Offen</td><td>${eur(open)}</td></tr><tr><td>PayPal-Pool aktuell</td><td>${eur(ppNow)}</td></tr><tr><td>Handkasse-Stand</td><td>${eur(cashBal)}</td></tr><tr><td>Gesamt liquide</td><td>${eur(ppNow+cashBal)}</td></tr></table>
     ${crows}
     <h2>Teilnehmer (${anm})</h2>
     <table><thead><tr><th>#</th><th>Name</th><th>Verein</th><th>Pers.</th><th>Da</th><th>Zahlung</th></tr></thead><tbody>${prows}</tbody></table>
@@ -3217,12 +3218,12 @@ function renderReport(){
   const anm=DATA.length, pers=calcPersons();
   const checked=DATA.filter(r=>isChecked(r)).length; const noshow=anm-checked;
   let paid=0,onsite=0,open=0,paidC=0,onsiteC=0,openC=0;
-  DATA.forEach(r=>{const p=personsOf(r)*e.price;const st=payState(r);if(st==='paid'){paid+=p;paidC++;}else if(st==='onsite'){onsite+=p;onsiteC++;}else{open+=p;openC++;}});
+  DATA.forEach(r=>{const ff=personFeeFree(r);const st=payState(r);const p=ff?0:personsOf(r)*e.price;if(ff){}else if(st==='paid'){paid+=p;paidC++;}else if(st==='onsite'){onsite+=p;onsiteC++;}else{open+=p;openC++;}});
   const ppNow=parseFloat(LS.get(kPP(),''))||0; const exs=expSums();
   const cashList=LS.get(kCash(),[]); const cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0)-exs.kasse;
   const orgaP=orgaPool()-exs.orga; const liquide=ppNow+cashBal+orgaP;
   const negCash=cashList.filter(c=>c.amount<0).reduce((s,c)=>s+(-c.amount),0); const ausgaben=negCash+exs.total;
-  const cap=+e.capacity||0; const util=cap?Math.round(pers/cap*100):0;
+  const cap=+e.capacity||0; const util=cap?Math.round((pers+orgaExtraPersons())/cap*100):0;
   const roles={}; DATA.forEach(r=>{const ro=roleOf(r);roles[ro]=(roles[ro]||0)+1;});
   const nights=DATA.filter(r=>overnightYes(r)).length;
   let presentPers=0, idOk=0;
@@ -3233,13 +3234,13 @@ function renderReport(){
   let html=`<div class="totbox">${kpi(anm,'Anmeldungen')}${kpi(pers,'Personen')}${kpi(checked,'Eingecheckt','#1c6b3f')}${kpi(presentPers,'Personen anwesend','#1c6b3f')}${kpi(noshow,'nicht erschienen',noshow>0?'#a33':'')}${kpi((anm?Math.round(checked/anm*100):0)+'%','Anwesenheit')}${cap?kpi(util+'%','Auslastung',util>=100?'#a33':'#1c6b3f'):''}${kpi(nights,'Übernachtungen')}${idOk?kpi(idOk,'Ausweise geprüft'):''}</div>`;
   html+=`<div class="grid2" style="margin-top:14px"><div>
     <h3 style="margin:0 0 6px;font-size:13px;color:var(--accent)">Zahlungen</h3>
-    <table class="grid"><tr><td>Bezahlt / überwiesen</td><td style="text-align:right">${paidC} · ${eur(paid)}</td></tr><tr><td>Vor Ort</td><td style="text-align:right">${onsiteC} · ${eur(onsite)}</td></tr><tr><td>Offen / unklar</td><td style="text-align:right">${openC} · ${eur(open)}</td></tr><tr><td><b>Soll gesamt</b></td><td style="text-align:right"><b>${eur(pers*e.price)}</b></td></tr></table>
+    <table class="grid"><tr><td>Bezahlt / überwiesen</td><td style="text-align:right">${paidC} · ${eur(paid)}</td></tr><tr><td>Vor Ort</td><td style="text-align:right">${onsiteC} · ${eur(onsite)}</td></tr><tr><td>Offen / unklar</td><td style="text-align:right">${openC} · ${eur(open)}</td></tr><tr><td><b>Soll gesamt</b></td><td style="text-align:right"><b>${eur(paid+onsite+open)}</b></td></tr></table>
   </div><div>
     <h3 style="margin:0 0 6px;font-size:13px;color:var(--accent)">Finanzen</h3>
     <table class="grid"><tr><td>PayPal-Pool</td><td style="text-align:right">${eur(ppNow)}</td></tr><tr><td>Handkasse</td><td style="text-align:right">${eur(cashBal)}</td></tr><tr><td>Orga-Pool</td><td style="text-align:right">${eur(orgaP)}</td></tr><tr><td>Ausgaben</td><td style="text-align:right;color:#a33">−${eur(ausgaben)}</td></tr><tr><td><b>Gesamt liquide</b></td><td style="text-align:right"><b>${eur(liquide)}</b></td></tr></table>
   </div></div>`;
   // ---- Budget & Prognose ----
-  const budget=+e.budget||0; const sollE=pers*e.price; const erwartet=paid+onsite; const kostenPlan=Math.max(budget,ausgaben);
+  const budget=+e.budget||0; const sollE=paid+onsite+open; const erwartet=paid+onsite; const kostenPlan=Math.max(budget,ausgaben);
   const planSaldo=sollE+orgaP-kostenPlan; const progSaldo=erwartet+orgaP-kostenPlan;
   const amp = progSaldo>=0 ? (progSaldo < sollE*0.1 ? ['#c9922b','knapp — im Auge behalten'] : ['#1c8a4e','ja, reicht']) : ['#a33','Achtung: Defizit möglich'];
   html+=`<h3 style="margin:12px 0 4px;font-size:13px;color:var(--accent)">Budget &amp; Prognose</h3>
@@ -3453,6 +3454,7 @@ function addParticipant(){
   const rEl=document.getElementById('aRole'); if(rEl&&rEl.value){ const rr=LS.get(kRole(),{}); rr[m.mail]=rEl.value; LS.set(kRole(),rr); }
   const ph=gv('aPhone'), orl=gv('aOrgaRole');
   if(ph||orl){ const ex=LS.get(kExtra(),{}); ex[m.mail]={...(ex[m.mail]||{})}; if(ph)ex[m.mail].phone=ph; if(orl)ex[m.mail].orgaRole=orl; LS.set(kExtra(),ex); }
+  { var _fee=gv('aFee'); var _ex=LS.get(kExtra(),{}); _ex[m.mail]=Object.assign({},_ex[m.mail]||{}); _ex[m.mail].noFee=(_fee==='nein'); LS.set(kExtra(),_ex); }
   const orgaPaid=parseFloat(gv('aOrgaPaid'))||0;
   if(rEl&&rEl.value==='Orga'&&orgaPaid>0){ const ol=LS.get(kOrga(),[]); ol.push({name:m.verein?m.mail:(m.mail),paid:orgaPaid,note:'Orga'+(orl?' · '+orl:'')}); LS.set(kOrga(),ol); }
   ['aMail','aVerein','aWann','aAnreise','aUeber','aFahr','aAuf','aBring','aQuiz','aNote','aPhone','aOrgaRole','aOrgaPaid'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});aPers.value=1;
@@ -3561,7 +3563,7 @@ const CHART_DEFS=[
  {g:'Anreise & Übernachtung',id:'uebernachtung_roh',l:'Übernachtung (Original)',def:0,fn:()=>{const m=countSplit(findCol('übernacht','ubernacht'));if(Object.keys(m).length)makeChart('Übernachtung (Detail)',m,'bar');}},
  {g:'Anreise & Übernachtung',id:'personen_anreise',l:'Personen nach Anreiseart',def:0,fn:()=>sumBar('Personen nach Anreiseart',bucketAnreise,ANREISE_ORDER,r=>personsOf(r))},
  {g:'Beteiligung & Vor Ort',id:'checkin',l:'Check-in-Stand',def:1,fn:()=>{if(!DATA.length)return;const inn=DATA.filter(r=>isChecked(r)).length;makeChart('Check-in-Stand',{'Eingecheckt':inn,'Noch nicht':DATA.length-inn},'doughnut');}},
- {g:'Beteiligung & Vor Ort',id:'kapazitaet',l:'Kapazität (Personen)',def:1,fn:()=>{const cap=+ev().capacity||0;if(!cap)return;const p=DATA.reduce((s,r)=>s+personsOf(r),0);makeChart('Kapazität (Personen)',{'Belegt':Math.min(p,cap),'Frei':Math.max(0,cap-p),'Warteliste':Math.max(0,p-cap)},'doughnut');}},
+ {g:'Beteiligung & Vor Ort',id:'kapazitaet',l:'Kapazität (Personen)',def:1,fn:()=>{const cap=+ev().capacity||0;if(!cap)return;const p=DATA.reduce((s,r)=>s+personsOf(r),0)+orgaExtraPersons();makeChart('Kapazität (Personen)',{'Belegt':Math.min(p,cap),'Frei':Math.max(0,cap-p),'Warteliste':Math.max(0,p-cap)},'doughnut');}},
  {g:'Beteiligung & Vor Ort',id:'checkin_uhr',l:'Check-ins nach Uhrzeit',def:1,fn:()=>{const m={};DATA.forEach(r=>{const t=checkedAt(r);if(t){const h=String(new Date(t).getHours()).padStart(2,'0')+' Uhr';m[h]=(m[h]||0)+1;}});if(Object.keys(m).length){const s={};Object.keys(m).sort().forEach(k=>s[k]=m[k]);makeChart('Check-ins nach Uhrzeit',s,'bar');}}},
  {g:'Beteiligung & Vor Ort',id:'quiz',l:'Präventionsquiz — Teilnahme',def:0,fn:()=>{const m=countBy(r=>bucketYesNo(r,findCol('quiz')));if(Object.keys(m).length)makeChart('Präventionsquiz — Teilnahme',m,'doughnut');}},
  {g:'Beteiligung & Vor Ort',id:'fahrdienst',l:'Fahrdienst-Bedarf',def:0,fn:()=>{const m=countBy(r=>bucketYesNo(r,findCol('fahrdienst')));if(Object.keys(m).length)makeChart('Fahrdienst-Bedarf',m,'doughnut');}},
@@ -3646,6 +3648,17 @@ function delCloudPhoto(i){
 var _origRenderGallery = (typeof renderGallery==='function') ? renderGallery : function(){};
 renderGallery = function(){ try{ _origRenderGallery(); }catch(e){} try{ renderCloudGrid(); }catch(e){} };
 
+
+function personFeeFree(r){ try{ var mail=mailOf(r); var ex=LS.get(kExtra(),{})[mail]; return !!(ex&&ex.noFee); }catch(e){ return false; } }
+var _origPayStateFee=(typeof payState==='function')?payState:function(){return 'open';};
+payState=function(r){ try{ if(personFeeFree(r)) return 'paid'; }catch(e){} return _origPayStateFee(r); };
+var _origPayLblFee=(typeof payLbl==='function')?payLbl:function(){return ''; };
+payLbl=function(r){ try{ if(personFeeFree(r)) return 'beitragsfrei'; }catch(e){} return _origPayLblFee(r); };
+var _origSyncFee=(typeof syncOrgaPaidField==='function')?syncOrgaPaidField:function(){};
+syncOrgaPaidField=function(){ try{_origSyncFee();}catch(e){} var f=document.getElementById('aFee'); var rr=document.getElementById('aRole'); if(f&&rr) f.value=(rr.value==='Orga')?'nein':'ja'; };
+function orgaExtraPersons(){ try{ var mails={}; DATA.forEach(function(r){ var m=(mailOf(r)||'').toString().toLowerCase(); if(m) mails[m]=1; }); var pool=LS.get(kOrga(),[]); return pool.filter(function(o){ var nm=((o&&o.name)||'').toString().toLowerCase(); return nm && !mails[nm]; }).length; }catch(e){ try{return LS.get(kOrga(),[]).length;}catch(e2){return 0;} } }
+function orgaInDataPersons(){ try{ return DATA.filter(function(r){ try{ return roleOf(r)==='Orga'; }catch(e){ return false; } }).length; }catch(e){ return 0; } }
+function orgaTotalPersons(){ return orgaInDataPersons()+orgaExtraPersons(); }
 </script>
 </body>
 </html>
