@@ -149,6 +149,7 @@
   <button class="btn ghost sm" onclick="manualSync()">↻ Daten</button>
   <button class="btn ghost sm" onclick="collapseAll()" title="Alle Bereiche ein-/ausklappen">🗂️ Bereiche</button>
   <button class="btn ghost sm" id="orgaViewBtn" onclick="orgaView()" title="Orga-Ansicht: blendet teilnehmer-/infolastige Bereiche aus">🛡️ Orga-Ansicht</button>
+  <button class="btn ghost sm" onclick="openInfoScreen()" title="Öffentlicher Info-Screen fürs Foyer (Vollbild)">📺 Info-Screen</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <a class="btn ghost sm" href="dashboard-anleitung.html" target="_blank" rel="noopener" style="text-decoration:none">❓ Anleitung</a>
   <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
@@ -163,8 +164,10 @@
     <h2>✅ Check-in</h2>
     <div class="cnt" id="ciCount"></div>
     <button class="btn sm" style="background:#c9922b;color:#08160d" onclick="toggleScan()" id="scanBtn">📷 QR scannen</button>
+    <button class="btn sm" style="background:#1c8a4e" onclick="openKasse('')" title="Barzahler/Gast ohne Anmeldung kassieren">💶 Kasse</button>
     <label class="cnt" style="cursor:pointer;"><input type="checkbox" id="ciOnlyMissing" onchange="renderCheckin()"> nur fehlende</label>
     <button class="btn ghost sm" id="kioskBtn" onclick="toggleKiosk()">🧍 Kiosk-Modus</button>
+    <button class="btn ghost sm" id="selfPayBtn" onclick="toggleSelfPay()" title="Selbstbedienungs-Kasse: Gäste zahlen selbst und checken sich ein">💰 Selbstzahler-Kasse</button>
     <button class="close" onclick="closeCheckin()">✕ Schließen</button>
   </div>
   <div class="cibody">
@@ -263,7 +266,9 @@
           <b style="font-size:13px;">✅ Orga-Aufgaben</b>
           <div class="tasks" id="taskList" style="margin:8px 0;"></div>
           <div class="row-flex">
-            <input id="taskText" placeholder="Neue Aufgabe" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
+            <input id="taskText" placeholder="Neue Aufgabe" style="flex:2;min-width:120px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+            <input id="taskWho" placeholder="wer" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+            <input id="taskDue" type="date" title="Fällig am" style="padding:7px;border:1px solid var(--line);border-radius:6px;">
             <button class="btn sm" onclick="addTask()">+</button>
           </div>
         </div>
@@ -278,7 +283,8 @@
   <div class="section">
     <h2>🛡️ Orga-Team (eigener Finanz-Pool)</h2>
     <div class="body">
-      <div class="hint">Erfasse das Orga-Team direkt: Name + separate Einzahlung (Vorfinanzierung). Der <b>Orga-Pool</b> fließt in den Gesamtüberblick ein. Orga-Mitglieder zählen als anwesend.</div>
+      <div class="hint">Zwei Wege: <b>(1)</b> Nur Einzahlung erfassen (schnell, unten). <b>(2)</b> <b>Vollständig anlegen</b> mit allen Angaben (wie Teilnehmer, inkl. Rolle Orga + Vorfinanzierung) über den Assistenten — diese Person erscheint dann auch in der Teilnehmerliste und den Statistiken.</div>
+      <div class="row-flex" style="margin-bottom:10px"><button class="btn sm" onclick="openOrgaAssistant()">➕ Orga-Mitglied vollständig anlegen (Assistent)</button></div>
       <div id="orgaList"></div>
       <div class="cashline" style="border-top:2px solid var(--green);border-bottom:0;">
         <b>Orga-Pool gesamt</b><span class="amt money" id="orgaTotal"></span>
@@ -328,6 +334,16 @@
         </div>
         <div id="expPreview" style="margin-top:8px"></div>
       </div>
+      <div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:12px;background:#fff">
+        <div class="row-flex" style="justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:13px">🧰 Handkasse (Bar-Kasse)</b><span>Stand: <b class="money" id="expCashBal">—</b></span></div>
+        <div class="hint" style="margin:0 0 8px">Bareinnahmen positiv (z.B. „Spende +20"), Bar-Ausgaben negativ. Jede Buchung ist ein eigener Kassen-Posten.</div>
+        <div id="expCashList" style="margin-bottom:8px"></div>
+        <div class="row-flex">
+          <input id="expCashText" placeholder="Beschreibung (z.B. Spende, Pfand)" style="flex:2;padding:7px;border:1px solid var(--line);border-radius:6px">
+          <input id="expCashAmt" type="number" step="0.01" placeholder="± €" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:6px">
+          <button class="btn sm" onclick="addCashInExp()">+ Buchen</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -337,7 +353,8 @@
       <div class="hint">Programm/Timeline der Veranstaltung – z. B. Aufbau, Ankunft, Programmpunkte, Abbau. Wird lokal gespeichert.</div>
       <div class="agenda" id="agenda"></div>
       <div class="row-flex" style="margin-top:10px;">
-        <input id="agTime" placeholder="Zeit (z.B. Fr 13:00)" style="width:150px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+        <input id="agDay" placeholder="Tag (z.B. Freitag)" style="width:120px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+        <input id="agTime" placeholder="Zeit (z.B. 13:00)" style="width:110px;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <input id="agText" placeholder="Programmpunkt" style="flex:2;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <input id="agWho" placeholder="verantwortlich" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <button class="btn sm" onclick="addAgenda()">+ Hinzufügen</button>
@@ -439,6 +456,21 @@
           <div id="ppResult" style="margin-top:10px"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🤝 Sponsoren &amp; Partner</h2>
+    <div class="body">
+      <div class="hint">Partner mit Logo und Link erfassen — für Dankeschön, Aushänge und Webseite. Logos werden lokal gespeichert.</div>
+      <div id="sponsorList" style="display:flex;flex-wrap:wrap;gap:12px"></div>
+      <div class="row-flex" style="margin-top:10px">
+        <input id="spName" placeholder="Name" style="flex:2;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <input id="spUrl" placeholder="Link (optional)" style="flex:2;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <label class="btn ghost sm" style="cursor:pointer;color:var(--accent);border-color:var(--line)">🖼️ Logo<input type="file" id="spLogo" accept="image/*" style="display:none" onchange="spLogoPicked(this)"></label>
+        <button class="btn sm" onclick="addSponsor()">+ Partner</button>
+      </div>
+      <div class="row-flex" style="margin-top:8px"><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="printSponsors()">🖨️ Sponsoren-Aushang</button></div>
     </div>
   </div>
 
@@ -567,6 +599,7 @@
         <select id="fltNight" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"><option value="">Übernachtung: alle</option><option value="yes">übernachtet</option><option value="no">nicht</option></select>
         <select id="fltCheck" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"><option value="">Check-in: alle</option><option value="in">eingecheckt</option><option value="out">offen</option></select>
         <select id="fltTag" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"><option value="">Tag: alle</option></select>
+        <select id="fltSort" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px" title="Sortierung"><option value="name">Sortieren: Name A–Z</option><option value="name_d">Name Z–A</option><option value="pay">Zahlungsstatus</option><option value="checkin">Check-in zuerst</option><option value="pers">Personenzahl</option><option value="recent">Zuletzt angemeldet</option></select>
         <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="clearFilters()">Zurücksetzen</button>
       </div>
       <div id="pcards" class="pcards"></div>
@@ -646,6 +679,7 @@
       <button class="btn ghost sm" id="waTabI" onclick="waDev('i')" style="color:var(--accent);border-color:var(--line)">🍎 iPhone</button>
     </div>
     <ol id="waSteps" class="guide-steps"></ol>
+    <div style="background:#eaf4ee;border-left:4px solid var(--mgreen);padding:9px 12px;border-radius:0 6px 6px 0;font-size:12.5px;margin:12px 0">💻 <b>Am PC?</b> Den Chat exportieren geht nur in der Handy-App. Die Gruppe selbst öffnest du am PC über <a href="https://web.whatsapp.com" target="_blank" rel="noopener">web.whatsapp.com</a> — die exportierte .txt kannst du dir z.B. per Mail an dich schicken und hier am PC hochladen.</div>
     <div style="background:#fdf4dc;border-left:4px solid var(--yellow);padding:9px 12px;border-radius:0 6px 6px 0;font-size:12.5px;margin:12px 0">💡 Kommt eine <b>.zip</b>-Datei heraus (auf dem iPhone häufig)? Einmal antippen/entpacken — darin liegt eine <b>.txt</b>. Genau die lädst du hoch.</div>
     <div class="row-flex" style="justify-content:space-between;align-items:center;margin-top:6px">
       <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('waGuide')">Schließen</button>
@@ -659,6 +693,7 @@
     <h3>💳 PayPal-Zahlungen holen — Schritt für Schritt</h3>
     <p style="font-size:13px;color:var(--muted);margin:0 0 12px">So bekommst du die Liste aller Zahlungen als Datei — am einfachsten am Computer. Sie wird nur hier im Browser ausgewertet.</p>
     <ol id="ppSteps" class="guide-steps"></ol>
+    <div style="background:#eaf4ee;border-left:4px solid var(--mgreen);padding:9px 12px;border-radius:0 6px 6px 0;font-size:12.5px;margin:12px 0">🔗 Direkt öffnen: <a href="https://www.paypal.com/myaccount/activities/" target="_blank" rel="noopener">PayPal-Aktivitäten</a> · <a href="https://www.paypal.com/reports/statements" target="_blank" rel="noopener">Berichte/Auszüge</a> (Anmeldung erforderlich).</div>
     <div style="background:#fdf4dc;border-left:4px solid var(--yellow);padding:9px 12px;border-radius:0 6px 6px 0;font-size:12.5px;margin:12px 0">💡 Der <b>Pool-Kontostand</b> selbst steht nicht in der Datei — den trägst du im Finanzbereich von Hand ein. Diese Datei dient nur dazu, einzelne Zahler automatisch als „bezahlt" zu markieren.</div>
     <div class="row-flex" style="justify-content:space-between;align-items:center;margin-top:6px">
       <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('ppGuide')">Schließen</button>
@@ -692,13 +727,14 @@
         <select id="aZahl"><option>Ja, ist überwiesen</option><option>Ich zahle vor Ort (bitte passend)</option><option>Nein, noch nicht</option></select>
       </div>
       <div class="field" style="flex:1"><label>Rolle</label>
-        <select id="aRole"><option>Mitglied</option><option>Orga</option><option>Gast</option></select>
+        <select id="aRole" onchange="syncOrgaPaidField()"><option>Mitglied</option><option>Orga</option><option>Gast</option></select>
       </div>
     </div>
     <div class="row-flex">
       <div class="field" style="flex:1"><label>Telefon (für Erinnerungen)</label><input id="aPhone" placeholder="z.B. 0151 …"></div>
       <div class="field" style="flex:1"><label>Orga-Funktion (bei Rolle Orga)</label><input id="aOrgaRole" placeholder="z.B. Einlass, Grill, Leitung"></div>
     </div>
+    <div class="field" id="aOrgaPaidWrap" style="display:none"><label>Orga-Einzahlung / Vorfinanzierung (€) — fließt in den Orga-Pool</label><input id="aOrgaPaid" type="number" step="0.01" placeholder="z.B. 50"></div>
     <div class="field"><label>Notiz</label><input id="aNote"></div>
     <div class="row-flex" style="justify-content:flex-end;margin-top:8px;">
       <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('addModal')">Abbrechen</button>
@@ -716,6 +752,7 @@
     <div class="field"><label>Telefon (für WhatsApp-/SMS-Erinnerungen)</label><input id="exPhone" placeholder="z.B. 0151 2345678"></div>
     <div class="field"><label>Orga-Funktion (erscheint auf dem Orga-Namensschild)</label><input id="exOrga" placeholder="z.B. Einlass, Grill, Leitung"></div>
     <div class="field"><label>Interne Notiz</label><textarea id="exNote" rows="2" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:6px"></textarea></div>
+    <div class="row-flex" style="gap:6px;margin:6px 0 4px"><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="exportPerson()" title="DSGVO: alle zu dieser Person gespeicherten Daten exportieren">⬇ Daten exportieren</button><button class="btn danger sm" onclick="deletePersonData()" title="DSGVO: alle lokal ergänzten Daten dieser Person löschen">🗑 Daten löschen (DSGVO)</button></div>
     <div class="row-flex" style="justify-content:flex-end;margin-top:8px">
       <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('extraModal')">Abbrechen</button>
       <button class="btn" onclick="saveExtra()">Speichern</button>
@@ -730,7 +767,7 @@
     <div class="field"><label>Titel</label><input id="qzTitle" placeholder="z.B. Cannabis-Präventionsquiz"></div>
     <div id="qzTalkFields" style="display:none">
       <div class="field"><label>Link (YouTube, Präsentation, Website …)</label><input id="qzUrl" placeholder="https://…"></div>
-      <div class="field"><label>oder Datei (Bild/PDF)</label><label class="btn ghost sm" style="cursor:pointer;color:var(--accent);border-color:var(--line)">📎 Datei wählen<input type="file" id="qzFile" accept="image/*,.pdf" style="display:none" onchange="qzFilePicked(this)"></label> <span id="qzFileInfo" style="font-size:12px;color:var(--muted)"></span></div>
+      <div class="field"><label>oder Datei (Bild, PDF, HTML, Präsentation … beliebig)</label><label class="btn ghost sm" style="cursor:pointer;color:var(--accent);border-color:var(--line)">📎 Datei wählen<input type="file" id="qzFile" style="display:none" onchange="qzFilePicked(this)"></label> <span id="qzFileInfo" style="font-size:12px;color:var(--muted)"></span></div>
       <div class="field"><label>Moderations-Notizen / Spielregeln</label><textarea id="qzNotes" rows="3" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:6px"></textarea></div>
     </div>
     <div id="qzQuizFields">
@@ -742,6 +779,38 @@
       <button class="btn" onclick="saveQuiz()">Speichern</button>
     </div>
   </div>
+</div>
+
+<div class="modal" id="kasseModal">
+  <div class="box" style="max-width:420px">
+    <h3>💶 Kasse — Beitrag kassieren</h3>
+    <div id="kasseWho" style="font-weight:700;margin-bottom:6px;color:var(--accent)"></div>
+    <input type="hidden" id="kasseMail">
+    <div class="row-flex" style="align-items:center;justify-content:space-between;margin:10px 0">
+      <span>Personen</span>
+      <div class="row-flex" style="gap:8px;align-items:center"><button class="btn ghost sm" style="font-size:18px;padding:2px 12px" onclick="kasseCnt(-1)">−</button><b id="kasseCnt" style="min-width:30px;text-align:center;font-size:20px">1</b><button class="btn ghost sm" style="font-size:18px;padding:2px 12px" onclick="kasseCnt(1)">+</button></div>
+    </div>
+    <div class="cashline"><span>Beitrag (<span id="kassePrice"></span> €/Pers.)</span><b class="money" id="kasseAmt"></b></div>
+    <div class="field" style="margin-top:10px"><label>Gegeben (€)</label><input id="kasseGiven" type="number" step="0.01" inputmode="decimal" oninput="kasseCalc()"></div>
+    <div class="row-flex" style="gap:6px;margin-bottom:8px">
+      <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="kasseGiveQuick(5)">5€</button>
+      <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="kasseGiveQuick(10)">10€</button>
+      <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="kasseGiveQuick(20)">20€</button>
+      <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="kasseGiveQuick(50)">50€</button>
+      <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="kasseGiveExact()">passend</button>
+    </div>
+    <div class="cashline"><span>Rückgeld</span><b class="money" id="kasseChange">0,00 €</b></div>
+    <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="kasseDonate" onchange="kasseCalc()"> Rückgeld als <b>Spende</b> behalten 💚</label>
+    <div class="row-flex" style="justify-content:flex-end;gap:8px;margin-top:8px">
+      <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('kasseModal')">Abbrechen</button>
+      <button class="btn" onclick="bookKasse()">✓ Verbuchen &amp; einchecken</button>
+    </div>
+  </div>
+</div>
+
+<div id="infoScreen" style="display:none;position:fixed;inset:0;background:#08160d;z-index:400;color:#fff;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6vh 6vw">
+  <button class="btn sm" style="position:absolute;top:14px;right:16px;background:#a33" onclick="closeInfoScreen()">✕ Ende</button>
+  <div id="infoBody"></div>
 </div>
 
 <div id="presentOverlay" style="display:none;position:fixed;inset:0;background:#08160d;z-index:400;color:#fff;flex-direction:column;">
@@ -791,8 +860,8 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.2';
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite'];
+const APP_VERSION='2.3';
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -825,6 +894,7 @@ const kUI   =()=>'evtdash_ui_'+currentId;       // UI-Zustand (eingeklappte Bere
 const kInv  =()=>'evtdash_inv_'+currentId;      // Material/Inventar
 const kCalc =()=>'evtdash_calc_'+currentId;     // Verbrauchs-Kalkulation
 const kInvite=()=>'evtdash_invite_'+currentId;  // Einladungsliste
+const kSponsor=()=>'evtdash_sponsor_'+currentId;// Sponsoren/Partner
 function extraOf(mail){ return (LS.get(kExtra(),{})[mail])||{}; }
 function phoneOf(row){
   const mail=mailOf(row);
@@ -928,6 +998,22 @@ function saveExtra(){
   if(Object.keys(o).length)ex[mail]=o; else delete ex[mail];
   LS.set(kExtra(),ex);
   closeModal('extraModal'); renderParticipants();
+}
+function exportPerson(){
+  const mail=document.getElementById('exMail').value; if(!mail)return;
+  const row=DATA.find(x=>mailOf(x)===mail);
+  const data={mail, anmeldung:row?Object.fromEntries(HEADERS.filter(h=>val(row,h)).map(h=>[h,val(row,h)])):null,
+    anzeigename:(LS.get(kNames(),{})[mail])||null, rolle:LS.get(kRole(),{})[mail]||null,
+    ergaenzt:extraOf(mail), tags:tagsOf(mail), eingecheckt:!!(LS.get(kChk(),{})[mail]), bezahlt:!!(LS.get(kPaid(),{})[mail]),
+    zeltplatz:LS.get(kSleep(),{})[mail]||null };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='person-'+mail.replace(/[^a-z0-9]/gi,'_')+'.json'; a.click();
+}
+function deletePersonData(){
+  const mail=document.getElementById('exMail').value; if(!mail)return;
+  if(!confirm('Alle lokal ergänzten Daten dieser Person löschen (Anzeigename, Rolle, Tags, Telefon/Notiz, Check-in, Zahlung, Zeltplatz)?\n\nHinweis: Die ursprüngliche Formular-Antwort in der Google-Tabelle wird dadurch NICHT verändert.'))return;
+  [kNames,kRole,kTags,kExtra,kChk,kPaid,kSleep].forEach(kf=>{ const o=LS.get(kf(),{}); if(o&&typeof o==='object'&&o[mail]!==undefined){ delete o[mail]; LS.set(kf(),o); } });
+  closeModal('extraModal'); rebuildData(); alert('Lokale Daten dieser Person gelöscht.');
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function parseTs(s){ const p=(s||'').split(' ')[0]; if(!p)return 0; const m=p.split('/'); if(m.length===3){const d=new Date(+m[2],+m[0]-1,+m[1]); return d.getTime()||0;} return new Date(s).getTime()||0; }
@@ -1051,7 +1137,7 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderQuiz(); renderInv(); renderCalc(); renderInvite(); renderReport(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderQuiz(); renderInv(); renderCalc(); renderInvite(); renderSponsors(); renderReport(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
 
 /* ===== Sprache (DE/EN, Bereichs-Überschriften) ===== */
 const HDR_EN={ 'Community & Schnellzugriff':'Community & Quick Access','Grafische Auswertung':'Charts & Analysis','Wetter fürs Event':'Weather','Veranstaltungs-Vergleich':'Event Comparison','Orga & Finanzen':'Organization & Finance','Ablaufplan':'Schedule','Namensschilder & Listen':'Badges & Lists','Mitfahr-Börse & Fahrdienst':'Ride Share','Kommunikations-Bausteine':'Message Templates','Daten-Import (WhatsApp & PayPal)':'Data Import (WhatsApp & PayPal)','Zähler & Strichlisten':'Counters','Einkaufsliste':'Shopping List','Mitbring-Liste (Bottle-Liste)':'Bring List (Bottle List)','Teilnehmer':'Participants','Feedback':'Feedback','Foto-Galerie':'Photo Gallery' };
@@ -1109,7 +1195,8 @@ function orgaCount(){ return LS.get(kOrga(),[]).length; }
 function renderOrga(){
   const box=document.getElementById('orgaList'); if(!box)return;
   const list=LS.get(kOrga(),[]);
-  box.innerHTML = list.length ? list.map((o,i)=>
+  const ord=list.map((o,i)=>({o,i})).sort((a,b)=>(+b.o.paid||0)-(+a.o.paid||0));
+  box.innerHTML = list.length ? ord.map(({o,i})=>
     `<div class="cashline"><span><b>${esc(o.name||'—')}</b>${o.note?` <span style="color:var(--muted);font-size:12px">· ${esc(o.note)}</span>`:''}</span><span class="amt money pos">${eur(+o.paid||0)}</span><button class="btn danger sm" style="padding:1px 6px" onclick="delOrga(${i})">×</button></div>`).join('')
     : '<div class="status" style="color:var(--muted)">Noch keine Orga-Mitglieder erfasst.</div>';
   const el=document.getElementById('orgaTotal'); if(el) el.textContent=eur(orgaPool());
@@ -1386,6 +1473,18 @@ function renderParticipants(){
     return true;
   };
   const rows=DATA.map((r,i)=>({r,i})).filter(o=>matches(o.r));
+  const sort=document.getElementById('fltSort')?.value||'name';
+  const payRank={paid:0,onsite:1,open:2,unknown:3};
+  const cTsS=findCol('timestamp','zeitstempel');
+  rows.sort((a,b)=>{
+    if(sort==='name') return displayName(a.r).localeCompare(displayName(b.r),'de');
+    if(sort==='name_d') return displayName(b.r).localeCompare(displayName(a.r),'de');
+    if(sort==='pay') return (payRank[payState(a.r)]??9)-(payRank[payState(b.r)]??9) || displayName(a.r).localeCompare(displayName(b.r),'de');
+    if(sort==='checkin') return (isChecked(b.r)?1:0)-(isChecked(a.r)?1:0) || displayName(a.r).localeCompare(displayName(b.r),'de');
+    if(sort==='pers') return personsOf(b.r)-personsOf(a.r) || displayName(a.r).localeCompare(displayName(b.r),'de');
+    if(sort==='recent') return (parseTs(val(b.r,cTsS))||0)-(parseTs(val(a.r,cTsS))||0);
+    return 0;
+  });
   const anyFilter=q||fPay||fRole||fNight||fCheck||fTag;
   document.getElementById('pCount').innerHTML=(anyFilter?`${rows.length} von ${DATA.length}`:`${DATA.length}`)+' Einträge'+(dupes?` · <span style="color:#a33">${dupes} mögliche Doppelanmeldung(en)</span>`:'');
   // cards
@@ -1429,6 +1528,7 @@ function renderParticipants(){
 }
 function clearFilters(){
   ['fltSearch','fltPay','fltRole','fltNight','fltCheck','fltTag'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const so=document.getElementById('fltSort'); if(so)so.value='name';
   renderParticipants();
 }
 function delManual(idx){
@@ -1485,17 +1585,27 @@ function renderAgenda(){
   list.forEach((a,i)=>{ const m=agMin(a.time); if(m==null)return; if(m<=nowMin)curIdx=i; else if(nextIdx===-1)nextIdx=i; });
   const clock=now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
   const head=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><b style="font-size:13px">Programm</b><span class="status" style="color:var(--muted)">🕒 ${clock}</span></div>`;
-  document.getElementById('agenda').innerHTML= head + (list.map((a,i)=>{
+  const rowHtml=(a,i)=>{
     const cur=i===curIdx, nxt=i===nextIdx, past=agMin(a.time)!=null && agMin(a.time)<=nowMin && !cur;
     const style=cur?'background:#173a26;border-radius:6px;padding-left:8px;':(past?'opacity:.5;':'');
     return `<div class="a" style="${style}"><span class="time">${esc(a.time||'')}</span><span style="flex:1">${cur?'▶ ':''}${nxt?'⏭ ':''}${esc(a.text||'')}${cur?' <span style="color:#5cc183;font-size:11px">(läuft)</span>':nxt?' <span style="color:#c9922b;font-size:11px">(als Nächstes)</span>':''}</span>${a.who?`<span class="who">${esc(a.who)}</span>`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delAgenda(${i})">×</button></div>`;
-  }).join('') || '<div class="status" style="color:var(--muted)">Noch kein Programm eingetragen.</div>');
+  };
+  let body='';
+  const days=[...new Set(list.map(a=>a.day||''))];
+  const multiDay=days.filter(d=>d).length>0 && days.length>1;
+  if(multiDay){
+    days.forEach(d=>{ body+=`<div style="margin:10px 0 4px;font-weight:700;color:var(--mgreen,#5cc183);font-size:13px">${d?('📅 '+esc(d)):'Ohne Tag'}</div>`;
+      list.forEach((a,i)=>{ if((a.day||'')===d) body+=rowHtml(a,i); }); });
+  } else {
+    body = list.map((a,i)=>rowHtml(a,i)).join('');
+  }
+  document.getElementById('agenda').innerHTML= head + (body || '<div class="status" style="color:var(--muted)">Noch kein Programm eingetragen.</div>');
 }
 setInterval(()=>{ try{ if(document.getElementById('agenda')) renderAgenda(); }catch(e){} }, 60000);
 function addAgenda(){
-  const t=document.getElementById('agTime').value.trim(), x=document.getElementById('agText').value.trim(), w=document.getElementById('agWho').value.trim();
+  const t=document.getElementById('agTime').value.trim(), x=document.getElementById('agText').value.trim(), w=document.getElementById('agWho').value.trim(), d=(document.getElementById('agDay')||{}).value||'';
   if(!x){alert('Bitte Programmpunkt angeben.');return;}
-  const l=LS.get(kAg(),[]); l.push({time:t,text:x,who:w}); LS.set(kAg(),l);
+  const l=LS.get(kAg(),[]); l.push({day:d.trim(),time:t,text:x,who:w}); LS.set(kAg(),l);
   ['agTime','agText','agWho'].forEach(id=>document.getElementById(id).value=''); renderAgenda();
 }
 function delAgenda(i){const l=LS.get(kAg(),[]);l.splice(i,1);LS.set(kAg(),l);renderAgenda();}
@@ -2317,8 +2427,12 @@ function renderCheckin(){
   if(kioskMode){
     document.getElementById('ciList').innerHTML = !q
       ? '<div class="cnt" style="text-align:center;padding:40px 10px;font-size:18px">Willkommen! 👋<br>Gib Deinen Namen ein, um Dich einzuchecken.</div>'
-      : (list.map(r=>{ const mail=mailOf(r), inn=isChecked(r);
-          return `<div class="cirow ${inn?'in':''}"><div><div class="nm">${esc(displayName(r))}</div>${val(r,cVer)?`<div class="mt">${esc(val(r,cVer))}</div>`:''}</div><div class="sp"></div>${inn?'<span style="color:#5cc183;font-weight:700">✅ eingecheckt</span>':`<button class="bigbtn" onclick="ciKioskCheck('${esc(mail)}')">Das bin ich → Einchecken</button>`}</div>`;
+      : (list.map(r=>{ const mail=mailOf(r), inn=isChecked(r); const unpaid=payState(r)!=='paid'; const amt=personsOf(r)*ev().price;
+          const btn = inn ? '<span style="color:#5cc183;font-weight:700">✅ eingecheckt</span>'
+            : (selfPayMode && unpaid
+                ? `<button class="bigbtn" style="background:#1c8a4e" onclick="ciSelfPay('${esc(mail)}')">Beitrag ${eur(amt)} — Geld einwerfen &amp; einchecken</button>`
+                : `<button class="bigbtn" onclick="ciKioskCheck('${esc(mail)}')">Das bin ich → Einchecken</button>`);
+          return `<div class="cirow ${inn?'in':''}"><div><div class="nm">${esc(displayName(r))}</div>${val(r,cVer)?`<div class="mt">${esc(val(r,cVer))}</div>`:''}</div><div class="sp"></div>${btn}</div>`;
         }).join('') || '<div class="cnt" style="text-align:center;padding:30px">Kein Treffer. Bitte beim Orga-Team melden.</div>');
     return;
   }
@@ -2334,12 +2448,35 @@ function renderCheckin(){
       </div>
       <div class="sp"></div>
       <button class="bigbtn" style="background:#3a5044" title="Namensschild drucken" onclick="printOneBadge('${esc(mail)}')">🏷️</button>
-      ${st!=='paid'?`<button class="bigbtn pay" onclick="ciPay('${esc(mail)}')">${eur(np*ev().price)} kassiert</button>`:''}
+      ${st!=='paid'?`<button class="bigbtn pay" title="Kassen-Assistent (Rückgeld/Spende/Personen)" onclick="openKasse('${esc(mail)}')">💶 ${eur(np*ev().price)} kassieren</button>`:''}
       <button class="bigbtn ${inn?'undo':''}" onclick="ciToggle('${esc(mail)}')">${inn?'↩ rückgängig':'Einchecken'}</button>
     </div>`;
   }).join('') || '<div class="cnt" style="text-align:center;padding:30px">Kein Treffer.</div>');
 }
 function ciToggle(mail){ toggleCheckin(mail); renderCheckin(); }
+let selfPayMode=false;
+function toggleSelfPay(){
+  selfPayMode=!selfPayMode; kioskMode=selfPayMode;
+  const b=document.getElementById('selfPayBtn'); if(b){ b.textContent=selfPayMode?'💰 Selbstzahler beenden':'💰 Selbstzahler-Kasse'; b.style.background=selfPayMode?'#1c8a4e':''; b.style.color=selfPayMode?'#fff':''; }
+  ['kioskBtn','scanBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=selfPayMode?'none':'';});
+  const om=document.getElementById('ciOnlyMissing'); if(om)om.parentElement.style.display=selfPayMode?'none':'';
+  const se=document.getElementById('ciSearch'); if(se){se.placeholder=selfPayMode?'Gib Deinen Namen ein…':'Name oder Mail suchen…';se.value='';}
+  if(selfPayMode)stopScan();
+  renderCheckin();
+}
+function ciSelfPay(mail){
+  const row=DATA.find(r=>mailOf(r)===mail); if(!row)return;
+  const amt=personsOf(row)*ev().price;
+  if(!confirm('Bitte '+eur(amt)+' passend in die Kasse einwerfen.\n\nAuf „OK" tippen, sobald das Geld drin ist — dann bist Du eingecheckt.'))return;
+  const cash=LS.get(kCash(),[]); cash.push({id:Date.now(),text:'Selbstzahler: '+displayName(row)+(personsOf(row)>1?(' ×'+personsOf(row)):''),amount:amt,date:Date.now(),src:'kasse'}); LS.set(kCash(),cash);
+  const po=LS.get(kPaid(),{}); po[mail]=true; LS.set(kPaid(),po);
+  const s=LS.get(kChk(),{}); s[mail]=Date.now(); LS.set(kChk(),s);
+  rebuildData(); beep(true);
+  const sp=document.getElementById('kioskSplash');
+  document.getElementById('ciList').style.display='none'; document.getElementById('ciSearch').style.display='none';
+  sp.style.display=''; sp.innerHTML=`<div style="font-size:52px">✅💚</div><div style="font-size:26px;font-weight:800;margin-top:10px">Danke, ${esc(displayName(row))}!</div><div class="cnt" style="margin-top:8px">Beitrag erhalten — Du bist eingecheckt.</div>`;
+  setTimeout(()=>{ sp.style.display='none'; document.getElementById('ciList').style.display=''; const s2=document.getElementById('ciSearch'); s2.style.display=''; s2.value=''; s2.focus(); renderCheckin(); },2800);
+}
 function ciKioskCheck(mail){
   const row=DATA.find(r=>mailOf(r)===mail); if(!row)return;
   const s=LS.get(kChk(),{}); s[mail]=Date.now(); LS.set(kChk(),s); rebuildData(); beep(true);
@@ -2356,6 +2493,48 @@ function ciPay(mail){
   const cash=LS.get(kCash(),[]); cash.push({text:'Bar kassiert: '+displayName(row),amount:amt,date:Date.now()}); LS.set(kCash(),cash);
   const s=LS.get(kChk(),{}); if(!s[mail]){s[mail]=Date.now();LS.set(kChk(),s);} // auto check-in
   rebuildData(); renderCheckin(); beep(true);
+}
+/* ---- Kassen-Assistent (POS) ---- */
+let _kasse={mail:'',cnt:1};
+function openKasse(mail){
+  const row=mail?DATA.find(r=>mailOf(r)===mail):null;
+  _kasse.mail=mail||''; _kasse.cnt=row?personsOf(row):1;
+  document.getElementById('kasseMail').value=_kasse.mail;
+  document.getElementById('kasseWho').textContent=row?displayName(row):'Barzahler / Gast (ohne Anmeldung)';
+  document.getElementById('kassePrice').textContent=(+ev().price||0).toLocaleString('de-DE');
+  document.getElementById('kasseGiven').value=''; document.getElementById('kasseDonate').checked=false;
+  document.getElementById('kasseCnt').textContent=_kasse.cnt;
+  kasseCalc();
+  document.getElementById('kasseModal').classList.add('open');
+}
+function kasseCnt(d){ _kasse.cnt=Math.max(1,_kasse.cnt+d); document.getElementById('kasseCnt').textContent=_kasse.cnt; kasseCalc(); }
+function kasseAmount(){ return _kasse.cnt*(+ev().price||0); }
+function kasseCalc(){
+  const amt=kasseAmount(); document.getElementById('kasseAmt').textContent=eur(amt);
+  const given=parseFloat(document.getElementById('kasseGiven').value)||0;
+  const donate=document.getElementById('kasseDonate').checked;
+  const change=Math.max(0,given-amt);
+  document.getElementById('kasseChange').textContent = donate ? ('0,00 € · Spende '+eur(change)) : eur(change);
+}
+function kasseGiveQuick(v){ const el=document.getElementById('kasseGiven'); el.value=(parseFloat(el.value)||0)+v; kasseCalc(); }
+function kasseGiveExact(){ document.getElementById('kasseGiven').value=kasseAmount().toFixed(2); document.getElementById('kasseDonate').checked=false; kasseCalc(); }
+function bookKasse(){
+  const amt=kasseAmount(); const mail=document.getElementById('kasseMail').value;
+  const given=parseFloat(document.getElementById('kasseGiven').value)||0;
+  const donate=document.getElementById('kasseDonate').checked;
+  if(given>0 && given<amt && !confirm('Gegeben ('+eur(given)+') ist weniger als der Beitrag ('+eur(amt)+'). Trotzdem verbuchen?'))return;
+  const row=mail?DATA.find(r=>mailOf(r)===mail):null;
+  const label=row?('Bar: '+displayName(row)):('Bar: Gast ('+_kasse.cnt+' Pers.)');
+  const cash=LS.get(kCash(),[]);
+  cash.push({id:Date.now(),text:label+(_kasse.cnt>1?(' ×'+_kasse.cnt):''),amount:amt,date:Date.now(),src:'kasse'});
+  const donation=donate?Math.max(0,given-amt):0;
+  if(donation>0.005) cash.push({id:Date.now()+1,text:'Spende (Rückgeld) '+(row?displayName(row):'Gast'),amount:donation,date:Date.now()+1,src:'kasse'});
+  LS.set(kCash(),cash);
+  if(row){ const po=LS.get(kPaid(),{}); po[mail]=true; LS.set(kPaid(),po); const s=LS.get(kChk(),{}); if(!s[mail]){s[mail]=Date.now();LS.set(kChk(),s);} }
+  rebuildData(); closeModal('kasseModal'); beep(true);
+  const change=Math.max(0,given-amt)-donation;
+  if(change>0.005) alert('Verbucht ✓\n\n💶 Rückgeld herausgeben: '+eur(change));
+  if(document.getElementById('ciov').classList.contains('open')) renderCheckin();
 }
 /* ---- QR-Scanner ---- */
 let scanStream=null, scanRAF=null, lastScan=0;
@@ -2394,7 +2573,8 @@ function onScan(text){
   const msg=document.getElementById('scanMsg');
   if(!row){ msg.textContent='❓ Unbekannter Code: '+text; beep(false); return; }
   const s=LS.get(kChk(),{}); s[mailOf(row)]=Date.now(); LS.set(kChk(),s);
-  msg.innerHTML='✅ Eingecheckt: <b>'+esc(displayName(row))+'</b>';
+  const unpaid=payState(row)!=='paid'; const amt=personsOf(row)*ev().price;
+  msg.innerHTML='✅ Eingecheckt: <b>'+esc(displayName(row))+'</b>'+(unpaid?` <span style="color:#e8b04b">— ⚠️ Beitrag ${eur(amt)} noch offen</span> <button class="btn sm" style="margin-left:8px" onclick="openKasse('${esc(mailOf(row))}')">💶 Jetzt kassieren</button>`:'');
   rebuildData(); renderCheckin(); beep(true);
 }
 function beep(ok){
@@ -2500,7 +2680,14 @@ function renderExp(){
   const l=LS.get(kExp(),[]); const rc=LS.get(kReceipts(),{});
   box.innerHTML = l.length ? l.map((x,i)=>`<div class="cashline"><span>${esc(x.desc||'—')} <span style="font-size:10px;background:#eef2ef;color:var(--muted);border-radius:8px;padding:1px 6px">${esc(x.cat||'—')} · ${SRC_LABEL[x.src]||x.src}</span></span><span class="amt money neg">−${(+x.amount).toLocaleString('de-DE',{minimumFractionDigits:2})} €</span>${rc[x.id]?`<img src="${rc[x.id]}" title="Beleg ansehen" style="height:22px;border-radius:3px;cursor:zoom-in;margin-left:6px" onclick="viewReceipt(${x.id})">`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delExp(${i})">×</button></div>`).join('') : '<div class="status" style="color:var(--muted)">Noch keine Ausgaben mit Beleg erfasst.</div>';
   const el=document.getElementById('expTotal'); if(el)el.textContent='−'+eur(l.reduce((s,x)=>s+(+x.amount||0),0));
+  // Handkasse-Mini-Ansicht in der Ausgaben-Sektion
+  const cashBox=document.getElementById('expCashList');
+  if(cashBox){ const cl=LS.get(kCash(),[]); const e=ev(); let bal=+e.cashStart||0;
+    cashBox.innerHTML = cl.length ? cl.map((c,i)=>{ bal+=+c.amount; return `<div class="cashline"><span>${esc(c.text||'—')}</span><span class="amt money ${c.amount<0?'neg':'pos'}">${(c.amount<0?'':'+')+(+c.amount).toLocaleString('de-DE',{minimumFractionDigits:2})} €</span><button class="btn danger sm" style="padding:1px 6px" onclick="delCash(${i})">×</button></div>`; }).join('') : ('<div class="status" style="color:var(--muted);font-size:12px">Startbestand '+eur(+e.cashStart||0)+' — noch keine Buchungen.</div>');
+    const balEl=document.getElementById('expCashBal'); if(balEl)balEl.textContent=eur(bal-expSums().kasse);
+  }
 }
+function addCashInExp(){ const t=document.getElementById('expCashText').value.trim(); const a=parseFloat(document.getElementById('expCashAmt').value); if(!isFinite(a)){alert('Bitte Betrag angeben (negativ = Ausgabe).');return;} const id=Date.now(); const l=LS.get(kCash(),[]); l.push({id,text:t,amount:a,date:id,src:'kasse'}); LS.set(kCash(),l); document.getElementById('expCashText').value='';document.getElementById('expCashAmt').value=''; renderFinance(); }
 
 /* ===== Quiz / Spiele / Vorträge ===== */
 let _qzFile=null, _qzQCount=0, _present=null;
@@ -2538,8 +2725,9 @@ function qzOptRow(qi,oi,v,correct){
 function qzAddOpt(btn,qi){ const box=btn.parentElement.querySelector('.qzOpts'); box.insertAdjacentHTML('beforeend', qzOptRow(qi,box.children.length,'',-1)); }
 function qzFilePicked(input){
   const f=input.files[0]; if(!f)return; const info=document.getElementById('qzFileInfo');
+  if(f.size>4*1024*1024 && !f.type.startsWith('image/')){ if(!confirm('Die Datei ist recht groß ('+Math.round(f.size/1024/1024)+' MB) und wird im Browser gespeichert — das kann den Speicher füllen. Trotzdem anhängen?')){input.value='';return;} }
   if(f.type.startsWith('image/')){ resizeImage(f,1600,(d)=>{_qzFile=d;info.textContent='Bild angehängt ✓';}); }
-  else { const rd=new FileReader(); rd.onload=()=>{_qzFile=rd.result;info.textContent='PDF angehängt ✓';}; rd.readAsDataURL(f); }
+  else { const rd=new FileReader(); rd.onload=()=>{_qzFile=rd.result;info.textContent=(f.name||'Datei')+' angehängt ✓';}; rd.readAsDataURL(f); }
   input.value='';
 }
 function saveQuiz(){
@@ -2612,17 +2800,42 @@ function pdfScores(id){
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(it.title)} — Ergebnisse</title><style>@page{size:A4;margin:18mm;}body{font-family:Arial,sans-serif;color:#22322a}h1{color:#1f7554;border-bottom:3px solid #f9c74f;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:13pt}td{padding:6px 4px;border-bottom:1px solid #dfe7e1}tr:first-child td{font-weight:700}</style></head><body onload="setTimeout(()=>window.print(),400)"><h1>🏆 ${esc(it.title)} — Ergebnisse</h1><div style="font-size:10pt;color:#4a5c50;margin-bottom:10px">${esc(ev().name)}</div><table>${rows}</table></body></html>`;
   openPrint(html);
 }
-function loadQuizTemplates(){
-  if(!confirm('Beispiel-Vorlagen laden (1 Quiz + 2 Spiele)? Bestehende bleiben erhalten.'))return;
-  const l=LS.get(kQuiz(),[]);
-  l.push({id:'q'+Date.now(),type:'quiz',title:'Cannabis-Präventionsquiz (Beispiel)',scores:[],questions:[
+const QUIZ_DB=[
+  {type:'quiz',title:'Cannabis-Präventionsquiz',questions:[
     {q:'Ab welchem Alter ist der Konsum in einem CSC in Deutschland erlaubt?',opts:['16','18','21'],correct:1},
     {q:'Wie viel Gramm darf ein Mitglied laut CanG pro Tag maximal erhalten?',opts:['10 g','25 g','50 g'],correct:1},
-    {q:'Was senkt das Risiko beim Konsum am stärksten?',opts:['Pausen & Maßhalten','Auf nüchternen Magen','Mit Alkohol kombinieren'],correct:0}
-  ]});
-  l.push({id:'g'+(Date.now()+1),type:'game',title:'Schätzspiel (Beispiel)',scores:[],notes:'Moderator stellt Schätzfragen (z.B. „Wie viele Gäste sind heute da?"). Wer am nächsten dran ist, bekommt Punkte. 3–5 Runden.'});
-  l.push({id:'g'+(Date.now()+2),type:'game',title:'Stadt-Land-Fluss (Camp-Edition)',scores:[],notes:'Kategorien: Stadt · Pflanze · Sorte · Band · Essen. Buchstabe auslosen, 60 Sekunden, danach Punkte vergeben (10 = einzigartig, 5 = doppelt).'});
-  LS.set(kQuiz(),l); renderQuiz();
+    {q:'Was senkt das Risiko beim Konsum am stärksten?',opts:['Pausen & Maßhalten','Auf nüchternen Magen','Mit Alkohol kombinieren'],correct:0},
+    {q:'Wie viele Pflanzen darf man zuhause zum Eigenanbau halten?',opts:['1','3','5'],correct:1}
+  ]},
+  {type:'quiz',title:'Cannabis-Mythen-Check',questions:[
+    {q:'„Cannabis macht nicht abhängig." – stimmt das?',opts:['Nein, eine Abhängigkeit ist möglich','Ja, völlig unbedenklich'],correct:0},
+    {q:'Wirkt gegessenes Cannabis (Edibles) …',opts:['schneller als Rauchen','später, dafür länger'],correct:1},
+    {q:'Ist Autofahren unter Einfluss erlaubt?',opts:['Nein','Ja, in kleinen Mengen'],correct:0}
+  ]},
+  {type:'quiz',title:'Allgemeinwissen (bunt gemischt)',questions:[
+    {q:'Welcher Fluss fließt durch Marburg?',opts:['Lahn','Main','Rhein'],correct:0},
+    {q:'Wie viele Bundesländer hat Deutschland?',opts:['14','16','18'],correct:1},
+    {q:'Was ist die Hauptstadt von Hessen?',opts:['Frankfurt','Kassel','Wiesbaden'],correct:2}
+  ]},
+  {type:'game',title:'Schätzspiel',notes:'Der Moderator stellt Schätzfragen (z.B. „Wie viele Gäste sind heute da?", „Wie schwer ist der Grill?"). Wer am nächsten dran ist, bekommt Punkte. 3–5 Runden, Punkte hier eintragen.'},
+  {type:'game',title:'Stadt-Land-Fluss (Camp-Edition)',notes:'Kategorien: Stadt · Pflanze · Sorte · Band · Essen. Buchstabe auslosen, 60 Sekunden Zeit, dann Punkte vergeben (10 = einzigartig, 5 = doppelt, 0 = leer).'},
+  {type:'game',title:'„Wer bin ich?"',notes:'Jede Person bekommt einen Zettel mit einem Begriff/Promi auf die Stirn und errät ihn per Ja/Nein-Fragen. Punkte für jeden erratenen Begriff.'},
+  {type:'game',title:'Musik-Quiz (Intros erraten)',notes:'Kurze Song-Anfänge abspielen, Teams erraten Titel/Interpret. 10 Runden. Tipp: Playlist als Vortrag/Link hinterlegen.'}
+];
+function loadQuizTemplates(){
+  const box=document.getElementById('quizList'); if(!box)return;
+  const icon={quiz:'❓',game:'🎯',talk:'🎤'};
+  box.innerHTML=`<div style="border:1px solid var(--mgreen);border-radius:8px;padding:12px;margin-bottom:12px;background:#f6f9f7">
+    <div class="row-flex" style="justify-content:space-between;align-items:center;margin-bottom:8px"><b>📚 Vorlagen-Datenbank — direkt nutzbar</b><button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="renderQuiz()">Schließen</button></div>
+    ${QUIZ_DB.map((t,i)=>`<div class="cashline"><span>${icon[t.type]} <b>${esc(t.title)}</b> <span style="font-size:11px;color:var(--muted)">· ${t.type==='quiz'?(t.questions.length+' Fragen'):'Spiel'}</span></span><button class="btn sm" onclick="useTemplate(${i})">＋ Nutzen</button></div>`).join('')}
+  </div>`+box.innerHTML;
+}
+function useTemplate(i){
+  const t=QUIZ_DB[i]; if(!t)return;
+  const l=LS.get(kQuiz(),[]);
+  const item={id:(t.type==='quiz'?'q':'g')+Date.now(),type:t.type,title:t.title,scores:[]};
+  if(t.type==='quiz')item.questions=t.questions.map(q=>({...q,opts:[...q.opts]})); else item.notes=t.notes||'';
+  l.push(item); LS.set(kQuiz(),l); renderQuiz();
 }
 function delScore(id,i){ const l=LS.get(kQuiz(),[]); const it=l.find(x=>x.id==id); if(!it)return; it.scores.splice(i,1); LS.set(kQuiz(),l); renderScores(id); }
 function presentStart(id){ const it=LS.get(kQuiz(),[]).find(x=>x.id==id); if(!it)return; _present={it,idx:0,reveal:false}; const ov=document.getElementById('presentOverlay'); ov.style.display='flex'; presentRender(); try{ov.requestFullscreen&&ov.requestFullscreen();}catch(e){} }
@@ -2808,15 +3021,57 @@ function renderInvite(){
   const sum=document.getElementById('inviteSummary'); if(sum){ const b={eingeladen:0,zugesagt:0,abgesagt:0}; l.forEach(x=>b[x.status]=(b[x.status]||0)+1); sum.textContent=`${l.length} eingeladen · ${b.zugesagt} zugesagt · ${b.abgesagt} abgesagt`; }
 }
 
+/* ===== Sponsoren / Partner ===== */
+let _spLogo=null;
+function spLogoPicked(input){ const f=input.files[0]; if(!f)return; resizeImage(f,400,(d)=>{_spLogo=d; const el=document.getElementById('spName'); if(el)el.focus();}); input.value=''; }
+function addSponsor(){ const name=document.getElementById('spName').value.trim(); if(!name){alert('Bitte Name angeben.');return;} const url=document.getElementById('spUrl').value.trim(); const l=LS.get(kSponsor(),[]); l.push({name,url,logo:_spLogo||''}); LS.set(kSponsor(),l); _spLogo=null; document.getElementById('spName').value='';document.getElementById('spUrl').value=''; renderSponsors(); }
+function delSponsor(i){ const l=LS.get(kSponsor(),[]); l.splice(i,1); LS.set(kSponsor(),l); renderSponsors(); }
+function renderSponsors(){ const box=document.getElementById('sponsorList'); if(!box)return; const l=LS.get(kSponsor(),[]);
+  box.innerHTML = l.length ? l.map((s,i)=>`<div style="position:relative;border:1px solid var(--line);border-radius:8px;padding:10px;width:150px;text-align:center">${s.logo?`<img src="${s.logo}" style="max-height:50px;max-width:120px;margin-bottom:6px">`:'<div style="height:50px;display:flex;align-items:center;justify-content:center;color:var(--muted)">(kein Logo)</div>'}<div style="font-size:12px;font-weight:700">${esc(s.name)}</div>${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">↗ Link</a>`:''}<button class="btn danger sm" style="position:absolute;top:2px;right:2px;padding:0 6px" onclick="delSponsor(${i})">×</button></div>`).join('') : '<div class="status" style="color:var(--muted)">Noch keine Partner erfasst.</div>';
+}
+function printSponsors(){ const l=LS.get(kSponsor(),[]); if(!l.length){alert('Noch keine Sponsoren erfasst.');return;} const cells=l.map(s=>`<div class="sp">${s.logo?`<img src="${s.logo}">`:''}<div class="nm">${esc(s.name)}</div></div>`).join(''); const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sponsoren</title><style>@page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;text-align:center}h1{color:#1f7554;border-bottom:3px solid #f9c74f;padding-bottom:8px}.g{display:flex;flex-wrap:wrap;gap:14mm;justify-content:center;margin-top:14mm}.sp{width:60mm}.sp img{max-width:55mm;max-height:35mm}.nm{font-weight:700;margin-top:4mm;font-size:13pt}</style></head><body onload="setTimeout(()=>window.print(),400)"><h1>Vielen Dank an unsere Partner</h1><div style="color:#4a5c50">${esc(ev().name)}</div><div class="g">${cells}</div></body></html>`; openPrint(html); }
+
+/* ===== Info-Screen (read-only, fürs Foyer) ===== */
+let _infoTimer=null;
+function openInfoScreen(){ const o=document.getElementById('infoScreen'); if(!o)return; o.style.display='flex'; infoRender(); _infoTimer=setInterval(infoRender,30000); try{o.requestFullscreen&&o.requestFullscreen();}catch(e){} }
+function closeInfoScreen(){ const o=document.getElementById('infoScreen'); if(o)o.style.display='none'; if(_infoTimer){clearInterval(_infoTimer);_infoTimer=null;} try{document.fullscreenElement&&document.exitFullscreen();}catch(e){} }
+function infoRender(){
+  const o=document.getElementById('infoBody'); if(!o)return; const e=ev();
+  const c=ciCounts(); const list=LS.get(kAg(),[]);
+  const now=new Date(); const nowMin=now.getHours()*60+now.getMinutes();
+  let cur=null,next=null; list.forEach(a=>{const m=agMin(a.time); if(m==null)return; if(m<=nowMin)cur=a; else if(!next)next=a;});
+  const wx=document.getElementById('wxNow')?document.getElementById('wxNow').textContent:'';
+  o.innerHTML=`
+    <div style="font-size:min(6vw,46px);font-weight:800;margin-bottom:2vh">${esc(e.name)}</div>
+    <div style="font-size:min(3.4vw,24px);color:#8fbba1;margin-bottom:5vh">${e.eventDate?new Date(e.eventDate).toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'}):''}${e.place?(' · '+esc(e.place)):''}</div>
+    <div style="display:flex;gap:5vw;flex-wrap:wrap;justify-content:center;margin-bottom:5vh">
+      <div><div style="font-size:min(9vw,72px);font-weight:800;color:#5cc183">${c.inn}</div><div style="color:#8fbba1">eingecheckt</div></div>
+      <div><div style="font-size:min(9vw,72px);font-weight:800">${c.total}</div><div style="color:#8fbba1">angemeldet</div></div>
+    </div>
+    ${cur?`<div style="font-size:min(4vw,30px);margin-bottom:1vh">▶ Jetzt: <b>${esc(cur.text||'')}</b> <span style="color:#8fbba1">${esc(cur.time||'')}</span></div>`:''}
+    ${next?`<div style="font-size:min(3.4vw,24px);color:#cfe6d8">⏭ Als Nächstes: ${esc(next.text||'')} <span style="color:#8fbba1">${esc(next.time||'')}</span></div>`:''}
+  `;
+}
+
 function renderTasks(){
   const list=LS.get(kTasks(),[]);
-  document.getElementById('taskList').innerHTML=list.map((t,i)=>
-    `<div class="t ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${i})"><span style="flex:1">${t.text}</span><button class="btn danger sm" style="padding:1px 6px" onclick="delTask(${i})">×</button></div>`).join('')
-    || '<div class="status">Noch keine Aufgaben.</div>';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const order=list.map((t,i)=>({t,i})).sort((a,b)=>{
+    if(a.t.done!==b.t.done) return a.t.done?1:-1;
+    const da=a.t.due?new Date(a.t.due).getTime():Infinity, db=b.t.due?new Date(b.t.due).getTime():Infinity;
+    return da-db;
+  });
+  document.getElementById('taskList').innerHTML=order.map(({t,i})=>{
+    const due=t.due?new Date(t.due):null; const overdue=due&&!t.done&&due<today;
+    const soon=due&&!t.done&&!overdue&&((due-today)/86400000<=2);
+    const dueStr=due?`<span style="font-size:11px;color:${overdue?'#a33':(soon?'#c9922b':'var(--muted)')};font-weight:${overdue?'700':'400'}">📅 ${due.toLocaleDateString('de-DE')}${overdue?' (überfällig)':''}</span>`:'';
+    return `<div class="t ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${i})"><span style="flex:1">${esc(t.text)}${t.who?` <span style="font-size:11px;color:var(--muted)">· ${esc(t.who)}</span>`:''} ${dueStr}</span>${t.due&&!t.done?`<button class="btn ghost sm" title="Termin als Kalender (.ics)" style="padding:1px 6px;color:var(--accent);border-color:var(--line)" onclick="taskIcs(${i})">📅</button>`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delTask(${i})">×</button></div>`;
+  }).join('') || '<div class="status">Noch keine Aufgaben.</div>';
 }
-function addTask(){const v=document.getElementById('taskText').value.trim();if(!v)return;const l=LS.get(kTasks(),[]);l.push({text:v,done:false});LS.set(kTasks(),l);document.getElementById('taskText').value='';renderTasks();}
+function addTask(){const v=document.getElementById('taskText').value.trim();if(!v)return;const who=(document.getElementById('taskWho')||{}).value||'';const due=(document.getElementById('taskDue')||{}).value||'';const l=LS.get(kTasks(),[]);l.push({text:v,done:false,who:who.trim(),due});LS.set(kTasks(),l);['taskText','taskWho','taskDue'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});renderTasks();}
 function toggleTask(i){const l=LS.get(kTasks(),[]);l[i].done=!l[i].done;LS.set(kTasks(),l);renderTasks();}
 function delTask(i){const l=LS.get(kTasks(),[]);l.splice(i,1);LS.set(kTasks(),l);renderTasks();}
+function taskIcs(i){ const t=LS.get(kTasks(),[])[i]; if(!t||!t.due)return; const d=t.due.replace(/-/g,''); const uid='task'+i+'@dashboard'; const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Dashboard//DE\nBEGIN:VEVENT\nUID:${uid}\nDTSTART;VALUE=DATE:${d}\nSUMMARY:${(t.text||'').replace(/\n/g,' ')}${t.who?(' ('+t.who+')'):''}\nEND:VEVENT\nEND:VCALENDAR`; const blob=new Blob([ics],{type:'text/calendar'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='aufgabe.ics'; a.click(); }
 function saveNotes(v){LS.set(kNotes(),v);}
 function renderNotesTasks(){document.getElementById('notes').value=LS.get(kNotes(),'');renderTasks();}
 
@@ -2870,7 +3125,19 @@ function deleteEvent(){
 function switchEvent(id){currentId=id;LS.set('evtdash_current',id);updateSyncBtn();_wxSig='';renderNotesTasks();refreshCloud().finally(()=>reloadData());renderWeather();renderFeedback();}
 document.getElementById('evtSwitch').addEventListener('change',e=>switchEvent(e.target.value));
 
-function openAdd(){document.getElementById('addModal').classList.add('open');}
+function openAdd(){
+  const h=document.querySelector('#addModal h3'); if(h)h.textContent='+ Teilnehmer hinzufügen';
+  const rEl=document.getElementById('aRole'); if(rEl)rEl.value='Mitglied';
+  syncOrgaPaidField();
+  document.getElementById('addModal').classList.add('open');
+}
+function openOrgaAssistant(){
+  document.getElementById('addModal').classList.add('open');
+  const h=document.querySelector('#addModal h3'); if(h)h.textContent='➕ Orga-Mitglied anlegen';
+  const rEl=document.getElementById('aRole'); if(rEl)rEl.value='Orga';
+  syncOrgaPaidField();
+}
+function syncOrgaPaidField(){ const w=document.getElementById('aOrgaPaidWrap'); const rEl=document.getElementById('aRole'); if(w&&rEl)w.style.display=(rEl.value==='Orga')?'':'none'; }
 function addParticipant(){
   const gv=id=>{const el=document.getElementById(id);return el?el.value.trim():'';};
   const m={mail:aMail.value.trim(),verein:aVerein.value.trim(),pers:parseInt(aPers.value)||1,
@@ -2882,7 +3149,9 @@ function addParticipant(){
   const rEl=document.getElementById('aRole'); if(rEl&&rEl.value){ const rr=LS.get(kRole(),{}); rr[m.mail]=rEl.value; LS.set(kRole(),rr); }
   const ph=gv('aPhone'), orl=gv('aOrgaRole');
   if(ph||orl){ const ex=LS.get(kExtra(),{}); ex[m.mail]={...(ex[m.mail]||{})}; if(ph)ex[m.mail].phone=ph; if(orl)ex[m.mail].orgaRole=orl; LS.set(kExtra(),ex); }
-  ['aMail','aVerein','aWann','aAnreise','aUeber','aFahr','aAuf','aBring','aQuiz','aNote','aPhone','aOrgaRole'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});aPers.value=1;
+  const orgaPaid=parseFloat(gv('aOrgaPaid'))||0;
+  if(rEl&&rEl.value==='Orga'&&orgaPaid>0){ const ol=LS.get(kOrga(),[]); ol.push({name:m.verein?m.mail:(m.mail),paid:orgaPaid,note:'Orga'+(orl?' · '+orl:'')}); LS.set(kOrga(),ol); }
+  ['aMail','aVerein','aWann','aAnreise','aUeber','aFahr','aAuf','aBring','aQuiz','aNote','aPhone','aOrgaRole','aOrgaPaid'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});aPers.value=1;
   closeModal('addModal');reloadData();
 }
 
