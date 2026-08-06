@@ -693,7 +693,7 @@
     <div class="hint">Tipp: Die Tabelle muss auf „Jeder mit dem Link" freigegeben (oder veröffentlicht) sein, damit der automatische Abruf funktioniert. Der Team-Code trennt eure Cloud-Daten von anderen — gib denselben Code an alle Orga-Leute.</div>
     <div class="row-flex" style="justify-content:space-between;margin-top:10px;">
       <div class="row-flex" style="gap:6px">
-        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button>
+        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button><button class="btn sm" style="background:#2f9e6c" onclick="cloudBackupNow()">☁⬆ Cloud-Backup</button><button class="btn sm" style="background:#6c7a9e" onclick="cloudRestore()">☁⬇ Wiederherstellen</button>
         <button class="btn sm" style="background:#c9922b" onclick="cancelEvent()">Absagen</button>
         <button class="btn danger sm" onclick="deleteEvent()">Löschen</button>
       </div>
@@ -898,7 +898,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.8';
+const APP_VERSION='2.8.1';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3600,6 +3600,10 @@ function openAdd(){const h=document.querySelector('#addModal h3');if(h)h.textCon
 function openOrgaAssistant(){document.getElementById('addModal').classList.add('open');const h=document.querySelector('#addModal h3');if(h)h.textContent='➕ Orga-Mitglied anlegen';const rEl=document.getElementById('aRole');if(rEl)rEl.value='Orga';syncOrgaPaidField();fillAddDatalists();}
 function cloneEvent(){const e=ev();const name=prompt('Name der neuen (geklonten) Veranstaltung:',e.name+' (Kopie)');if(!name)return;const id='evt-'+Date.now();const copy=Object.assign({},e,{id:id,name:name.trim(),eventDate:'',lat:null,lon:null,cancelled:undefined,cancelReason:undefined});events.push(copy);LS.set('evtdash_events',events);currentId=id;LS.set('evtdash_current',currentId);closeModal('settingsModal');switchEvent(id,true);openWizard();}
 
+
+function cloudBackupSnapshot(){ var d={}; SYNC_SUFFIXES.forEach(function(s){ var v=LS.get("evtdash_"+s+"_"+currentId,null); if(v!==null) d[s]=v; }); return {ts:new Date().toISOString(), ver:(typeof APP_VERSION!=="undefined"?APP_VERSION:""), events:events, current:currentId, data:d}; }
+function cloudBackupNow(){ if(!cloudOn()){ alert("Cloud-Sync ist aus. Bitte erst Sync + Team-Code aktivieren."); return; } var snap=cloudBackupSnapshot(); setSync("Backup…"); fetch(CLOUD.url+"/rest/v1/event_dashboard",{method:"POST",headers:cloudHeaders({"Prefer":"resolution=merge-duplicates,return=minimal"}),body:JSON.stringify({event_id:cloudNS(),k:"__backup",v:snap,updated_at:new Date().toISOString()})}).then(function(r){ setSync(r.ok?"Backup ok":"Fehler "+r.status); alert(r.ok?("Cloud-Backup gespeichert: "+new Date().toLocaleString("de-DE")):("Backup fehlgeschlagen ("+r.status+").")); }).catch(function(){ setSync("offline"); alert("Backup fehlgeschlagen (offline)."); }); }
+async function cloudRestore(){ if(!cloudOn()){ alert("Cloud-Sync ist aus."); return; } setSync("lade Backup…"); try{ var r=await fetch(CLOUD.url+"/rest/v1/event_dashboard?event_id=eq."+encodeURIComponent(cloudNS())+"&k=eq.__backup&select=v",{headers:cloudHeaders()}); if(!r.ok){ setSync("Fehler "+r.status); alert("Kein Backup gefunden ("+r.status+")."); return; } var rows=await r.json(); if(!rows.length || !rows[0].v){ alert("Kein Cloud-Backup fuer diese Veranstaltung vorhanden."); setSync("ok"); return; } var snap=rows[0].v; var when=snap.ts?new Date(snap.ts).toLocaleString("de-DE"):"unbekannt"; if(!confirm("Backup vom "+when+" wiederherstellen? Aktuelle lokale Daten dieser Veranstaltung werden ueberschrieben.")){ setSync("ok"); return; } if(snap.data) Object.keys(snap.data).forEach(function(s){ try{ localStorage.setItem("evtdash_"+s+"_"+currentId, JSON.stringify(snap.data[s])); }catch(e){} }); if(snap.events){ try{ LS.set("evtdash_events", snap.events); }catch(e){} } alert("Backup vom "+when+" wiederhergestellt. Die Seite wird neu geladen."); location.reload(); }catch(e){ setSync("offline"); alert("Wiederherstellung fehlgeschlagen (offline)."); } }
 </script>
 </body>
 </html>
