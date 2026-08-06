@@ -136,7 +136,8 @@
   <button class="btn ghost sm" id="cloudBtn" onclick="toggleCloud()" title="Cloud-Synchronisation an/aus">☁ Sync</button>
   <button class="btn ghost sm" id="langBtn" onclick="toggleLang()" title="Sprache / Language">🌐 DE</button>
   <button class="btn ghost sm" id="modeBtn" onclick="toggleMode()" title="Ansehen / Bearbeiten">✏️ Bearbeiten</button>
-  <button class="btn ghost sm" onclick="manualSync()">↻ Aktualisieren</button>
+  <button class="btn ghost sm" onclick="manualSync()">↻ Daten</button>
+  <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <a class="btn ghost sm" href="dashboard-anleitung.html" target="_blank" rel="noopener" style="text-decoration:none">❓ Anleitung</a>
   <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
   <button class="btn ghost sm" onclick="openSettings()">⚙ Einstellungen</button>
@@ -166,6 +167,7 @@
 </div>
 
 <div class="wrap">
+  <div id="verBanner"></div>
   <div class="status" id="loadStatus"></div>
   <div id="staleWarn"></div>
   <div id="setupBanner"></div>
@@ -1921,7 +1923,24 @@ function addParticipant(){
   closeModal('addModal');reloadData();
 }
 
+/* ============ Neue-Version-Erkennung & Neu laden ============ */
+async function hardReload(){
+  try{ if('serviceWorker' in navigator){ const rs=await navigator.serviceWorker.getRegistrations(); for(const r of rs){ if(r.waiting)r.waiting.postMessage('skip'); r.update&&r.update(); } } }catch(e){}
+  try{ if('caches' in window){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); } }catch(e){}
+  location.reload();
+}
+let APP_TAG=null;
+async function checkVersion(){
+  if(navigator.onLine===false)return;
+  try{
+    const r=await fetch(location.pathname+'?vc='+Date.now(),{method:'HEAD',cache:'no-store'});
+    const tag=r.headers.get('etag')||r.headers.get('last-modified');
+    if(tag){ if(APP_TAG===null){ APP_TAG=tag; } else if(tag!==APP_TAG){ const el=document.getElementById('verBanner'); if(el)el.innerHTML='<div class="banner" style="background:#e2f0e8;border-color:#30a46c"><span>🆕 <b>Neue Version verfügbar.</b> Zum Aktualisieren neu laden.</span><button class="btn sm" style="margin-left:auto;background:#1c8a4e" onclick="hardReload()">Jetzt neu laden</button></div>'; } }
+  }catch(e){}
+}
+
 /* ============ Init ============ */
+checkVersion(); setInterval(checkVersion, 120000);
 updateSyncBtn();
 updateModeBtn();
 renderNotesTasks();

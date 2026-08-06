@@ -1,5 +1,5 @@
-/* Service Worker – Veranstaltungs-Dashboard (Offline-App-Shell) */
-const CACHE = 'camp-dash-v1';
+/* Service Worker – Veranstaltungs-Dashboard (Offline + Auto-Update) */
+const CACHE = 'camp-dash-v2';
 const SHELL = [
   './',
   'index.html',
@@ -19,7 +19,7 @@ self.addEventListener('install', (e) => {
         const req = new Request(u, { mode: sameOrigin ? 'same-origin' : 'no-cors' });
         const resp = await fetch(req);
         await c.put(req, resp);
-      } catch (_) { /* Datei überspringen, wenn nicht erreichbar */ }
+      } catch (_) {}
     }
     await self.skipWaiting();
   })());
@@ -33,20 +33,33 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
+self.addEventListener('message', (e) => { if (e.data === 'skip') self.skipWaiting(); });
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = req.url;
-  // Dynamische Daten immer aus dem Netz holen (nicht cachen):
-  if (/docs\.google\.com|\.supabase\.co|open-meteo\.com|bringabottle|paypal\.com|whatsapp\.com|googleusercontent/.test(url)) {
-    return; // Standard-Netzwerkverhalten
+  // Dynamische Daten immer aus dem Netz (nicht cachen):
+  if (/docs\.google\.com|\.supabase\.co|open-meteo\.com|bringabottle|paypal\.com|whatsapp\.com|googleusercontent/.test(url)) return;
+
+  const isDoc = req.mode === 'navigate' || /\.html(\?|$)/.test(url) || url.endsWith('/mariana-dashboard/');
+  if (isDoc) {
+    // Netzwerk zuerst (immer frische Version), Cache nur als Offline-Fallback
+    e.respondWith(
+      fetch(req).then(resp => {
+        const copy = resp.clone();
+        caches.open(CACHE).then(c => { try { c.put(req, copy); } catch (_) {} });
+        return resp;
+      }).catch(() => caches.match(req).then(c => c || caches.match('veranstaltungs-dashboard.html')))
+    );
+  } else {
+    // Bibliotheken: Cache zuerst
+    e.respondWith(
+      caches.match(req).then(cached => cached || fetch(req).then(resp => {
+        const copy = resp.clone();
+        caches.open(CACHE).then(c => { try { c.put(req, copy); } catch (_) {} });
+        return resp;
+      }).catch(() => cached))
+    );
   }
-  // App-Shell & Bibliotheken: erst Cache, dann Netz, dann Fallback auf Dashboard
-  e.respondWith(
-    caches.match(req).then(cached => cached || fetch(req).then(resp => {
-      const copy = resp.clone();
-      caches.open(CACHE).then(c => { try { c.put(req, copy); } catch (_) {} });
-      return resp;
-    }).catch(() => caches.match('veranstaltungs-dashboard.html')))
-  );
 });
