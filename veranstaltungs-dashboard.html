@@ -895,7 +895,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.6';
+const APP_VERSION='2.7';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -2931,6 +2931,7 @@ function renderQuiz(){
         <div><b>${icon[it.type]||''} ${esc(it.title)}</b> <span style="font-size:12px;color:var(--muted)">· ${esc(meta)}</span></div>
         <div class="row-flex" style="gap:6px">
           <button class="btn sm" onclick="presentStart('${it.id}')">▶ Präsentieren</button>
+          ${it.type==='quiz'?`<button class="btn sm" style="background:#e0533d" title="Teilnehmer spielen live per Handy mit (QR)" onclick="liveStart('${it.id}')">🔴 Live (Handys)</button>`:''}
           ${printBtn}${evalBtn}
           <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" title="Bearbeiten" onclick="openQuizEditor('${it.type}','${it.id}')">✎</button>
           <button class="btn danger sm" onclick="delQuiz('${it.id}')">×</button>
@@ -3007,12 +3008,93 @@ function useTemplate(i){
   if(t.type==='quiz')item.questions=t.questions.map(q=>({...q,opts:[...q.opts]})); else item.notes=t.notes||'';
   l.push(item); LS.set(kQuiz(),l); renderQuiz();
 }
+
+/* ===== v2.7 Live-Quiz (Handy, Echtzeit via Supabase-Polling) ===== */
+const LIVE_BASE=location.origin+location.pathname;
+let _live=null, _liveTimer=null, _liveAnswers=[];
+function liveHdr(x){ return Object.assign({apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key}, x||{}); }
+function liveCode(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
+async function liveStart(quizId){
+  if(!CLOUD.url||!CLOUD.key){ alert('Live-Quiz braucht die Cloud (Supabase) — ist hinterlegt, aber offline nicht nutzbar.'); return; }
+  const it=LS.get(kQuiz(),[]).find(x=>x.id==quizId); if(!it||it.type!=='quiz'){ alert('Nur Quizze können live gespielt werden.'); return; }
+  const code=liveCode();
+  try{ await fetch(CLOUD.url+'/rest/v1/live_quiz',{method:'POST',headers:liveHdr({'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({code,title:it.title,questions:it.questions,idx:-1,revealed:false,updated_at:new Date().toISOString()})}); }
+  catch(e){ alert('Konnte Live-Runde nicht starten.'); return; }
+  _live={code,idx:-1,revealed:false,questions:it.questions,title:it.title}; _liveAnswers=[];
+  const ov=document.getElementById('presentOverlay'); ov.style.display='flex'; try{ov.requestFullscreen&&ov.requestFullscreen();}catch(e){}
+  liveHostRender(); if(_liveTimer)clearInterval(_liveTimer); _liveTimer=setInterval(liveHostPoll,1500);
+}
+async function livePush(){ if(!_live)return; try{ await fetch(CLOUD.url+'/rest/v1/live_quiz?code=eq.'+_live.code,{method:'PATCH',headers:liveHdr({'Content-Type':'application/json'}),body:JSON.stringify({idx:_live.idx,revealed:_live.revealed,updated_at:new Date().toISOString()})}); }catch(e){} }
+function liveNext(){ if(!_live)return; if(_live.idx<0){_live.idx=0;_live.revealed=false;} else if(!_live.revealed){_live.revealed=true;} else {_live.idx++;_live.revealed=false;} livePush(); liveHostRender(); }
+function livePrev(){ if(!_live)return; _live.revealed=false; if(_live.idx>0)_live.idx--; livePush(); liveHostRender(); }
+function liveReveal(){ if(!_live)return; _live.revealed=true; livePush(); liveHostRender(); }
+async function liveEnd(){ if(_liveTimer){clearInterval(_liveTimer);_liveTimer=null;} const c=_live&&_live.code; _live=null;
+  const ov=document.getElementById('presentOverlay'); ov.style.display='none'; try{document.fullscreenElement&&document.exitFullscreen();}catch(e){}
+  if(c){ try{ await fetch(CLOUD.url+'/rest/v1/live_quiz?code=eq.'+c,{method:'DELETE',headers:liveHdr()}); await fetch(CLOUD.url+'/rest/v1/live_quiz_answer?code=eq.'+c,{method:'DELETE',headers:liveHdr()}); }catch(e){} }
+}
+async function liveHostPoll(){ if(!_live)return; try{ const r=await fetch(CLOUD.url+'/rest/v1/live_quiz_answer?code=eq.'+_live.code+'&select=name,q,choice',{headers:liveHdr()}); const j=await r.json(); if(Array.isArray(j))_liveAnswers=j; liveHostRender(); }catch(e){} }
+function liveScores(){ const sc={}; _liveAnswers.forEach(a=>{ if(!(a.name in sc))sc[a.name]=0; const q=_live.questions[a.q]; if(q&&a.choice===q.correct)sc[a.name]++; }); return Object.entries(sc).sort((x,y)=>y[1]-x[1]); }
+function liveHostRender(){
+  if(!_live)return; const body=document.getElementById('presentBody'), foot=document.getElementById('presentFoot');
+  const joinUrl=LIVE_BASE+'?join='+_live.code; const players=[...new Set(_liveAnswers.map(a=>a.name))];
+  if(_live.idx<0){
+    body.innerHTML=`<div style="font-size:22px;color:#8fbba1;margin-bottom:8px">Live-Quiz — mitmachen per Handy</div>
+      <div style="font-size:38px;font-weight:800;margin-bottom:14px">${esc(_live.title)}</div>
+      <img src="${qrDataURL(joinUrl)}" style="width:210px;height:210px;background:#fff;padding:8px;border-radius:10px">
+      <div style="font-size:20px;margin-top:14px">${esc(LIVE_BASE.replace(/^https?:\/\//,''))}</div>
+      <div style="font-size:30px;font-weight:800;letter-spacing:4px;margin-top:6px">Code: ${_live.code}</div>
+      <div style="font-size:18px;color:#cfe6d8;margin-top:14px">👥 ${players.length} dabei</div>`;
+    foot.textContent='QR/Code zeigen — dann „Weiter ▶", um die erste Frage zu starten.';
+  } else if(_live.idx>=_live.questions.length){
+    body.innerHTML=`<div style="font-size:40px;font-weight:800;margin-bottom:20px">🏆 Endstand</div><div style="width:min(600px,90vw)">${liveScores().slice(0,10).map((s,i)=>`<div style="display:flex;gap:12px;font-size:22px;padding:6px 0;border-bottom:1px solid #3a5a49"><span style="width:30px;text-align:right;font-weight:700">${i+1}.</span><span style="flex:1;text-align:left">${esc(s[0])}</span><b>${s[1]}</b></div>`).join('')||'<div style="color:#8fbba1">Keine Teilnahmen.</div>'}</div>`;
+    foot.textContent='Quiz beendet — „✕ Ende" schließt die Runde.';
+  } else {
+    const q=_live.questions[_live.idx]; const letters=['A','B','C','D','E','F'];
+    const counts=q.opts.map((_,oi)=>_liveAnswers.filter(a=>a.q===_live.idx&&a.choice===oi).length); const tot=counts.reduce((a,b)=>a+b,0)||1;
+    body.innerHTML=`<div style="font-size:18px;color:#8fbba1">${esc(_live.title)} · 👥 ${players.length}</div>
+      <div style="font-size:30px;font-weight:800;margin:14px 0 24px;max-width:1000px">${esc(q.q)}</div>
+      <div style="display:flex;flex-direction:column;gap:12px;width:min(760px,92vw)">${q.opts.map((o,oi)=>{const pct=Math.round(counts[oi]/tot*100);const ok=_live.revealed&&oi===q.correct;return `<div style="position:relative;font-size:22px;padding:12px 18px;border-radius:12px;border:2px solid ${ok?'#1f9e5a':'#3a5a49'};text-align:left;overflow:hidden"><div style="position:absolute;inset:0;background:${ok?'rgba(31,158,90,.32)':'rgba(255,255,255,.08)'};width:${pct}%"></div><span style="position:relative">${letters[oi]}) ${esc(o)}${ok?' ✓':''} <span style="color:#8fbba1">— ${counts[oi]} (${pct}%)</span></span></div>`;}).join('')}</div>`;
+    foot.textContent=`Frage ${_live.idx+1}/${_live.questions.length} · ${_liveAnswers.filter(a=>a.q===_live.idx).length} Antworten`+(_live.revealed?' · Auflösung sichtbar':' · „Antwort zeigen" löst auf');
+  }
+}
+// ---- Teilnehmer (Join per ?join=CODE) ----
+function liveIsJoin(){ const m=location.search.match(/[?&]join=([A-Za-z0-9]+)/i); return m?m[1].toUpperCase():null; }
+function liveJoinInit(code){
+  document.title='Quiz mitmachen';
+  const wrap=document.createElement('div'); wrap.id='joinWrap';
+  wrap.style.cssText='position:fixed;inset:0;background:#08160d;color:#fff;font-family:Segoe UI,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;z-index:9999';
+  document.body.appendChild(wrap);
+  let name=localStorage.getItem('evtdash_playername')||''; const myAnswers={};
+  function renderName(){ wrap.innerHTML=`<div style="font-size:26px;font-weight:800;margin-bottom:6px">🎲 Quiz mitmachen</div><div style="color:#8fbba1;margin-bottom:20px">Code ${esc(code)}</div><input id="pn" placeholder="Dein Name" value="${esc(name)}" style="font-size:20px;padding:12px;border-radius:10px;border:0;width:min(320px,80vw);text-align:center"><button id="pj" style="margin-top:14px;font-size:18px;padding:12px 24px;border:0;border-radius:10px;background:#1c8a4e;color:#fff;font-weight:700">Los geht's</button>`;
+    document.getElementById('pj').onclick=()=>{ const v=document.getElementById('pn').value.trim(); if(!v)return; name=v; localStorage.setItem('evtdash_playername',v); poll(); };
+  }
+  async function poll(){
+    try{ const r=await fetch(CLOUD.url+'/rest/v1/live_quiz?code=eq.'+code+'&select=title,questions,idx,revealed',{headers:{apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key}}); const rows=await r.json(); const st=rows&&rows[0];
+      if(!st){ wrap.innerHTML='<div style="font-size:20px">Diese Quiz-Runde ist beendet oder nicht gefunden.</div>'; return; }
+      renderPlay(st);
+    }catch(e){}
+    setTimeout(poll,1500);
+  }
+  function renderPlay(st){
+    if(st.idx<0){ wrap.innerHTML=`<div style="font-size:26px;font-weight:800">${esc(st.title||'Quiz')}</div><div style="margin-top:16px;color:#cfe6d8">Hi ${esc(name)}! Warte auf den Start… 🙌</div>`; return; }
+    if(st.idx>=st.questions.length){ const done=Object.keys(myAnswers).length; wrap.innerHTML=`<div style="font-size:30px;font-weight:800">🏆 Danke, ${esc(name)}!</div><div style="margin-top:12px;color:#cfe6d8">Quiz beendet — ${done} Fragen beantwortet.</div>`; return; }
+    const q=st.questions[st.idx]; const letters=['A','B','C','D','E','F']; const mine=myAnswers[st.idx];
+    wrap.innerHTML=`<div style="color:#8fbba1;margin-bottom:8px">Frage ${st.idx+1}/${st.questions.length} · ${esc(name)}</div><div style="font-size:24px;font-weight:800;margin-bottom:20px;max-width:620px">${esc(q.q)}</div>`+
+      '<div style="display:flex;flex-direction:column;gap:12px;width:min(420px,92vw)">'+q.opts.map((o,oi)=>{ const chosen=mine===oi; const showCorrect=st.revealed&&oi===q.correct; const wrong=st.revealed&&chosen&&oi!==q.correct;
+        return `<button ${(mine!=null||st.revealed)?'disabled':''} onclick="window.__la(${oi})" style="font-size:20px;padding:14px;border-radius:12px;border:2px solid ${showCorrect?'#1f9e5a':(wrong?'#e0533d':(chosen?'#5cc183':'#3a5a49'))};background:${showCorrect?'#1c8a4e':(chosen?'#2f6b4a':'transparent')};color:#fff;text-align:left">${letters[oi]}) ${esc(o)}${showCorrect?' ✓':(wrong?' ✗':'')}</button>`;
+      }).join('')+'</div>'+(mine!=null&&!st.revealed?'<div style="margin-top:14px;color:#5cc183">Antwort gespeichert ✓ — warte auf Auflösung</div>':'');
+    window.__la=async(oi)=>{ if(myAnswers[st.idx]!=null)return; myAnswers[st.idx]=oi; renderPlay(st);
+      try{ await fetch(CLOUD.url+'/rest/v1/live_quiz_answer?on_conflict=code,name,q',{method:'POST',headers:{apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({code,name,q:st.idx,choice:oi})});}catch(e){}
+    };
+  }
+  if(!name) renderName(); else poll();
+}
 function delScore(id,i){ const l=LS.get(kQuiz(),[]); const it=l.find(x=>x.id==id); if(!it)return; it.scores.splice(i,1); LS.set(kQuiz(),l); renderScores(id); }
 function presentStart(id){ const it=LS.get(kQuiz(),[]).find(x=>x.id==id); if(!it)return; _present={it,idx:0,reveal:false}; const ov=document.getElementById('presentOverlay'); ov.style.display='flex'; presentRender(); try{ov.requestFullscreen&&ov.requestFullscreen();}catch(e){} }
-function closePresent(){ const ov=document.getElementById('presentOverlay'); ov.style.display='none'; try{document.fullscreenElement&&document.exitFullscreen();}catch(e){} _present=null; }
-function presentNext(){ if(!_present)return; if(_present.it.type==='quiz'){ if(!_present.reveal)_present.reveal=true; else {_present.idx++;_present.reveal=false;} } presentRender(); }
-function presentPrev(){ if(!_present)return; _present.reveal=false; if(_present.idx>0)_present.idx--; presentRender(); }
-function presentReveal(){ if(!_present)return; _present.reveal=true; presentRender(); }
+function closePresent(){ if(_live){ liveEnd(); return; } const ov=document.getElementById('presentOverlay'); ov.style.display='none'; try{document.fullscreenElement&&document.exitFullscreen();}catch(e){} _present=null; }
+function presentNext(){ if(_live){ liveNext(); return; } if(!_present)return; if(_present.it.type==='quiz'){ if(!_present.reveal)_present.reveal=true; else {_present.idx++;_present.reveal=false;} } presentRender(); }
+function presentPrev(){ if(_live){ livePrev(); return; } if(!_present)return; _present.reveal=false; if(_present.idx>0)_present.idx--; presentRender(); }
+function presentReveal(){ if(_live){ liveReveal(); return; } if(!_present)return; _present.reveal=true; presentRender(); }
 function presentRender(){
   if(!_present)return; const it=_present.it, idx=_present.idx, reveal=_present.reveal;
   const body=document.getElementById('presentBody'), foot=document.getElementById('presentFoot');
@@ -3431,6 +3513,10 @@ function orgaView(){
 }
 
 /* ============ Init ============ */
+const _joinCode=liveIsJoin();
+if(_joinCode){ liveJoinInit(_joinCode); }
+else { initDashboard(); }
+function initDashboard(){
 try{ const fv=document.getElementById('footVer'); if(fv)fv.textContent='v'+APP_VERSION; }catch(e){}
 initCollapsibles();
 checkVersion(); setInterval(checkVersion, 120000);
@@ -3445,6 +3531,7 @@ setInterval(()=>{ const el=document.getElementById('staleWarn'); if(!el)return; 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 window.addEventListener('online', ()=>{ if(cloudOn()){ pushAllLocal(); setSync('online – sync…'); setTimeout(()=>refreshCloud(),1800); } });
 window.addEventListener('offline', ()=> setSync('offline (lokal gespeichert)'));
+} // Ende initDashboard
 </script>
 </body>
 </html>
