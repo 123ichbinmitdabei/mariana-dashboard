@@ -897,7 +897,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.7.1';
+const APP_VERSION='2.7.2';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3582,6 +3582,14 @@ function openChartSel(){renderChartSelList();document.getElementById('chartSelMo
 function renderChartSelList(){const box=document.getElementById('chartSelList');if(!box)return;let html='',lastG=null;CHART_DEFS.forEach(d=>{if(d.g!==lastG){html+='<div style="font-weight:700;color:var(--accent);font-size:12px;margin:10px 0 4px">'+esc(d.g)+'</div>';lastG=d.g;}const on=chartEnabled(d.id,d.def);html+='<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleChartSel(\''+d.id+'\',this.checked)"> '+esc(d.l)+'</label>';});box.innerHTML=html;}
 function toggleChartSel(id,on){let sel=LS.get(kChartSel(),null);if(!sel){sel={};CHART_DEFS.forEach(d=>sel[d.id]=!!d.def);}sel[id]=!!on;LS.set(kChartSel(),sel);renderCharts();}
 function chartSelPreset(mode){const sel={};CHART_DEFS.forEach(d=>{sel[d.id]=mode==='all'?true:(mode==='none'?false:!!d.def);});LS.set(kChartSel(),sel);renderChartSelList();renderCharts();}
+
+
+function slugify(s){return 'sec-'+s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30);}
+function scrollToSection(id){const el=document.getElementById(id);if(!el)return;el.classList.remove('collapsed');const ui=LS.get(kUI(),{});delete ui[sectionKey(el)];LS.set(kUI(),ui);el.scrollIntoView({behavior:'smooth',block:'start'});}
+const NAV_GROUPS=[{n:'👥 Teilnehmer',m:['Teilnehmer','Community','Daten-Import','Mitfahr']},{n:'💶 Finanzen',m:['Orga & Finanzen','Orga-Team','Ausgaben & Belege']},{n:'✉️ Kommunikation',m:['Kommunikations-Bausteine','Einladungen']},{n:'📦 Logistik',m:['Material','Kalkulation','Einkaufsliste','Schicht','Schlaf','Notfall','Zähler','Mitbring','Namensschilder']},{n:'🎲 Programm',m:['Ablaufplan','Quiz']},{n:'📊 Auswertung & Medien',m:['Grafische Auswertung','Gesamt-Auswertung','Veranstaltungs-Vergleich','Wetter','Feedback','Fotos','Sponsoren']}];
+function navItemHtml(s){const t=(s.querySelector(':scope > h2').textContent||'').replace('▾','').trim();return '<div><a href="#'+s.id+'" onclick="scrollToSection(\''+s.id+'\');return false;" style="font-size:12.5px;color:var(--ink);text-decoration:none;display:block;padding:1px 0">'+esc(t)+'</a></div>';}
+function buildNav(){const wrap=document.querySelector('.wrap');if(!wrap)return;const secs=[].slice.call(document.querySelectorAll('.section'));if(!secs.length)return;if(document.getElementById('sectionNav'))return;secs.forEach(function(s){const h=s.querySelector(':scope > h2');if(!h)return;if(!s.id)s.id=slugify((h.textContent||'').replace('▾','').trim());});const used=new Set();let html='<div style="display:flex;flex-wrap:wrap;gap:16px">';NAV_GROUPS.forEach(function(g){const items=secs.filter(function(s){const h=s.querySelector(':scope > h2');return h&&g.m.some(function(f){return h.textContent.includes(f);});});items.forEach(function(s){used.add(s);});if(!items.length)return;html+='<div style="min-width:150px"><div style="font-weight:700;color:var(--accent);font-size:12px;margin-bottom:4px">'+esc(g.n)+'</div>'+items.map(navItemHtml).join('')+'</div>';});const rest=secs.filter(function(s){return !used.has(s);});if(rest.length)html+='<div style="min-width:150px"><div style="font-weight:700;color:var(--accent);font-size:12px;margin-bottom:4px">Weiteres</div>'+rest.map(navItemHtml).join('')+'</div>';html+='</div>';const nav=document.createElement('div');nav.className='section';nav.id='sectionNav';nav.innerHTML='<h2>🧭 Schnellnavigation</h2><div class="body">'+html+'</div>';wrap.insertBefore(nav,secs[0]);const h2=nav.querySelector('h2');const c=document.createElement('span');c.className='caret';c.textContent='▾';h2.appendChild(c);h2.style.cursor='pointer';h2.addEventListener('click',function(e){if(e.target.closest('a,button'))return;toggleSection(nav);});}
+try{buildNav();}catch(e){}
 
 </script>
 </body>
