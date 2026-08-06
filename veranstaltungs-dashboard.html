@@ -654,12 +654,12 @@
     <div class="body">
       <div class="row-flex" style="margin-bottom:10px">
         <a class="btn sm" id="galleryLink" target="_blank" rel="noopener" style="display:none">↗ Externe Galerie öffnen</a>
-        <label class="btn sm" style="cursor:pointer">📷 Fotos hinzufügen<input type="file" id="photoInput" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)"></label>
+        <label class="btn sm" style="cursor:pointer">📷 Fotos hinzufügen<input type="file" id="photoInput" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)"></label><label class="btn sm" style="cursor:pointer;background:#2f9e6c" title="Fuer das ganze Team in der Cloud">☁ In Cloud (Team)<input type="file" accept="image/*" multiple style="display:none" onchange="uploadPhotosCloud(this)"></label>
         <button class="btn sm" style="background:#2f7ec6" onclick="addVideoLink()">🎬 Video-Link</button>
         <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="shareGallery()">🔗 Teilen</button>
       </div>
       <div class="hint">Fotos werden verkleinert lokal gespeichert. Videos als Link (YouTube/TikTok/Drive) hinzufügen. Zum Weitergeben „Teilen". Für eine gemeinsame Cloud-Galerie kann optional ein externer Galerie-Link in den Einstellungen hinterlegt werden.</div>
-      <div id="photoGrid" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      <div id="photoGrid" style="display:flex;flex-wrap:wrap;gap:8px"></div><div style="margin-top:14px;font-weight:600;color:var(--accent)">☁ Team-Cloud-Galerie</div><div class="hint">Fuer alle mit demselben Team-Code sichtbar. Upload braucht Team-Code + aktiven Sync (Einstellungen).</div><div id="cloudGrid" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
       <iframe class="embed" id="galleryFrame" title="Galerie" style="display:none;margin-top:10px"></iframe>
     </div>
   </div>
@@ -898,8 +898,8 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.8.1';
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel'];
+const APP_VERSION='2.8.2';
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -3604,6 +3604,48 @@ function cloneEvent(){const e=ev();const name=prompt('Name der neuen (geklonten)
 function cloudBackupSnapshot(){ var d={}; SYNC_SUFFIXES.forEach(function(s){ var v=LS.get("evtdash_"+s+"_"+currentId,null); if(v!==null) d[s]=v; }); return {ts:new Date().toISOString(), ver:(typeof APP_VERSION!=="undefined"?APP_VERSION:""), events:events, current:currentId, data:d}; }
 function cloudBackupNow(){ if(!cloudOn()){ alert("Cloud-Sync ist aus. Bitte erst Sync + Team-Code aktivieren."); return; } var snap=cloudBackupSnapshot(); setSync("Backup…"); fetch(CLOUD.url+"/rest/v1/event_dashboard",{method:"POST",headers:cloudHeaders({"Prefer":"resolution=merge-duplicates,return=minimal"}),body:JSON.stringify({event_id:cloudNS(),k:"__backup",v:snap,updated_at:new Date().toISOString()})}).then(function(r){ setSync(r.ok?"Backup ok":"Fehler "+r.status); alert(r.ok?("Cloud-Backup gespeichert: "+new Date().toLocaleString("de-DE")):("Backup fehlgeschlagen ("+r.status+").")); }).catch(function(){ setSync("offline"); alert("Backup fehlgeschlagen (offline)."); }); }
 async function cloudRestore(){ if(!cloudOn()){ alert("Cloud-Sync ist aus."); return; } setSync("lade Backup…"); try{ var r=await fetch(CLOUD.url+"/rest/v1/event_dashboard?event_id=eq."+encodeURIComponent(cloudNS())+"&k=eq.__backup&select=v",{headers:cloudHeaders()}); if(!r.ok){ setSync("Fehler "+r.status); alert("Kein Backup gefunden ("+r.status+")."); return; } var rows=await r.json(); if(!rows.length || !rows[0].v){ alert("Kein Cloud-Backup fuer diese Veranstaltung vorhanden."); setSync("ok"); return; } var snap=rows[0].v; var when=snap.ts?new Date(snap.ts).toLocaleString("de-DE"):"unbekannt"; if(!confirm("Backup vom "+when+" wiederherstellen? Aktuelle lokale Daten dieser Veranstaltung werden ueberschrieben.")){ setSync("ok"); return; } if(snap.data) Object.keys(snap.data).forEach(function(s){ try{ localStorage.setItem("evtdash_"+s+"_"+currentId, JSON.stringify(snap.data[s])); }catch(e){} }); if(snap.events){ try{ LS.set("evtdash_events", snap.events); }catch(e){} } alert("Backup vom "+when+" wiederhergestellt. Die Seite wird neu geladen."); location.reload(); }catch(e){ setSync("offline"); alert("Wiederherstellung fehlgeschlagen (offline)."); } }
+
+function kGalCloud(){ return 'evtdash_galcloud_'+currentId; }
+function dataURLtoBlob(d){ var a=d.split(','); var m=(a[0].match(/:(.*?);/)||[])[1]||'image/jpeg'; var bin=atob(a[1]); var n=bin.length; var u=new Uint8Array(n); while(n--)u[n]=bin.charCodeAt(n); return new Blob([u],{type:m}); }
+function uploadPhotosCloud(input){
+  if(!teamCode()){ alert('Bitte zuerst einen Team-Code in den Einstellungen eintragen. Dann ist die Cloud-Galerie fuer euer Team sichtbar und geschuetzt.'); input.value=''; return; }
+  if(!cloudOn()){ alert('Cloud-Sync ist aus. Bitte in den Einstellungen aktivieren.'); input.value=''; return; }
+  var files=[].slice.call(input.files); if(!files.length) return; input.value='';
+  var arr=LS.get(kGalCloud(),[]); var pending=files.length;
+  setSync('Foto-Upload...');
+  function done(){ if(--pending===0){ try{LS.set(kGalCloud(),arr);}catch(e){} cloudMaybePush(kGalCloud(),arr); renderCloudGrid(); setSync('ok'); } }
+  files.forEach(function(f){
+    resizeImage(f,1400,function(dat){
+      if(!dat){ done(); return; }
+      var blob=dataURLtoBlob(dat);
+      var path=teamCode()+'/'+currentId+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
+      fetch(CLOUD.url+'/storage/v1/object/event-gallery/'+path,{method:'POST',headers:{apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key,'x-team-code':teamCode(),'Content-Type':'image/jpeg'},body:blob})
+        .then(function(r){ if(r.ok){ arr.push({url:CLOUD.url+'/storage/v1/object/public/event-gallery/'+path,path:path,ts:Date.now()}); } else { r.text().then(function(t){ console.warn('Cloud-Upload fehlgeschlagen', r.status, t); }); } })
+        .catch(function(e){ console.warn('Cloud-Upload Fehler', e); })
+        .finally(done);
+    });
+  });
+}
+function renderCloudGrid(){
+  var box=document.getElementById('cloudGrid'); if(!box) return;
+  var arr=LS.get(kGalCloud(),[]); box.innerHTML='';
+  if(!arr.length){ var s=document.createElement('div'); s.className='status'; s.style.color='var(--muted)'; s.textContent='Noch keine Cloud-Fotos.'; box.appendChild(s); return; }
+  arr.forEach(function(it,i){
+    var w=document.createElement('div'); w.style.position='relative';
+    var img=document.createElement('img'); img.src=it.url; img.loading='lazy'; img.style.height='90px'; img.style.borderRadius='6px'; img.style.cursor='zoom-in'; img.style.objectFit='cover'; img.onclick=function(){ if(typeof showImg==='function') showImg(it.url); else window.open(it.url,'_blank'); };
+    var btn=document.createElement('button'); btn.className='btn danger sm'; btn.textContent='×'; btn.style.position='absolute'; btn.style.top='2px'; btn.style.right='2px'; btn.style.padding='0 6px'; btn.style.lineHeight='1.4'; btn.onclick=function(){ delCloudPhoto(i); };
+    w.appendChild(img); w.appendChild(btn); box.appendChild(w);
+  });
+}
+function delCloudPhoto(i){
+  var arr=LS.get(kGalCloud(),[]); var it=arr[i]; if(!it) return;
+  if(!confirm('Dieses Cloud-Foto fuer das ganze Team loeschen?')) return;
+  if(it.path){ fetch(CLOUD.url+'/storage/v1/object/event-gallery/'+it.path,{method:'DELETE',headers:{apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key,'x-team-code':teamCode()}}).catch(function(){}); }
+  arr.splice(i,1); LS.set(kGalCloud(),arr); cloudMaybePush(kGalCloud(),arr); renderCloudGrid();
+}
+var _origRenderGallery = (typeof renderGallery==='function') ? renderGallery : function(){};
+renderGallery = function(){ try{ _origRenderGallery(); }catch(e){} try{ renderCloudGrid(); }catch(e){} };
+
 </script>
 </body>
 </html>
