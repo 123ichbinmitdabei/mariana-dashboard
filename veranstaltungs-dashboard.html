@@ -322,6 +322,13 @@
       <div class="hint">Fertige Texte zum Kopieren für WhatsApp/Mail. Passt sich an die aktuellen Daten an.</div>
       <div class="row-flex" style="margin-bottom:10px"><button class="btn sm" onclick="mahnliste()">📧 Mahnliste: Mail an offene Zahler</button></div>
       <div id="comms"></div>
+      <div style="border:1px dashed var(--mgreen);border-radius:8px;padding:12px;margin-top:8px;background:#f6f9f7">
+        <b style="font-size:13px">➕ Eigene Vorlage erstellen</b>
+        <div style="font-size:11px;color:var(--muted);margin:4px 0">Platzhalter (werden automatisch ersetzt): {event} {preis} {paypal} {whatsapp} {form} {ort} {datum} {tage} {anmeldungen} {personen} {bezahlt} {offen}</div>
+        <input id="newCommT" placeholder="Titel der Vorlage" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px">
+        <textarea id="newCommB" rows="4" placeholder="Text mit Platzhaltern, z. B. „Hallo, das {event} findet am {datum} statt …"" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:6px"></textarea>
+        <div style="text-align:right;margin-top:6px"><button class="btn sm" onclick="addComm()">Vorlage speichern</button></div>
+      </div>
     </div>
   </div>
 
@@ -525,7 +532,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga'];
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -545,6 +552,7 @@ const kPaid =()=>'evtdash_paid_'+currentId;
 const kWa   =()=>'evtdash_wa_'+currentId;
 const kCount=()=>'evtdash_count_'+currentId;
 const kOrga =()=>'evtdash_orga_'+currentId;
+const kComms=()=>'evtdash_comms_'+currentId;
 const kRole =()=>'evtdash_role_'+currentId;
 const kReceipts=()=>'evtdash_receipts_'+currentId; // lokal (Bilder, nicht synchronisiert)
 const kPhotos=()=>'evtdash_photos_'+currentId;     // lokal
@@ -1251,28 +1259,44 @@ function renderRides(){
 }
 
 /* ===== Kommunikations-Bausteine ===== */
-function renderComms(){
+const BUILTIN_COMMS=[
+  {t:'Zahlungserinnerung (an offene Zahler)', body:'Hallo,\n\ndanke fürs Anmelden zum {event}! Bei Dir ist der Beitrag von {preis} pro Person noch offen. Bitte zahle ihn in den PayPal-Pool ein: {paypal}\n(Bitte Mailadresse und Personenzahl im Nachrichtenfeld angeben.)\n\nDanke und bis bald!\nEuer CSC Marburg Team', open:true},
+  {t:'Anmeldebestätigung / Willkommen', body:'Hallo,\n\nschön, dass Du beim {event} dabei bist! 🎉\nOrt: {ort} · Datum: {datum}\nTritt gern unserer WhatsApp-Gruppe bei: {whatsapp}\n\nBis bald!\nEuer CSC Marburg Team'},
+  {t:'Letzte Infos vor dem Event', body:'Hallo zusammen,\n\nes geht bald los mit dem {event} (noch {tage} Tage)! Kurz das Wichtigste:\n• Bitte pünktlich kommen, Zelt/Schlafsack nicht vergessen.\n• Verpflegung: jeder bringt mit, was er essen/trinken möchte (kein Alkohol).\n• Fragen? Einfach hier in der Gruppe melden.\n\nWir freuen uns auf Euch! 🌿💚'},
+  {t:'Mitfahr-Aufruf', body:'Mitfahr-Börse fürs {event}: Wer hat Platz im Auto oder sucht eine Mitfahrgelegenheit? Bitte kurz hier melden mit Startort und Uhrzeit, dann bringen wir das zusammen. 🚗'},
+  {t:'Aufräum-Aufruf (Sonntag)', body:'Kurzer Aufruf: Am Sonntag Vormittag räumen wir die Hütte gemeinsam auf und übergeben sie. Wer noch da ist und mit anpacken kann, meldet sich bitte – viele Hände, schnelles Ende! 🧹'},
+  {t:'Danke nach dem Event', body:'Danke an alle, die beim {event} dabei waren – es war ein tolles Wochenende! 🌿💚\nFotos und Feedback folgen. Bis zum nächsten Mal!\nEuer CSC Marburg Team'}
+];
+function fillPlaceholders(t){
   const e=ev();
+  const pers=DATA.reduce((s,r)=>s+personsOf(r),0);
+  const bezahlt=DATA.filter(r=>payState(r)==='paid').length;
+  const offen=DATA.filter(r=>payState(r)!=='paid').length;
+  const tage=e.eventDate?Math.max(0,Math.ceil((new Date(e.eventDate)-new Date())/86400000)):'';
+  const map={'{event}':e.name,'{preis}':eur(e.price),'{paypal}':e.paypal||'','{whatsapp}':e.whatsapp||'','{form}':e.form||'','{ort}':e.place||'','{datum}':e.eventDate?new Date(e.eventDate).toLocaleDateString('de-DE'):'','{anmeldungen}':DATA.length,'{personen}':pers,'{bezahlt}':bezahlt,'{offen}':offen,'{tage}':tage};
+  return String(t).replace(/\{(event|preis|paypal|whatsapp|form|ort|datum|anmeldungen|personen|bezahlt|offen|tage)\}/g,m=>map[m]!=null?map[m]:m);
+}
+function renderComms(){
   const openList=DATA.filter(r=>payState(r)!=='paid').map(r=>mailOf(r)).filter(Boolean);
-  const blocks=[
-    {t:'Zahlungserinnerung (an offene Zahler)', body:
-`Hallo,\n\ndanke fürs Anmelden zum ${e.name}! Bei Dir ist der Beitrag von ${eur(e.price)} pro Person noch offen. Bitte zahle ihn in den PayPal-Pool ein: ${e.paypal}\n(Bitte Mailadresse und Personenzahl im Nachrichtenfeld angeben.)\n\nDanke und bis bald!\nEuer CSC Marburg Team`,
-     extra: openList.length?('Offene Mailadressen: '+openList.join(', ')):''},
-    {t:'Letzte Infos vor dem Event', body:
-`Hallo zusammen,\n\nes geht bald los mit dem ${e.name}! Kurz das Wichtigste:\n• Bitte pünktlich kommen und Zelt/Schlafsack nicht vergessen.\n• Verpflegung: jeder bringt mit, was er essen/trinken möchte (kein Alkohol).\n• Fragen? Einfach hier in der Gruppe melden.\n\nWir freuen uns auf Euch! 🌿💚`,
-     extra:''},
-    {t:'Mitfahr-Aufruf', body:
-`Mitfahr-Börse fürs ${e.name}: Wer hat Platz im Auto oder sucht eine Mitfahrgelegenheit? Bitte kurz hier melden mit Startort und Uhrzeit, dann bringen wir das zusammen. 🚗`,
-     extra:''}
-  ];
-  document.getElementById('comms').innerHTML=blocks.map((b,i)=>`
+  const custom=LS.get(kComms(),[]);
+  const all=BUILTIN_COMMS.map(b=>({...b,custom:false})).concat(custom.map(c=>({...c,custom:true})));
+  document.getElementById('comms').innerHTML=all.map((b,i)=>`
     <div style="border:1px solid var(--line);border-radius:8px;margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f6f9f7;border-bottom:1px solid var(--line);">
-        <b style="font-size:13px">${b.t}</b><button class="btn sm" onclick="copyText('comm${i}')">Kopieren</button></div>
-      <textarea id="comm${i}" rows="5" style="width:100%;border:0;padding:10px 12px;font-family:inherit;font-size:12.5px;resize:vertical;">${esc(b.body)}</textarea>
-      ${b.extra?`<div style="padding:0 12px 10px;font-size:11px;color:var(--muted)">${esc(b.extra)}</div>`:''}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f6f9f7;border-bottom:1px solid var(--line);gap:8px;">
+        <b style="font-size:13px">${esc(b.t)}${b.custom?' <span class="pill man">eigen</span>':''}</b>
+        <span class="row-flex" style="gap:6px">${b.custom?`<button class="btn danger sm" onclick="delComm(${custom.indexOf(custom.find(x=>x.t===b.t&&x.body===b.body))})" title="Löschen">×</button>`:''}<button class="btn sm" onclick="copyText('comm${i}')">Kopieren</button></span></div>
+      <textarea id="comm${i}" rows="5" style="width:100%;border:0;padding:10px 12px;font-family:inherit;font-size:12.5px;resize:vertical;">${esc(fillPlaceholders(b.body))}</textarea>
+      ${b.open&&openList.length?`<div style="padding:0 12px 10px;font-size:11px;color:var(--muted)">Offene Mailadressen: ${esc(openList.join(', '))}</div>`:''}
     </div>`).join('');
 }
+function addComm(){
+  const t=document.getElementById('newCommT').value.trim(); const body=document.getElementById('newCommB').value;
+  if(!t||!body.trim()){alert('Bitte Titel und Text angeben.');return;}
+  const c=LS.get(kComms(),[]); c.push({t,body}); LS.set(kComms(),c);
+  document.getElementById('newCommT').value='';document.getElementById('newCommB').value='';
+  renderComms();
+}
+function delComm(i){ if(i<0)return; const c=LS.get(kComms(),[]); c.splice(i,1); LS.set(kComms(),c); renderComms(); }
 function copyText(id){ const t=document.getElementById(id); t.select(); try{document.execCommand('copy');}catch(e){} if(navigator.clipboard)navigator.clipboard.writeText(t.value); const b=event.target; const o=b.textContent; b.textContent='✓ Kopiert'; setTimeout(()=>b.textContent=o,1200); }
 
 /* ===== PDF-Nachweise (Druck → als PDF speichern) ===== */
@@ -1502,7 +1526,8 @@ async function renderWeather(){
       let res=await tryGeo(clean) || await tryGeo(e.place) || await tryGeo(clean.split(' ')[0]);
       if(res){ lat=res.latitude; lon=res.longitude; e.lat=lat; e.lon=lon; LS.set('evtdash_events',events); }
     }
-    if(lat==null){ box.innerHTML='<div class="status" style="color:var(--muted)">Ort „'+esc(e.place)+'" nicht gefunden — im Assistenten anpassen.</div>'; return; }
+    let fallbackNote='';
+    if(lat==null){ lat=50.8021; lon=8.7667; fallbackNote='<div class="status" style="color:#a33;margin-bottom:8px">Ort „'+esc(e.place)+'" nicht gefunden — zeige die Region Marburg. Im Assistenten einen auffindbaren Ort eintragen (z. B. „Marburg" oder „Gießen").</div>'; }
     const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBerlin&forecast_days=16`);
     const j=await r.json(); const d=j.daily;
     if(!d){ box.innerHTML='<div class="status">Keine Vorhersage verfügbar.</div>'; return; }
@@ -1516,7 +1541,7 @@ async function renderWeather(){
     const wi = e.eventDate ? d.time.indexOf(e.eventDate) : 0;
     if(wi>-1){ const wc=d.weather_code[wi], pr=d.precipitation_probability_max[wi]||0;
       if(pr>=60 || (wc>=61 && wc<=99)) warnHtml=`<div class="banner" style="background:#f7eaea;border-color:#c0504d;margin-bottom:12px"><span>⚠️ <b>Regen/Unwetter wahrscheinlich</b> am ${new Date(d.time[wi]).toLocaleDateString('de-DE')} (${pr}% Niederschlag) — Pavillon/Zelt einplanen.</span></div>`; }
-    box.innerHTML=warnHtml+html; _wxSig=sig;
+    box.innerHTML=fallbackNote+warnHtml+html; _wxSig=sig;
   }catch(err){ box.innerHTML='<div class="status" style="color:var(--muted)">Wetter konnte nicht geladen werden.</div>'; }
 }
 
