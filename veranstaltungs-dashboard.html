@@ -868,7 +868,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.4';
+const APP_VERSION='2.5';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1396,46 +1396,83 @@ function makeChart(title,map,type,opts){
       indexAxis:type==='bar'?'y':'x',cutout:type==='doughnut'?'58%':undefined}
   }));
 }
+function bucketAnreise(r){ const v=(val(r,findCol('reist Du an','anreise'))||'').toLowerCase(); if(!v)return null;
+  if(/fahrrad|\brad\b/.test(v))return'Fahrrad';
+  if(/mitfahr|platz.*auto|auto.*platz|jemand mit|suche eine/.test(v))return'Mitfahrt';
+  if(/auto/.test(v))return'Auto';
+  if(/bus|bahn|zug|öpnv|opnv/.test(v))return'Bus/Bahn';
+  if(/fuß|fuss|zu fuss|nähe|naehe|wohne/.test(v))return'zu Fuß / Nähe';
+  return'Sonstiges';
+}
+function bucketNight(r){ const v=(val(r,findCol('übernacht','ubernacht'))||'').toLowerCase(); if(!v)return'Unklar';
+  if(/^nein|abends nach hause|fahre abends|nach hause/.test(v.trim()))return'Fährt heim';
+  if(/weiß|weiss|noch nicht/.test(v))return'Unklar';
+  return'Übernachtet';
+}
+function bucketYesNo(r,col){ const v=(val(r,col)||'').toLowerCase(); if(!v)return null; if(/vielleicht|weiß|weiss|noch nicht/.test(v))return'Vielleicht'; if(/ja|gerne|dabei|klar|helfe/.test(v))return'Ja'; if(/nein|nicht|kann nicht/.test(v))return'Nein'; return'Sonstiges'; }
+function countBy(fn){ const m={}; DATA.forEach(r=>{const k=fn(r); if(k!=null&&k!=='')m[k]=(m[k]||0)+1;}); return m; }
+function makeStacked(title,labels,datasets){
+  if(!labels.length||!datasets.length)return;
+  const box=document.createElement('div'); box.className='chart-box';
+  const h=Math.max(240,labels.length*42+80);
+  box.innerHTML=`<h3>${esc(title)}</h3><div class="cwrap" style="height:${h}px"><canvas></canvas></div>`;
+  document.getElementById('charts').appendChild(box);
+  charts.push(new Chart(box.querySelector('canvas'),{type:'bar',
+    data:{labels,datasets:datasets.map(ds=>({label:ds.label,data:ds.data,backgroundColor:ds.color,borderRadius:4}))},
+    options:{maintainAspectRatio:false,responsive:true,indexAxis:'y',
+      plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:12,font:{size:12},padding:10}},tooltip:{backgroundColor:'#08160d'}},
+      scales:{x:{stacked:true,beginAtZero:true,ticks:{precision:0,font:{size:12}},grid:{color:'#eef2ef'}},y:{stacked:true,grid:{display:false},ticks:{autoSkip:false,font:{size:12},callback:function(v){return wrapLabel(this.getLabelForValue(v),22);}}}}
+  }));
+}
+function chartHead(t){ const d=document.createElement('div'); d.style.cssText='grid-column:1/-1;margin:6px 0 -4px;font-weight:700;color:var(--green-d,#1f7554);font-size:13px'; d.textContent=t; document.getElementById('charts').appendChild(d); }
 function renderCharts(){
-  charts.forEach(c=>c.destroy()); charts=[]; document.getElementById('charts').innerHTML='';
-  makeChart('Anreise', countSplit(findCol('reist Du an','anreise')),'bar');
-  makeChart('Geplante Ankunftszeiten', countSplit(findCol('wann kommst','wann')),'bar');
-  // payment
-  const e=ev(); const pay={'Bezahlt':0,'Vor Ort':0,'Offen/Unklar':0};
+  charts.forEach(c=>c.destroy()); charts=[]; const cont=document.getElementById('charts'); cont.innerHTML='';
+  const e=ev();
+  // ---- Kern-Kennzahlen ----
+  chartHead('Wer & Wie viele');
+  const pay={'Bezahlt':0,'Vor Ort':0,'Offen/Unklar':0};
   DATA.forEach(r=>{const st=payState(r);if(st==='paid')pay['Bezahlt']++;else if(st==='onsite')pay['Vor Ort']++;else pay['Offen/Unklar']++;});
-  makeChart('Zahlungsstatus',pay,'doughnut');
-  makeChart('Übernachtung', countSplit(findCol('übernacht','ubernacht')),'bar');
-  // persons distribution
+  makeChart('Zahlungsstatus (Anmeldungen)',pay,'doughnut');
   const pdRaw={};DATA.forEach(r=>{const p=personsOf(r);pdRaw[p]=(pdRaw[p]||0)+1;});
-  const pd={};Object.keys(pdRaw).map(Number).sort((a,b)=>a-b).forEach(p=>{
-    const k = p===1 ? 'Alleine (1 Person)' : (p+' Personen zusammen');
-    pd[k]=pdRaw[p];
-  });
-  makeChart('Gruppengröße — Anmeldungen nach Personenzahl',pd,'doughnut');
-  makeChart('Verein', countSplit(findCol('verein')),'doughnut');
-  makeChart('Fahrdienst-Bedarf', countSplit(findCol('fahrdienst')),'bar');
-  makeChart('Aufräumen (So)', countSplit(findCol('aufräumen','aufraumen','sonntag')),'bar');
-  makeChart('Präventionsquiz', countSplit(findCol('quiz')),'doughnut');
-  // Check-in-Fortschritt
+  const pd={};Object.keys(pdRaw).map(Number).sort((a,b)=>a-b).forEach(p=>{ pd[p===1?'Alleine (1 Person)':(p+' Personen zusammen')]=pdRaw[p]; });
+  makeChart('Gruppengröße',pd,'doughnut');
+  const roleCount=countBy(r=>roleOf(r));
+  if(Object.keys(roleCount).length>1||roleCount['Orga']) makeChart('Rollen (inkl. Orga)', roleCount, 'doughnut');
+  const ver=countBy(r=>val(r,findCol('verein'))); if(Object.keys(ver).length>1) makeChart('Verein', ver, 'doughnut');
+  // ---- Logistik ----
+  chartHead('Anreise & Übernachtung');
+  makeChart('Anreise (zusammengefasst)', countBy(bucketAnreise),'bar');
+  makeChart('Geplante Ankunftszeiten', countSplit(findCol('wann kommst','wann')),'bar');
+  makeChart('Übernachtung', countBy(bucketNight),'doughnut');
+  // Kreuzauswertung: Zahlung nach Anreiseart (gestapelt)
+  const anB=['Fahrrad','Auto','Mitfahrt','Bus/Bahn','zu Fuß / Nähe','Sonstiges'].filter(b=>DATA.some(r=>bucketAnreise(r)===b));
+  if(anB.length){
+    const paidA=anB.map(b=>DATA.filter(r=>bucketAnreise(r)===b&&payState(r)==='paid').length);
+    const onsA=anB.map(b=>DATA.filter(r=>bucketAnreise(r)===b&&payState(r)==='onsite').length);
+    const openA=anB.map(b=>DATA.filter(r=>bucketAnreise(r)===b&&!['paid','onsite'].includes(payState(r))).length);
+    makeStacked('Zahlung nach Anreiseart',anB,[{label:'Bezahlt',data:paidA,color:'#1f9e5a'},{label:'Vor Ort',data:onsA,color:'#f4a83c'},{label:'Offen',data:openA,color:'#e0533d'}]);
+    const persA={}; anB.forEach(b=>persA[b]=DATA.filter(r=>bucketAnreise(r)===b).reduce((s,r)=>s+personsOf(r),0));
+    makeChart('Personen nach Anreiseart',persA,'bar');
+  }
+  // ---- Beteiligung ----
+  chartHead('Beteiligung & Vor Ort');
   const inn=DATA.filter(r=>isChecked(r)).length;
   if(DATA.length) makeChart('Check-in-Stand',{'Eingecheckt':inn,'Noch nicht':DATA.length-inn},'doughnut');
-  // Rollen-Verteilung (Mitglied/Orga/Gast)
-  const roleCount={}; DATA.forEach(r=>{const ro=roleOf(r);roleCount[ro]=(roleCount[ro]||0)+1;});
-  if(Object.keys(roleCount).length>1||roleCount['Orga']) makeChart('Rollen (inkl. Orga)', roleCount, 'doughnut');
-  // Tags-Auswertung
-  const tagCount={};
-  DATA.forEach(r=>tagsOf(mailOf(r)).forEach(t=>tagCount[t]=(tagCount[t]||0)+1));
-  if(Object.keys(tagCount).length) makeChart('Teilnehmer-Tags', tagCount, 'bar');
-  // Ausgaben nach Kategorie
-  const expCat={}; LS.get(kCash(),[]).filter(c=>+c.amount<0).forEach(c=>{const k=c.cat||'Sonstiges';expCat[k]=(expCat[k]||0)+(-c.amount);});
-  if(Object.keys(expCat).length) makeChart('Ausgaben nach Kategorie (€)', expCat, 'doughnut');
-  // Kapazität
   const cap=+e.capacity||0;
-  if(cap>0){ const pers2=DATA.reduce((s,r)=>s+personsOf(r),0); makeChart('Kapazität',{'Belegt':Math.min(pers2,cap),'Frei':Math.max(0,cap-pers2),'Warteliste':Math.max(0,pers2-cap)},'doughnut'); }
-  // Anmeldungen über Zeit
+  if(cap>0){ const pers2=DATA.reduce((s,r)=>s+personsOf(r),0); makeChart('Kapazität (Personen)',{'Belegt':Math.min(pers2,cap),'Frei':Math.max(0,cap-pers2),'Warteliste':Math.max(0,pers2-cap)},'doughnut'); }
+  const qz=countBy(r=>bucketYesNo(r,findCol('quiz'))); if(Object.keys(qz).length) makeChart('Präventionsquiz — Teilnahme', qz, 'doughnut');
+  const fd=countBy(r=>bucketYesNo(r,findCol('fahrdienst'))); if(Object.keys(fd).length) makeChart('Fahrdienst-Bedarf', fd, 'doughnut');
+  // Check-ins nach Uhrzeit
+  const byHour={}; DATA.forEach(r=>{const t=checkedAt(r); if(t){const h=String(new Date(t).getHours()).padStart(2,'0')+' Uhr'; byHour[h]=(byHour[h]||0)+1;}});
+  if(Object.keys(byHour).length){ const sh={}; Object.keys(byHour).sort().forEach(k=>sh[k]=byHour[k]); makeChart('Check-ins nach Uhrzeit', sh, 'bar'); }
+  const tagCount={}; DATA.forEach(r=>tagsOf(mailOf(r)).forEach(t=>tagCount[t]=(tagCount[t]||0)+1));
+  if(Object.keys(tagCount).length) makeChart('Teilnehmer-Tags', tagCount, 'bar');
+  // ---- Finanzen & Zeitverlauf ----
+  chartHead('Finanzen & Zeitverlauf');
+  const expCat={}; LS.get(kCash(),[]).filter(c=>+c.amount<0).forEach(c=>{const k=c.cat||'Sonstiges';expCat[k]=(expCat[k]||0)+(-c.amount);}); LS.get(kExp(),[]).forEach(x=>{const k=x.cat||'Sonstiges';expCat[k]=(expCat[k]||0)+(+x.amount||0);});
+  if(Object.keys(expCat).length) makeChart('Ausgaben nach Kategorie (€)', expCat, 'doughnut');
   const cTs=findCol('timestamp','zeitstempel');
-  if(cTs){
-    const byDay={};
+  if(cTs){ const byDay={};
     DATA.forEach(r=>{const raw=val(r,cTs);if(!raw)return;const d=raw.split(' ')[0].trim();if(d)byDay[d]=(byDay[d]||0)+1;});
     const keys=Object.keys(byDay).sort((a,b)=>new Date(a.split('/').reverse().join('-'))-new Date(b.split('/').reverse().join('-')));
     if(keys.length){ let run=0; const cum={}; keys.forEach(k=>{run+=byDay[k];cum[k]=run;}); makeChart('Anmeldungen (kumuliert)',cum,'line'); }
@@ -2210,19 +2247,38 @@ async function renderWeather(){
     }
     let fallbackNote='';
     if(lat==null){ lat=50.8021; lon=8.7667; fallbackNote='<div class="status" style="color:#a33;margin-bottom:8px">Ort „'+esc(e.place)+'" nicht gefunden — zeige die Region Marburg. Im Assistenten einen auffindbaren Ort eintragen (z. B. „Marburg" oder „Gießen").</div>'; }
-    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBerlin&forecast_days=16`);
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=Europe%2FBerlin&forecast_days=16`);
     const j=await r.json(); const d=j.daily;
     if(!d){ box.innerHTML='<div class="status">Keine Vorhersage verfügbar.</div>'; return; }
     let html='<div class="wx">';
-    d.time.forEach((dt,i)=>{ const hl=e.eventDate&&dt===e.eventDate; const dd=new Date(dt);
-      html+=`<div class="d ${hl?'hl':''}"><div class="day">${dd.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'})}</div><div class="ic">${wxIcon(d.weather_code[i])}</div><div class="tp">${Math.round(d.temperature_2m_max[i])}° / ${Math.round(d.temperature_2m_min[i])}°</div><div class="pr">💧 ${d.precipitation_probability_max[i]??0}%</div></div>`; });
+    d.time.slice(0,7).forEach((dt,i)=>{ const hl=e.eventDate&&dt===e.eventDate; const dd=new Date(dt);
+      html+=`<div class="d ${hl?'hl':''}"><div class="day">${dd.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'})}</div><div class="ic">${wxIcon(d.weather_code[i])}</div><div class="tp">${Math.round(d.temperature_2m_max[i])}° / ${Math.round(d.temperature_2m_min[i])}°</div><div class="pr">💧 ${d.precipitation_probability_max[i]??0}%</div><div class="pr" style="color:#4a6fa5">💨 ${Math.round(d.wind_speed_10m_max[i]??0)} km/h</div></div>`; });
     html+='</div>';
+    // Stündliche Vorschau für den Event-Tag (falls in Reichweite)
+    if(e.eventDate && d.time.includes(e.eventDate)){
+      try{
+        const hr=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m&timezone=Europe%2FBerlin&start_date=${e.eventDate}&end_date=${e.eventDate}`);
+        const hj=await hr.json(); const h=hj.hourly;
+        if(h&&h.time){ let hh='<div style="font-size:12px;color:var(--muted);margin:12px 0 4px">Stündlich am Event-Tag ('+new Date(e.eventDate).toLocaleDateString('de-DE')+'):</div><div class="wx" style="overflow-x:auto">';
+          h.time.forEach((t,i)=>{ const hour=new Date(t).getHours(); if(hour<8||hour>23||hour%2!==0)return;
+            hh+=`<div class="d" style="min-width:56px"><div class="day">${String(hour).padStart(2,'0')} Uhr</div><div class="ic">${wxIcon(h.weather_code[i])}</div><div class="tp">${Math.round(h.temperature_2m[i])}°</div><div class="pr">💧 ${h.precipitation_probability[i]??0}%</div><div class="pr" style="color:#4a6fa5">💨 ${Math.round(h.wind_speed_10m[i]??0)}</div></div>`; });
+          hh+='</div>'; html+=hh;
+        }
+      }catch(_){}
+    }
     if(e.eventDate && !d.time.includes(e.eventDate)){ const diff=Math.round((new Date(e.eventDate)-new Date())/86400000);
-      html+=`<div class="status" style="color:var(--muted);margin-top:8px">Für den Event-Tag (${new Date(e.eventDate).toLocaleDateString('de-DE')}) gibt es noch keine Vorhersage — verfügbar ab ~16 Tage vorher${diff>0?` (noch ${diff} Tage)`:''}.</div>`; }
+      html+=`<div class="status" style="color:var(--muted);margin-top:8px">Für den Event-Tag (${new Date(e.eventDate).toLocaleDateString('de-DE')}) gibt es noch keine Vorhersage — verfügbar ab ~16 Tage vorher${diff>0?` (noch ${diff} Tage)`:''}. Genaue Stunden-/Regen-/Winddaten erscheinen automatisch, sobald der Termin näher rückt.</div>`; }
+    // Warnstufen
     let warnHtml='';
     const wi = e.eventDate ? d.time.indexOf(e.eventDate) : 0;
-    if(wi>-1){ const wc=d.weather_code[wi], pr=d.precipitation_probability_max[wi]||0;
-      if(pr>=60 || (wc>=61 && wc<=99)) warnHtml=`<div class="banner" style="background:#f7eaea;border-color:#c0504d;margin-bottom:12px"><span>⚠️ <b>Regen/Unwetter wahrscheinlich</b> am ${new Date(d.time[wi]).toLocaleDateString('de-DE')} (${pr}% Niederschlag) — Pavillon/Zelt einplanen.</span></div>`; }
+    if(wi>-1){ const wc=d.weather_code[wi], pr=d.precipitation_probability_max[wi]||0, wind=Math.round(d.wind_speed_10m_max[wi]||0), tmax=Math.round(d.temperature_2m_max[wi]), tmin=Math.round(d.temperature_2m_min[wi]);
+      const warns=[];
+      if(pr>=60 || (wc>=61 && wc<=99)) warns.push('🌧️ <b>Regen/Unwetter wahrscheinlich</b> ('+pr+' %) — Pavillon/Zelt &amp; Unterstand einplanen.');
+      if(wind>=40) warns.push('💨 <b>Starker Wind</b> ('+wind+' km/h) — Pavillons gut sichern, Deko windfest.');
+      if(tmax>=30) warns.push('🥵 <b>Hitze</b> (bis '+tmax+'°) — Schatten, Wasser bereitstellen.');
+      if(tmin<=5) warns.push('🥶 <b>Kalte Nacht</b> (bis '+tmin+'°) — warme Kleidung/Heizung, Übernachtende vorwarnen.');
+      if(warns.length) warnHtml=`<div class="banner" style="background:#f7eaea;border-color:#c0504d;margin-bottom:12px"><span>⚠️ Wetterhinweise für den Event-Tag:<br>${warns.join('<br>')}</span></div>`;
+    }
     box.innerHTML=fallbackNote+warnHtml+html; _wxSig=sig;
   }catch(err){ box.innerHTML='<div class="status" style="color:var(--muted)">Wetter konnte nicht geladen werden.</div>'; }
 }
@@ -3043,6 +3099,25 @@ function renderReport(){
     <h3 style="margin:0 0 6px;font-size:13px;color:var(--accent)">Finanzen</h3>
     <table class="grid"><tr><td>PayPal-Pool</td><td style="text-align:right">${eur(ppNow)}</td></tr><tr><td>Handkasse</td><td style="text-align:right">${eur(cashBal)}</td></tr><tr><td>Orga-Pool</td><td style="text-align:right">${eur(orgaP)}</td></tr><tr><td>Ausgaben</td><td style="text-align:right;color:#a33">−${eur(ausgaben)}</td></tr><tr><td><b>Gesamt liquide</b></td><td style="text-align:right"><b>${eur(liquide)}</b></td></tr></table>
   </div></div>`;
+  // ---- Budget & Prognose ----
+  const budget=+e.budget||0; const sollE=pers*e.price; const erwartet=paid+onsite; const kostenPlan=Math.max(budget,ausgaben);
+  const planSaldo=sollE+orgaP-kostenPlan; const progSaldo=erwartet+orgaP-kostenPlan;
+  const amp = progSaldo>=0 ? (progSaldo < sollE*0.1 ? ['#c9922b','knapp — im Auge behalten'] : ['#1c8a4e','ja, reicht']) : ['#a33','Achtung: Defizit möglich'];
+  html+=`<h3 style="margin:12px 0 4px;font-size:13px;color:var(--accent)">Budget &amp; Prognose</h3>
+    <div class="grid2"><div>
+      <table class="grid"><tr><td>Einnahmen-Soll (wenn alle zahlen)</td><td style="text-align:right">${eur(sollE)}</td></tr>
+      <tr><td>Realistisch erwartet (bezahlt + vor Ort)</td><td style="text-align:right">${eur(erwartet)}</td></tr>
+      <tr><td>+ Orga-Pool</td><td style="text-align:right">${eur(orgaP)}</td></tr>
+      <tr><td>− Kosten (${budget>0?'Budget':'Ist'})</td><td style="text-align:right;color:#a33">−${eur(kostenPlan)}</td></tr></table>
+    </div><div>
+      <table class="grid"><tr><td>Geplanter Saldo (alle zahlen)</td><td style="text-align:right">${eur(planSaldo)}</td></tr>
+      <tr><td><b>Prognose-Saldo (realistisch)</b></td><td style="text-align:right;font-weight:700;color:${amp[0]}">${eur(progSaldo)}</td></tr>
+      <tr><td>Reicht das Geld?</td><td style="text-align:right;font-weight:700;color:${amp[0]}">${amp[1]}</td></tr></table>
+    </div></div>`;
+  // ---- Nachhaltigkeit (grobe CO2-Schätzung aus Anreise) ----
+  const CO2={'Auto':9,'Mitfahrt':4.5,'Bus/Bahn':2,'Fahrrad':0,'zu Fuß / Nähe':0,'Sonstiges':4};
+  let co2=0; DATA.forEach(r=>{const b=bucketAnreise(r); if(b)co2+=(CO2[b]||0)*personsOf(r);});
+  html+=`<h3 style="margin:12px 0 4px;font-size:13px;color:var(--accent)">Nachhaltigkeit (grobe Schätzung)</h3><div style="font-size:12.5px;color:var(--muted)">Geschätzte Anreise-Emissionen: <b style="color:var(--ink)">~${Math.round(co2)} kg CO₂</b> (Hin- &amp; Rückweg, Durchschnittswerte je Verkehrsmittel; Fahrrad/zu Fuß = 0). Die Mitfahr-Börse aktiv zu bewerben senkt den Wert spürbar.</div>`;
   const chips=(obj,fmt)=>Object.keys(obj).length?('<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px">'+Object.entries(obj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span style="border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:12px"><b>${esc(k)}</b>: ${fmt?fmt(v):v}</span>`).join('')+'</div>'):'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">—</div>';
   const expByCat={}; cashList.filter(c=>c.amount<0).forEach(c=>{const k=c.cat||'Sonstiges';expByCat[k]=(expByCat[k]||0)+(-c.amount);}); LS.get(kExp(),[]).forEach(x=>{const k=x.cat||'Sonstiges';expByCat[k]=(expByCat[k]||0)+(+x.amount||0);});
   html+=`<h3 style="margin:12px 0 4px;font-size:13px;color:var(--accent)">Rollen</h3>${chips(roles)}`;
