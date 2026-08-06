@@ -208,7 +208,7 @@
 
   <div class="section">
     <h2>📊 Grafische Auswertung</h2>
-    <div class="body"><div class="charts" id="charts"></div></div>
+    <div class="body"><div class="row-flex" style="margin-bottom:10px"><button class="btn sm" onclick="openChartSel()">⚙ Diagramme wählen</button><span class="status" style="color:var(--muted);font-size:12px">Wähle aus, welche Statistiken für diese Veranstaltung angezeigt werden.</span></div><div class="charts" id="charts"></div></div>
   </div>
 
   <div class="section" id="weatherSection" style="display:none">
@@ -815,6 +815,8 @@
   </div>
 </div>
 
+<div class="modal" id="chartSelModal"><div class="box" style="max-width:560px"><h3>⚙ Diagramme auswählen</h3><div class="hint">Hake an, welche Statistiken im Bereich „Grafische Auswertung" erscheinen. Kreuzauswertungen stellen zwei Merkmale gegenüber. Leere Diagramme werden automatisch ausgeblendet.</div><div class="row-flex" style="margin:8px 0"><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="chartSelPreset('all')">Alle</button><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="chartSelPreset('none')">Keine</button><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="chartSelPreset('default')">Standard</button></div><div id="chartSelList" style="max-height:58vh;overflow:auto"></div><div class="row-flex" style="justify-content:flex-end;margin-top:10px"><button class="btn" onclick="closeModal('chartSelModal')">Fertig</button></div></div></div>
+
 <div class="modal" id="kasseModal">
   <div class="box" style="max-width:420px">
     <h3>💶 Kasse — Beitrag kassieren</h3>
@@ -895,8 +897,8 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.7';
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg'];
+const APP_VERSION='2.7.1';
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -3532,6 +3534,55 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
 window.addEventListener('online', ()=>{ if(cloudOn()){ pushAllLocal(); setSync('online – sync…'); setTimeout(()=>refreshCloud(),1800); } });
 window.addEventListener('offline', ()=> setSync('offline (lokal gespeichert)'));
 } // Ende initDashboard
+
+function kChartSel(){return 'evtdash_chartsel_'+currentId;}
+function payLbl(r){const s=payState(r);return s==='paid'?'Bezahlt':s==='onsite'?'Vor Ort':'Offen';}
+function bucketAnkunft(r){const v=(val(r,findCol('wann kommst','wann'))||'').toLowerCase();if(!v)return null;if(/freitag|zeiteninsel|opener/.test(v))return 'Freitag';if(/samstag/.test(v))return 'Samstag';if(/sonntag/.test(v))return 'Sonntag';if(/weiß|weiss|nicht genau/.test(v))return 'Unklar';return 'Sonstiges';}
+function grpLbl(r){const p=personsOf(r);return p===1?'Alleine':(p+' Personen');}
+const PAY_SERIES=[{label:'Bezahlt',color:'#1f9e5a',match:r=>payState(r)==='paid'},{label:'Vor Ort',color:'#f4a83c',match:r=>payState(r)==='onsite'},{label:'Offen',color:'#e0533d',match:r=>!['paid','onsite'].includes(payState(r))}];
+const NIGHT_SERIES=[{label:'Übernachtet',color:'#1f9e5a',match:r=>bucketNight(r)==='Übernachtet'},{label:'Fährt heim',color:'#f4a83c',match:r=>bucketNight(r)==='Fährt heim'},{label:'Unklar',color:'#8e5cc6',match:r=>bucketNight(r)==='Unklar'}];
+function crossStacked(title,rowFn,rowOrder,series){let rows=rowOrder?rowOrder.filter(b=>DATA.some(r=>rowFn(r)===b)):[...new Set(DATA.map(rowFn).filter(Boolean))];if(!rows.length)return;makeStacked(title,rows,series.map(s=>({label:s.label,color:s.color,data:rows.map(b=>DATA.filter(r=>rowFn(r)===b&&s.match(r)).length)})));}
+function sumBar(title,rowFn,rowOrder,valFn){const m={};(rowOrder||[...new Set(DATA.map(rowFn).filter(Boolean))]).forEach(b=>{if(!DATA.some(r=>rowFn(r)===b))return;m[b]=DATA.filter(r=>rowFn(r)===b).reduce((s,r)=>s+valFn(r),0);});if(Object.keys(m).length)makeChart(title,m,'bar');}
+const ANREISE_ORDER=['Fahrrad','Auto','Mitfahrt','Bus/Bahn','zu Fuß / Nähe','Sonstiges'];
+const NIGHT_ORDER=['Übernachtet','Fährt heim','Unklar'];
+const CHART_DEFS=[
+ {g:'Teilnehmer & Anmeldung',id:'zahlung',l:'Zahlungsstatus',def:1,fn:()=>{const m={'Bezahlt':0,'Vor Ort':0,'Offen/Unklar':0};DATA.forEach(r=>{const s=payState(r);if(s==='paid')m['Bezahlt']++;else if(s==='onsite')m['Vor Ort']++;else m['Offen/Unklar']++;});makeChart('Zahlungsstatus (Anmeldungen)',m,'doughnut');}},
+ {g:'Teilnehmer & Anmeldung',id:'gruppe',l:'Gruppengröße',def:1,fn:()=>{const raw={};DATA.forEach(r=>{const p=personsOf(r);raw[p]=(raw[p]||0)+1;});const m={};Object.keys(raw).map(Number).sort((a,b)=>a-b).forEach(p=>{m[p===1?'Alleine (1 Person)':(p+' Personen zusammen')]=raw[p];});makeChart('Gruppengröße',m,'doughnut');}},
+ {g:'Teilnehmer & Anmeldung',id:'rollen',l:'Rollen (Mitglied/Orga/Gast)',def:1,fn:()=>{const m=countBy(r=>roleOf(r));if(Object.keys(m).length>1||m['Orga'])makeChart('Rollen (inkl. Orga)',m,'doughnut');}},
+ {g:'Teilnehmer & Anmeldung',id:'verein',l:'Verein',def:1,fn:()=>{const m=countBy(r=>val(r,findCol('verein')));if(Object.keys(m).length)makeChart('Verein',m,'doughnut');}},
+ {g:'Teilnehmer & Anmeldung',id:'tags',l:'Teilnehmer-Tags',def:1,fn:()=>{const m={};DATA.forEach(r=>tagsOf(mailOf(r)).forEach(t=>m[t]=(m[t]||0)+1));if(Object.keys(m).length)makeChart('Teilnehmer-Tags',m,'bar');}},
+ {g:'Teilnehmer & Anmeldung',id:'kumuliert',l:'Anmeldungen (kumuliert)',def:1,fn:()=>{const cTs=findCol('timestamp','zeitstempel');if(!cTs)return;const byDay={};DATA.forEach(r=>{const raw=val(r,cTs);if(!raw)return;const d=raw.split(' ')[0].trim();if(d)byDay[d]=(byDay[d]||0)+1;});const keys=Object.keys(byDay).sort((a,b)=>new Date(a.split('/').reverse().join('-'))-new Date(b.split('/').reverse().join('-')));if(keys.length){let run=0;const cum={};keys.forEach(k=>{run+=byDay[k];cum[k]=run;});makeChart('Anmeldungen (kumuliert)',cum,'line');}}},
+ {g:'Anreise & Übernachtung',id:'anreise',l:'Anreise (zusammengefasst)',def:1,fn:()=>{const m=countBy(bucketAnreise);if(Object.keys(m).length)makeChart('Anreise',m,'bar');}},
+ {g:'Anreise & Übernachtung',id:'anreise_roh',l:'Anreise (Original-Antworten)',def:0,fn:()=>{const m=countSplit(findCol('reist Du an','anreise'));if(Object.keys(m).length)makeChart('Anreise (Detail)',m,'bar');}},
+ {g:'Anreise & Übernachtung',id:'ankunft',l:'Geplante Ankunftszeiten',def:1,fn:()=>{const m=countSplit(findCol('wann kommst','wann'));if(Object.keys(m).length)makeChart('Geplante Ankunftszeiten',m,'bar');}},
+ {g:'Anreise & Übernachtung',id:'ankunft_tag',l:'Ankunft nach Tag',def:0,fn:()=>{const m=countBy(bucketAnkunft);if(Object.keys(m).length)makeChart('Ankunft nach Tag',m,'doughnut');}},
+ {g:'Anreise & Übernachtung',id:'uebernachtung',l:'Übernachtung',def:1,fn:()=>{const m=countBy(bucketNight);if(Object.keys(m).length)makeChart('Übernachtung',m,'doughnut');}},
+ {g:'Anreise & Übernachtung',id:'uebernachtung_roh',l:'Übernachtung (Original)',def:0,fn:()=>{const m=countSplit(findCol('übernacht','ubernacht'));if(Object.keys(m).length)makeChart('Übernachtung (Detail)',m,'bar');}},
+ {g:'Anreise & Übernachtung',id:'personen_anreise',l:'Personen nach Anreiseart',def:0,fn:()=>sumBar('Personen nach Anreiseart',bucketAnreise,ANREISE_ORDER,r=>personsOf(r))},
+ {g:'Beteiligung & Vor Ort',id:'checkin',l:'Check-in-Stand',def:1,fn:()=>{if(!DATA.length)return;const inn=DATA.filter(r=>isChecked(r)).length;makeChart('Check-in-Stand',{'Eingecheckt':inn,'Noch nicht':DATA.length-inn},'doughnut');}},
+ {g:'Beteiligung & Vor Ort',id:'kapazitaet',l:'Kapazität (Personen)',def:1,fn:()=>{const cap=+ev().capacity||0;if(!cap)return;const p=DATA.reduce((s,r)=>s+personsOf(r),0);makeChart('Kapazität (Personen)',{'Belegt':Math.min(p,cap),'Frei':Math.max(0,cap-p),'Warteliste':Math.max(0,p-cap)},'doughnut');}},
+ {g:'Beteiligung & Vor Ort',id:'checkin_uhr',l:'Check-ins nach Uhrzeit',def:1,fn:()=>{const m={};DATA.forEach(r=>{const t=checkedAt(r);if(t){const h=String(new Date(t).getHours()).padStart(2,'0')+' Uhr';m[h]=(m[h]||0)+1;}});if(Object.keys(m).length){const s={};Object.keys(m).sort().forEach(k=>s[k]=m[k]);makeChart('Check-ins nach Uhrzeit',s,'bar');}}},
+ {g:'Beteiligung & Vor Ort',id:'quiz',l:'Präventionsquiz — Teilnahme',def:0,fn:()=>{const m=countBy(r=>bucketYesNo(r,findCol('quiz')));if(Object.keys(m).length)makeChart('Präventionsquiz — Teilnahme',m,'doughnut');}},
+ {g:'Beteiligung & Vor Ort',id:'fahrdienst',l:'Fahrdienst-Bedarf',def:0,fn:()=>{const m=countBy(r=>bucketYesNo(r,findCol('fahrdienst')));if(Object.keys(m).length)makeChart('Fahrdienst-Bedarf',m,'doughnut');}},
+ {g:'Beteiligung & Vor Ort',id:'aufraeumen',l:'Aufräumen (Sonntag)',def:0,fn:()=>{const m=countBy(r=>bucketYesNo(r,findCol('aufräumen','aufraumen','sonntag')));if(Object.keys(m).length)makeChart('Aufräumen (So)',m,'doughnut');}},
+ {g:'Finanzen',id:'ausgaben_kat',l:'Ausgaben nach Kategorie (€)',def:1,fn:()=>{const m={};LS.get(kCash(),[]).filter(c=>+c.amount<0).forEach(c=>{const k=c.cat||'Sonstiges';m[k]=(m[k]||0)+(-c.amount);});LS.get(kExp(),[]).forEach(x=>{const k=x.cat||'Sonstiges';m[k]=(m[k]||0)+(+x.amount||0);});if(Object.keys(m).length)makeChart('Ausgaben nach Kategorie (€)',m,'doughnut');}},
+ {g:'Kreuzauswertungen (gegenübergestellt)',id:'x_zahlung_anreise',l:'Zahlung × Anreiseart',def:1,fn:()=>crossStacked('Zahlung nach Anreiseart',bucketAnreise,ANREISE_ORDER,PAY_SERIES)},
+ {g:'Kreuzauswertungen (gegenübergestellt)',id:'x_zahlung_uebern',l:'Zahlung × Übernachtung',def:0,fn:()=>crossStacked('Zahlung nach Übernachtung',bucketNight,NIGHT_ORDER,PAY_SERIES)},
+ {g:'Kreuzauswertungen (gegenübergestellt)',id:'x_zahlung_tag',l:'Zahlung × Ankunftstag',def:0,fn:()=>crossStacked('Zahlung nach Ankunftstag',bucketAnkunft,['Freitag','Samstag','Sonntag','Unklar','Sonstiges'],PAY_SERIES)},
+ {g:'Kreuzauswertungen (gegenübergestellt)',id:'x_zahlung_rolle',l:'Zahlung × Rolle',def:0,fn:()=>crossStacked('Zahlung nach Rolle',r=>roleOf(r),['Mitglied','Orga','Gast'],PAY_SERIES)},
+ {g:'Kreuzauswertungen (gegenübergestellt)',id:'x_uebern_anreise',l:'Übernachtung × Anreiseart',def:0,fn:()=>crossStacked('Übernachtung nach Anreiseart',bucketAnreise,ANREISE_ORDER,NIGHT_SERIES)},
+ {g:'Kreuzauswertungen (gegenübergestellt)',id:'x_anwes_zahlung',l:'Anwesenheit × Zahlung',def:0,fn:()=>crossStacked('Anwesenheit nach Zahlung',r=>payLbl(r),['Bezahlt','Vor Ort','Offen'],[{label:'Eingecheckt',color:'#1f9e5a',match:r=>isChecked(r)},{label:'Noch nicht',color:'#c4c9c6',match:r=>!isChecked(r)}])},
+ {g:'Kreuzauswertungen (gegenübergestellt)',id:'x_gruppe_uebern',l:'Gruppengröße × Übernachtung',def:0,fn:()=>crossStacked('Gruppengröße nach Übernachtung',grpLbl,null,NIGHT_SERIES)},
+ {g:'Kreuzauswertungen (gegenübergestellt)',id:'x_personen_uebern',l:'Personen nach Übernachtung',def:0,fn:()=>sumBar('Personen nach Übernachtung',bucketNight,NIGHT_ORDER,r=>personsOf(r))}
+];
+function chartEnabled(id,def){const sel=LS.get(kChartSel(),null);if(!sel)return !!def;return sel[id]!==undefined?!!sel[id]:!!def;}
+function chartHead(t){const d=document.createElement('div');d.dataset.gh='1';d.style.cssText='grid-column:1/-1;margin:6px 0 -4px;font-weight:700;color:var(--green-d,#1f7554);font-size:13px';d.textContent=t;document.getElementById('charts').appendChild(d);}
+function renderCharts(){charts.forEach(c=>c.destroy());charts=[];const cont=document.getElementById('charts');cont.innerHTML='';let lastG=null;CHART_DEFS.forEach(d=>{if(!chartEnabled(d.id,d.def))return;if(d.g!==lastG){chartHead(d.g);lastG=d.g;}try{d.fn();}catch(e){}});const kids=[...cont.children];kids.forEach((el,i)=>{if(el.dataset&&el.dataset.gh){const next=kids[i+1];if(!next||(next.dataset&&next.dataset.gh))el.remove();}});if(!cont.querySelector('.chart-box'))cont.innerHTML='<div class="status" style="color:var(--muted)">Keine Diagramme ausgewählt (oder keine Daten dafür). Über „⚙ Diagramme wählen" welche aktivieren.</div>';}
+function openChartSel(){renderChartSelList();document.getElementById('chartSelModal').classList.add('open');}
+function renderChartSelList(){const box=document.getElementById('chartSelList');if(!box)return;let html='',lastG=null;CHART_DEFS.forEach(d=>{if(d.g!==lastG){html+='<div style="font-weight:700;color:var(--accent);font-size:12px;margin:10px 0 4px">'+esc(d.g)+'</div>';lastG=d.g;}const on=chartEnabled(d.id,d.def);html+='<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleChartSel(\''+d.id+'\',this.checked)"> '+esc(d.l)+'</label>';});box.innerHTML=html;}
+function toggleChartSel(id,on){let sel=LS.get(kChartSel(),null);if(!sel){sel={};CHART_DEFS.forEach(d=>sel[d.id]=!!d.def);}sel[id]=!!on;LS.set(kChartSel(),sel);renderCharts();}
+function chartSelPreset(mode){const sel={};CHART_DEFS.forEach(d=>{sel[d.id]=mode==='all'?true:(mode==='none'?false:!!d.def);});LS.set(kChartSel(),sel);renderChartSelList();renderCharts();}
+
 </script>
 </body>
 </html>
