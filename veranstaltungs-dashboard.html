@@ -693,7 +693,8 @@
     <div class="hint">Tipp: Die Tabelle muss auf „Jeder mit dem Link" freigegeben (oder veröffentlicht) sein, damit der automatische Abruf funktioniert. Der Team-Code trennt eure Cloud-Daten von anderen — gib denselben Code an alle Orga-Leute.</div>
     <div class="row-flex" style="justify-content:space-between;margin-top:10px;">
       <div class="row-flex" style="gap:6px">
-        <button class="btn sm" style="background:#c9922b" onclick="cancelEvent()">Veranstaltung absagen</button>
+        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button>
+        <button class="btn sm" style="background:#c9922b" onclick="cancelEvent()">Absagen</button>
         <button class="btn danger sm" onclick="deleteEvent()">Löschen</button>
       </div>
       <div class="row-flex">
@@ -897,7 +898,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.7.2';
+const APP_VERSION='2.8';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3590,6 +3591,14 @@ const NAV_GROUPS=[{n:'👥 Teilnehmer',m:['Teilnehmer','Community','Daten-Import
 function navItemHtml(s){const t=(s.querySelector(':scope > h2').textContent||'').replace('▾','').trim();return '<div><a href="#'+s.id+'" onclick="scrollToSection(\''+s.id+'\');return false;" style="font-size:12.5px;color:var(--ink);text-decoration:none;display:block;padding:1px 0">'+esc(t)+'</a></div>';}
 function buildNav(){const wrap=document.querySelector('.wrap');if(!wrap)return;const secs=[].slice.call(document.querySelectorAll('.section'));if(!secs.length)return;if(document.getElementById('sectionNav'))return;secs.forEach(function(s){const h=s.querySelector(':scope > h2');if(!h)return;if(!s.id)s.id=slugify((h.textContent||'').replace('▾','').trim());});const used=new Set();let html='<div style="display:flex;flex-wrap:wrap;gap:16px">';NAV_GROUPS.forEach(function(g){const items=secs.filter(function(s){const h=s.querySelector(':scope > h2');return h&&g.m.some(function(f){return h.textContent.includes(f);});});items.forEach(function(s){used.add(s);});if(!items.length)return;html+='<div style="min-width:150px"><div style="font-weight:700;color:var(--accent);font-size:12px;margin-bottom:4px">'+esc(g.n)+'</div>'+items.map(navItemHtml).join('')+'</div>';});const rest=secs.filter(function(s){return !used.has(s);});if(rest.length)html+='<div style="min-width:150px"><div style="font-weight:700;color:var(--accent);font-size:12px;margin-bottom:4px">Weiteres</div>'+rest.map(navItemHtml).join('')+'</div>';html+='</div>';const nav=document.createElement('div');nav.className='section';nav.id='sectionNav';nav.innerHTML='<h2>🧭 Schnellnavigation</h2><div class="body">'+html+'</div>';wrap.insertBefore(nav,secs[0]);const h2=nav.querySelector('h2');const c=document.createElement('span');c.className='caret';c.textContent='▾';h2.appendChild(c);h2.style.cursor='pointer';h2.addEventListener('click',function(e){if(e.target.closest('a,button'))return;toggleSection(nav);});}
 try{buildNav();}catch(e){}
+
+
+function distinctVals(col){if(!col)return [];const set=new Set();DATA.forEach(r=>{const v=(val(r,col)||'').trim();if(v)set.add(v);});return [...set].sort((a,b)=>a.localeCompare(b,'de'));}
+function attachDatalist(inputId,col){const inp=document.getElementById(inputId);if(!inp)return;const vals=distinctVals(col);const dlId='dl_'+inputId;let dl=document.getElementById(dlId);if(!dl){dl=document.createElement('datalist');dl.id=dlId;document.body.appendChild(dl);}dl.innerHTML=vals.map(v=>'<option value="'+esc(v)+'">').join('');inp.setAttribute('list',dlId);}
+function fillAddDatalists(){attachDatalist('aVerein',findCol('verein'));attachDatalist('aWann',findCol('wann kommst','wann'));attachDatalist('aAnreise',findCol('reist Du an','anreise'));attachDatalist('aUeber',findCol('übernacht','ubernacht'));attachDatalist('aFahr',findCol('fahrdienst'));attachDatalist('aAuf',findCol('aufräumen','aufraumen','sonntag'));attachDatalist('aQuiz',findCol('quiz'));attachDatalist('aBring',findCol('bringst du etwas','hilft'));}
+function openAdd(){const h=document.querySelector('#addModal h3');if(h)h.textContent='+ Teilnehmer hinzufügen';const rEl=document.getElementById('aRole');if(rEl)rEl.value='Mitglied';syncOrgaPaidField();fillAddDatalists();document.getElementById('addModal').classList.add('open');}
+function openOrgaAssistant(){document.getElementById('addModal').classList.add('open');const h=document.querySelector('#addModal h3');if(h)h.textContent='➕ Orga-Mitglied anlegen';const rEl=document.getElementById('aRole');if(rEl)rEl.value='Orga';syncOrgaPaidField();fillAddDatalists();}
+function cloneEvent(){const e=ev();const name=prompt('Name der neuen (geklonten) Veranstaltung:',e.name+' (Kopie)');if(!name)return;const id='evt-'+Date.now();const copy=Object.assign({},e,{id:id,name:name.trim(),eventDate:'',lat:null,lon:null,cancelled:undefined,cancelReason:undefined});events.push(copy);LS.set('evtdash_events',events);currentId=id;LS.set('evtdash_current',currentId);closeModal('settingsModal');switchEvent(id,true);openWizard();}
 
 </script>
 </body>
