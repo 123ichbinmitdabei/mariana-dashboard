@@ -148,6 +148,7 @@
   <button class="btn ghost sm" id="modeBtn" onclick="toggleMode()" title="Ansehen / Bearbeiten">✏️ Bearbeiten</button>
   <button class="btn ghost sm" onclick="manualSync()">↻ Daten</button>
   <button class="btn ghost sm" onclick="collapseAll()" title="Alle Bereiche ein-/ausklappen">🗂️ Bereiche</button>
+  <button class="btn ghost sm" id="orgaViewBtn" onclick="orgaView()" title="Orga-Ansicht: blendet teilnehmer-/infolastige Bereiche aus">🛡️ Orga-Ansicht</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <a class="btn ghost sm" href="dashboard-anleitung.html" target="_blank" rel="noopener" style="text-decoration:none">❓ Anleitung</a>
   <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
@@ -178,6 +179,7 @@
 </div>
 
 <div class="wrap">
+  <div id="cancelBanner"></div>
   <div id="verBanner"></div>
   <div class="status" id="loadStatus"></div>
   <div id="staleWarn"></div>
@@ -286,6 +288,18 @@
         <input id="orgPaid" type="number" step="0.01" placeholder="Einzahlung €" style="width:130px;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <input id="orgNote" placeholder="Notiz (optional)" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
         <button class="btn sm" onclick="addOrga()">+ Orga-Mitglied</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📈 Gesamt-Auswertung</h2>
+    <div class="body">
+      <div class="hint">Alle Kennzahlen der Veranstaltung auf einen Blick — für Vorstand, Abrechnung und Manöverkritik.</div>
+      <div id="reportBox"></div>
+      <div class="row-flex" style="margin-top:10px">
+        <button class="btn sm" onclick="pdfReport()">⬇ Gesamtbericht als PDF</button>
+        <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="exportCSV()">⬇️ Teilnehmer-CSV</button>
       </div>
     </div>
   </div>
@@ -429,6 +443,27 @@
   </div>
 
   <div class="section">
+    <h2>✉️ Einladungen</h2>
+    <div class="body">
+      <div class="hint">Erstelle Einladungstexte für verschiedene Kanäle (mit deinen Links) und verwalte, wen du eingeladen hast. Die schöne HTML-Mail-Einladung liegt zusätzlich als separate Datei vor.</div>
+      <div class="row-flex" style="margin-bottom:8px">
+        <button class="btn sm" onclick="inviteChannel('mail')">✉️ Mail</button>
+        <button class="btn sm" style="background:#25d366" onclick="inviteChannel('whatsapp')">🟢 WhatsApp</button>
+        <button class="btn sm" style="background:#5865f2" onclick="inviteChannel('discord')">🎮 Discord</button>
+        <button class="btn sm" style="background:#111" onclick="inviteChannel('tiktok')">🎵 TikTok</button>
+      </div>
+      <textarea id="inviteText" rows="6" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:6px;font-size:13px" placeholder="Wähle oben einen Kanal – hier erscheint der fertige Einladungstext…"></textarea>
+      <div class="row-flex" style="margin-top:6px"><button class="btn sm" onclick="copyText('inviteText')">Kopieren</button></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+      <b style="font-size:13px">Einladungsliste</b>
+      <div class="hint">Namen/Kontakte (einer pro Zeile) einfügen und importieren. Behalte den Überblick, wer zu-/abgesagt hat.</div>
+      <textarea id="inviteImport" rows="3" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px" placeholder="Max Mustermann&#10;Lisa&#10;…"></textarea>
+      <div class="row-flex" style="margin:6px 0"><button class="btn sm" onclick="importInvitees()">+ Importieren</button><span class="status" id="inviteSummary" style="color:var(--muted)"></span></div>
+      <div id="inviteList"></div>
+    </div>
+  </div>
+
+  <div class="section">
     <h2>🎲 Quiz, Spiele &amp; Vorträge</h2>
     <div class="body">
       <div class="hint">Erstelle Quizze (mit Auswertung), hinterlege Spiele und Vorträge (als Link oder Datei), präsentiere im Vollbild (Beamer) und drucke Arbeitsblätter.</div>
@@ -436,8 +471,48 @@
         <button class="btn sm" onclick="openQuizEditor('quiz')">➕ Quiz erstellen</button>
         <button class="btn sm" style="background:#2f7ec6" onclick="openQuizEditor('game')">➕ Spiel anlegen</button>
         <button class="btn sm" style="background:#8e5cc6" onclick="openQuizEditor('talk')">➕ Vortrag anlegen</button>
+        <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="loadQuizTemplates()">📋 Vorlagen laden</button>
       </div>
       <div id="quizList"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📦 Material, Deko &amp; Verbrauch</h2>
+    <div class="body">
+      <div class="hint">Verwalte Material, Deko und Verbrauchsgegenstände: Menge, Kategorie, Status (vorhanden / zu besorgen / geliehen) und wer es mitbringt. Die Bottle-/Mitbringliste hat einen eigenen Bereich weiter oben.</div>
+      <div class="row-flex" style="margin-bottom:8px">
+        <select id="invFilter" onchange="renderInv()" style="padding:7px;border:1px solid var(--line);border-radius:6px"><option value="">Alle Kategorien</option></select>
+        <span class="status" id="invSummary" style="color:var(--muted)"></span>
+      </div>
+      <div id="invList"></div>
+      <div class="row-flex" style="margin-top:10px">
+        <input id="invName" placeholder="Gegenstand (z.B. Pavillon)" style="flex:2;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <input id="invQty" type="number" min="1" value="1" style="width:70px;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <select id="invCat" style="width:130px;padding:7px;border:1px solid var(--line);border-radius:6px"></select>
+        <select id="invStatusSel" style="width:130px;padding:7px;border:1px solid var(--line);border-radius:6px"><option value="besorgen">zu besorgen</option><option value="vorhanden">vorhanden</option><option value="geliehen">geliehen</option></select>
+        <input id="invWho" placeholder="wer / woher" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <button class="btn sm" onclick="addInv()">+ Eintrag</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🧮 Kalkulation (Verbrauch, Essen, Trinken, Strom)</h2>
+    <div class="body">
+      <div class="hint">Schätze Mengen und Kosten anhand der Personenzahl (aktuell <b id="calcPers">0</b> Personen). „pro Person" × Personen = Menge; × Einzelpreis = Kosten. Mit einem Klick als Budget übernehmen.</div>
+      <div id="calcTable"></div>
+      <div class="row-flex" style="margin-top:10px">
+        <input id="calcName" placeholder="Position (z.B. Grillfleisch)" style="flex:2;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <input id="calcPer" type="number" step="0.01" placeholder="pro Person" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <input id="calcUnit" placeholder="Einheit (g/Stk/l)" style="width:110px;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <input id="calcPrice" type="number" step="0.01" placeholder="€/Einheit" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:6px">
+        <button class="btn sm" onclick="addCalc()">+ Position</button>
+      </div>
+      <div class="row-flex" style="margin-top:10px;justify-content:space-between;align-items:center">
+        <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="loadCalcTemplate()">🍔 Grill-/Camp-Vorlage laden</button>
+        <div><b>Geschätzte Gesamtkosten: <span id="calcTotal">0,00 €</span></b> <button class="btn sm" onclick="calcToBudget()">→ als Budget setzen</button></div>
+      </div>
     </div>
   </div>
 
@@ -508,13 +583,15 @@
   </div>
 
   <div class="section" id="gallerySection">
-    <h2>📸 Foto-Galerie</h2>
+    <h2>📸 Fotos &amp; Videos</h2>
     <div class="body">
       <div class="row-flex" style="margin-bottom:10px">
         <a class="btn sm" id="galleryLink" target="_blank" rel="noopener" style="display:none">↗ Externe Galerie öffnen</a>
         <label class="btn sm" style="cursor:pointer">📷 Fotos hinzufügen<input type="file" id="photoInput" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)"></label>
+        <button class="btn sm" style="background:#2f7ec6" onclick="addVideoLink()">🎬 Video-Link</button>
+        <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="shareGallery()">🔗 Teilen</button>
       </div>
-      <div class="hint">Fotos werden verkleinert und lokal in diesem Browser gespeichert (nicht in der Cloud).</div>
+      <div class="hint">Fotos werden verkleinert lokal gespeichert. Videos als Link (YouTube/TikTok/Drive) hinzufügen. Zum Weitergeben „Teilen". Für eine gemeinsame Cloud-Galerie kann optional ein externer Galerie-Link in den Einstellungen hinterlegt werden.</div>
       <div id="photoGrid" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       <iframe class="embed" id="galleryFrame" title="Galerie" style="display:none;margin-top:10px"></iframe>
     </div>
@@ -548,7 +625,10 @@
     <div class="field"><label>Team-Code (Cloud-Zugang — nur wer denselben Code hat, teilt die Daten)</label><input id="sTeam" placeholder="z.B. marburg2026"></div>
     <div class="hint">Tipp: Die Tabelle muss auf „Jeder mit dem Link" freigegeben (oder veröffentlicht) sein, damit der automatische Abruf funktioniert. Der Team-Code trennt eure Cloud-Daten von anderen — gib denselben Code an alle Orga-Leute.</div>
     <div class="row-flex" style="justify-content:space-between;margin-top:10px;">
-      <button class="btn danger sm" onclick="deleteEvent()">Veranstaltung löschen</button>
+      <div class="row-flex" style="gap:6px">
+        <button class="btn sm" style="background:#c9922b" onclick="cancelEvent()">Veranstaltung absagen</button>
+        <button class="btn danger sm" onclick="deleteEvent()">Löschen</button>
+      </div>
       <div class="row-flex">
         <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('settingsModal')">Abbrechen</button>
         <button class="btn" onclick="saveSettings()">Speichern</button>
@@ -711,8 +791,8 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.1';
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui'];
+const APP_VERSION='2.2';
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -742,6 +822,9 @@ const kExp  =()=>'evtdash_exp_'+currentId;      // Ausgaben mit Beleg/Quelle
 const kQuiz =()=>'evtdash_quiz_'+currentId;     // Quizze/Spiele/Vorträge
 const kWaPh =()=>'evtdash_waph_'+currentId;     // Name->Telefon aus WhatsApp
 const kUI   =()=>'evtdash_ui_'+currentId;       // UI-Zustand (eingeklappte Bereiche)
+const kInv  =()=>'evtdash_inv_'+currentId;      // Material/Inventar
+const kCalc =()=>'evtdash_calc_'+currentId;     // Verbrauchs-Kalkulation
+const kInvite=()=>'evtdash_invite_'+currentId;  // Einladungsliste
 function extraOf(mail){ return (LS.get(kExtra(),{})[mail])||{}; }
 function phoneOf(row){
   const mail=mailOf(row);
@@ -968,7 +1051,7 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderQuiz(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderQuiz(); renderInv(); renderCalc(); renderInvite(); renderReport(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
 
 /* ===== Sprache (DE/EN, Bereichs-Überschriften) ===== */
 const HDR_EN={ 'Community & Schnellzugriff':'Community & Quick Access','Grafische Auswertung':'Charts & Analysis','Wetter fürs Event':'Weather','Veranstaltungs-Vergleich':'Event Comparison','Orga & Finanzen':'Organization & Finance','Ablaufplan':'Schedule','Namensschilder & Listen':'Badges & Lists','Mitfahr-Börse & Fahrdienst':'Ride Share','Kommunikations-Bausteine':'Message Templates','Daten-Import (WhatsApp & PayPal)':'Data Import (WhatsApp & PayPal)','Zähler & Strichlisten':'Counters','Einkaufsliste':'Shopping List','Mitbring-Liste (Bottle-Liste)':'Bring List (Bottle List)','Teilnehmer':'Participants','Feedback':'Feedback','Foto-Galerie':'Photo Gallery' };
@@ -1115,11 +1198,22 @@ function delShop(i){const l=LS.get(kShop(),[]);l.splice(i,1);LS.set(kShop(),l);r
 
 function renderTop(){
   const e=ev();
-  document.getElementById('evtName').textContent=e.name;
+  document.getElementById('evtName').textContent=(e.cancelled?'⛔ ':'')+e.name;
   document.getElementById('evtSub').textContent=DATA.length+' Anmeldungen · Preis '+eur(e.price);
   const sw=document.getElementById('evtSwitch');
-  sw.innerHTML=events.map(x=>`<option value="${x.id}" ${x.id===currentId?'selected':''}>${x.name}</option>`).join('');
+  sw.innerHTML=events.map(x=>`<option value="${x.id}" ${x.id===currentId?'selected':''}>${(x.cancelled?'⛔ ':'')+x.name}</option>`).join('');
   const cs=document.getElementById('compareSection'); if(cs) cs.style.display = events.length>1?'':'none';
+  const cb=document.getElementById('cancelBanner');
+  if(cb) cb.innerHTML = e.cancelled ? `<div class="banner warn" style="background:#f7eaea;border-color:#c0504d;margin-bottom:12px"><span>⛔ <b>Diese Veranstaltung ist abgesagt.</b>${e.cancelReason?' Grund: '+esc(e.cancelReason):''} Nutze die Absage-Vorlage unter „Kommunikation", um alle zu informieren.</span></div>` : '';
+}
+function cancelEvent(){
+  const e=ev();
+  if(e.cancelled){ if(confirm('Absage zurücknehmen und Veranstaltung wieder aktivieren?')){ delete e.cancelled; delete e.cancelReason; LS.set('evtdash_events',events); renderTop(); closeModal('settingsModal'); } return; }
+  const reason=prompt('Veranstaltung absagen. Grund (optional, erscheint in der Absage-Info):','');
+  if(reason===null)return;
+  e.cancelled=true; e.cancelReason=reason.trim(); LS.set('evtdash_events',events);
+  renderTop(); renderComms(); closeModal('settingsModal');
+  alert('Veranstaltung als abgesagt markiert. Unter „Kommunikation" findest du eine fertige Absage-Nachricht.');
 }
 
 function renderKPIs(){
@@ -1639,7 +1733,8 @@ const BUILTIN_COMMS=[
   {t:'Aufräum-Aufruf (Sonntag)', body:'Kurzer Aufruf: Am Sonntag Vormittag räumen wir die Hütte gemeinsam auf und übergeben sie. Wer noch da ist und mit anpacken kann, meldet sich bitte – viele Hände, schnelles Ende! 🧹'},
   {t:'Danke nach dem Event', body:'Danke an alle, die beim {event} dabei waren – es war ein tolles Wochenende! 🌿💚\nFotos und Feedback folgen. Bis zum nächsten Mal!\nEuer CSC Marburg Team'},
   {t:'Erinnerung (WhatsApp/SMS, kurz)', body:'Hey! Erinnerung: {event} in {tage} Tagen ({datum}) in {ort}. Bitte Zelt/Schlafsack & gute Laune mitbringen. Beitrag {preis}/Person – offene Beiträge bitte vorab in den Pool: {paypal}. Bis bald! 🌿'},
-  {t:'Dankes-Mail (nach Event, formell)', body:'Betreff: Danke fürs Mitmachen beim {event}!\n\nHallo,\n\nvielen Dank, dass Du beim {event} am {datum} in {ort} dabei warst – mit {anmeldungen} Anmeldungen und {personen} Personen war es ein rundum gelungenes Wochenende. 🌿💚\n\nWir würden uns sehr über Dein kurzes Feedback freuen (Link folgt) und teilen bald die Fotos.\n\nBis zum nächsten Mal!\nEuer CSC Marburg Team'}
+  {t:'Dankes-Mail (nach Event, formell)', body:'Betreff: Danke fürs Mitmachen beim {event}!\n\nHallo,\n\nvielen Dank, dass Du beim {event} am {datum} in {ort} dabei warst – mit {anmeldungen} Anmeldungen und {personen} Personen war es ein rundum gelungenes Wochenende. 🌿💚\n\nWir würden uns sehr über Dein kurzes Feedback freuen (Link folgt) und teilen bald die Fotos.\n\nBis zum nächsten Mal!\nEuer CSC Marburg Team'},
+  {t:'⛔ Absage der Veranstaltung', body:'Hallo zusammen,\n\nleider müssen wir das {event} (geplant für {datum} in {ort}) absagen. Wir bedauern das sehr und danken Euch für Euer Verständnis.\n\nBereits in den PayPal-Pool eingezahlte Beiträge erstatten wir selbstverständlich zurück – meldet Euch dazu kurz bei uns.\n\nWir hoffen, Euch bei nächster Gelegenheit wiederzusehen!\nEuer CSC Marburg Team'}
 ];
 function fillPlaceholders(t){
   const e=ev();
@@ -2063,15 +2158,30 @@ function renderGallery(){
 function renderPhotoGrid(){
   const box=document.getElementById('photoGrid'); if(!box)return;
   const ph=LS.get(kPhotos(),[]);
-  box.innerHTML = ph.length ? ph.map((src,i)=>`<div style="position:relative"><img src="${src}" style="height:90px;border-radius:6px;cursor:zoom-in;object-fit:cover" onclick="viewPhoto(${i})"><button class="btn danger sm" style="position:absolute;top:2px;right:2px;padding:0 6px;line-height:1.4" onclick="delPhoto(${i})">×</button></div>`).join('') : '<div class="status" style="color:var(--muted)">Noch keine Fotos hochgeladen.</div>';
+  box.innerHTML = ph.length ? ph.map((item,i)=>{
+    if(item&&typeof item==='object'&&item.type==='video'){
+      return `<div style="position:relative;width:120px;height:90px;border-radius:6px;background:#08160d;display:flex;align-items:center;justify-content:center"><a href="${esc(item.url)}" target="_blank" rel="noopener" title="Video öffnen" style="color:#fff;text-decoration:none;font-size:28px">▶</a><span style="position:absolute;bottom:2px;left:4px;font-size:9px;color:#8fbba1">Video</span><button class="btn danger sm" style="position:absolute;top:2px;right:2px;padding:0 6px;line-height:1.4" onclick="delPhoto(${i})">×</button></div>`;
+    }
+    return `<div style="position:relative"><img src="${item}" style="height:90px;border-radius:6px;cursor:zoom-in;object-fit:cover" onclick="viewPhoto(${i})"><button class="btn danger sm" style="position:absolute;top:2px;right:2px;padding:0 6px;line-height:1.4" onclick="delPhoto(${i})">×</button></div>`;
+  }).join('') : '<div class="status" style="color:var(--muted)">Noch keine Fotos/Videos hinzugefügt.</div>';
 }
 function uploadPhotos(input){
   const files=[...input.files]; if(!files.length)return; input.value='';
   let done=0; const ph=LS.get(kPhotos(),[]);
   files.forEach(f=>resizeImage(f,1200,(d)=>{ if(d)ph.push(d); if(++done===files.length){ try{LS.set(kPhotos(),ph);}catch(e){alert('Speicher voll — bitte weniger/kleinere Fotos.');} renderPhotoGrid(); } }));
 }
+function addVideoLink(){
+  const url=prompt('Video-Link (YouTube, TikTok, Google Drive …):'); if(!url)return;
+  if(!/^https?:\/\//i.test(url.trim())){alert('Bitte einen vollständigen Link (https://…) angeben.');return;}
+  const ph=LS.get(kPhotos(),[]); ph.push({type:'video',url:url.trim()}); LS.set(kPhotos(),ph); renderPhotoGrid();
+}
+async function shareGallery(){
+  const e=ev(); const url=e.gallery||location.href; const text='Fotos & Videos: '+e.name;
+  if(navigator.share){ try{ await navigator.share({title:e.name,text,url}); return; }catch(_){} }
+  try{ await navigator.clipboard.writeText(url); alert('Link kopiert:\n'+url); }catch(_){ prompt('Link zum Teilen:', url); }
+}
 function delPhoto(i){ const ph=LS.get(kPhotos(),[]); ph.splice(i,1); LS.set(kPhotos(),ph); renderPhotoGrid(); }
-function viewPhoto(i){ const ph=LS.get(kPhotos(),[]); if(ph[i])showImg(ph[i]); }
+function viewPhoto(i){ const ph=LS.get(kPhotos(),[]); const it=ph[i]; if(it&&typeof it==='string')showImg(it); else if(it&&it.url)window.open(it.url,'_blank'); }
 
 /* ===== Veranstaltungs-Vergleich ===== */
 function computeEventStats(headers, rows){
@@ -2119,22 +2229,22 @@ function renderSetupBanner(){
 
 /* ===== Einrichtungs-Assistent (Wizard) ===== */
 const WIZ_STEPS=[
-  {t:'Willkommen 👋',sub:'Der Assistent erhebt Schritt für Schritt alle Daten. Vorhandenes ist schon ausgefüllt.',fields:[
-    {k:'name',l:'Name der Veranstaltung',ph:'z.B. 1. Mariana-Camp'},
+  {t:'Willkommen 👋',sub:'Dieser Assistent richtet die ganze Veranstaltung ein — inkl. Hilfe, die benötigten Gruppen, Seiten und Links anzulegen.',help:'<b>So läuft es:</b> Auf jeder Seite findest du unten passende „Erstellen"-Links. Lege das jeweilige Element an (z.B. Formular, PayPal-Pool, WhatsApp-Gruppe) und füge den Link hier ein. Fehlendes kannst du jederzeit später ergänzen.',fields:[
+    {k:'name',l:'Name der Veranstaltung',ph:'z.B. 2. Mariana-Camp'},
     {k:'eventDate',l:'Datum (Start)',type:'date'},
-    {k:'place',l:'Ort (für Wetter — wird automatisch gesucht)',ph:'z.B. Weimar (Lahn)'} ]},
-  {t:'Anmeldungen 📄',sub:'Google-Tabelle mit den Formular-Antworten (auf „Jeder mit dem Link" freigeben).',fields:[
+    {k:'place',l:'Ort (für Wetter — wird automatisch gesucht)',ph:'z.B. Marburg'} ]},
+  {t:'Anmeldungen 📄',sub:'Google-Tabelle mit den Formular-Antworten (auf „Jeder mit dem Link" freigeben).',help:'<b>Noch kein Formular?</b> Erstelle eins auf <a href="https://forms.new" target="_blank" rel="noopener">forms.new</a>, gehe zu „Antworten" → Tabellensymbol → verknüpfe eine <a href="https://sheets.new" target="_blank" rel="noopener">Google-Tabelle</a> und gib diese auf „Jeder mit dem Link – Betrachter" frei. <b>Tipp fürs nächste Formular:</b> nimm eine <u>freiwillige</u> Handynummer-Frage auf — dann laufen WhatsApp-/SMS-Erinnerungen automatisch.',fields:[
     {k:'sheet',l:'Google-Tabellen-Link',ph:'https://docs.google.com/spreadsheets/…'},
     {k:'tab',l:'Tabellenblatt',ph:'Form Responses 1'} ]},
-  {t:'Geld 💶',fields:[
+  {t:'Geld 💶',help:'PayPal-Pool anlegen: <a href="https://www.paypal.com/pool" target="_blank" rel="noopener">paypal.com/pool</a> → „Pool erstellen" → Link kopieren und hier einfügen.',fields:[
     {k:'paypal',l:'PayPal-Pool-Link',ph:'https://www.paypal.com/pool/…'},
     {k:'price',l:'Preis pro Person (€)',type:'number'},
     {k:'cashStart',l:'Handkasse-Startbestand (€)',type:'number'},
     {k:'budget',l:'Ausgaben-Budget (€, 0 = keins)',type:'number'} ]},
-  {t:'Kommunikation 📱',fields:[
+  {t:'Kommunikation 📱',help:'<b>WhatsApp-Gruppe:</b> Gruppe erstellen → Gruppeninfo → „Über Link einladen" → Link kopieren. <b>Discord:</b> Channel → Einladung erstellen. Trage den Haupt-Link hier ein (weitere Kanäle nutzt du im Bereich „Einladungen").',fields:[
     {k:'whatsapp',l:'WhatsApp-Gruppen-/Community-Link',ph:'https://chat.whatsapp.com/…'},
     {k:'form',l:'Anmeldeformular-Link (für QR-Aushang)',ph:'https://docs.google.com/forms/…'} ]},
-  {t:'Listen & Extras 🎒',fields:[
+  {t:'Listen & Extras 🎒',help:'Mitbringliste: <a href="https://bringabottle.de" target="_blank" rel="noopener">bringabottle.de</a> → Liste erstellen → Link kopieren. Foto-Galerie: z.B. ein Google-Fotos-Album freigeben.',fields:[
     {k:'bottle',l:'Bottle-/Mitbringliste-Link',ph:'https://bringabottle.de/list/…'},
     {k:'gallery',l:'Foto-Galerie-Link',ph:'z.B. Google-Fotos-Album'},
     {k:'feedbackForm',l:'Feedback-Formular-Link',ph:'https://docs.google.com/forms/…'},
@@ -2154,7 +2264,7 @@ function wizRender(){
   document.getElementById('wizTitle').textContent=step.t;
   document.getElementById('wizSub').textContent=step.sub||'';
   document.getElementById('wizSteps').innerHTML=WIZ_STEPS.map((_,i)=>`<div class="s ${i<wizIdx?'done':''} ${i===wizIdx?'cur':''}"></div>`).join('');
-  document.getElementById('wizBody').innerHTML=step.fields.map(f=>{
+  document.getElementById('wizBody').innerHTML=(step.help?`<div class="hint" style="background:#eaf4ee;border-color:var(--mgreen);margin-bottom:10px">${step.help}</div>`:'')+step.fields.map(f=>{
     const v=f.k==='__team'?teamCode():(f.k==='__editcode'?(LS.get('evtdash_editcode','')||''):(e[f.k]!=null?e[f.k]:''));
     return `<div class="field"><label>${esc(f.l)}</label><input id="wz_${f.k}" type="${f.type||'text'}" value="${esc(v)}" placeholder="${esc(f.ph||'')}"></div>`;
   }).join('') + (step.last?wizSummary():'');
@@ -2492,9 +2602,28 @@ function renderScores(id){
   const max=Math.max(1,...sc.map(s=>s.points));
   box.innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Punkte pro Team/Person</div>'+
     (sc.length?sc.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><span style="width:22px;text-align:right;font-weight:700">${i+1}.</span><span style="flex:1">${esc(s.name)}</span><div style="flex:2;background:#eef2ef;border-radius:6px;overflow:hidden;height:16px"><div style="width:${Math.round(s.points/max*100)}%;height:100%;background:#1f9e5a"></div></div><b style="width:44px;text-align:right">${s.points}</b><button class="btn danger sm" style="padding:0 6px" onclick="delScore('${id}',${i})">×</button></div>`).join(''):'<div style="font-size:12px;color:var(--muted)">Noch keine Einträge.</div>')+
-    `<div class="row-flex" style="margin-top:8px"><input id="scN_${id}" placeholder="Team / Name" style="flex:1;padding:6px;border:1px solid var(--line);border-radius:6px"><input id="scP_${id}" type="number" placeholder="Punkte" style="width:90px;padding:6px;border:1px solid var(--line);border-radius:6px"><button class="btn sm" onclick="addScore('${id}')">+ Punkte</button></div>`;
+    `<div class="row-flex" style="margin-top:8px"><input id="scN_${id}" placeholder="Team / Name" style="flex:1;padding:6px;border:1px solid var(--line);border-radius:6px"><input id="scP_${id}" type="number" placeholder="Punkte" style="width:90px;padding:6px;border:1px solid var(--line);border-radius:6px"><button class="btn sm" onclick="addScore('${id}')">+ Punkte</button><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="pdfScores('${id}')">🖨️ Ergebnisse PDF</button></div>`;
 }
 function addScore(id){ const l=LS.get(kQuiz(),[]); const it=l.find(x=>x.id==id); if(!it)return; const n=document.getElementById('scN_'+id).value.trim(); const p=parseInt(document.getElementById('scP_'+id).value)||0; if(!n)return; it.scores=it.scores||[]; const ex=it.scores.find(s=>s.name===n); if(ex)ex.points+=p; else it.scores.push({name:n,points:p}); LS.set(kQuiz(),l); renderScores(id); }
+function pdfScores(id){
+  const it=LS.get(kQuiz(),[]).find(x=>x.id==id); if(!it||!it.scores||!it.scores.length){alert('Noch keine Ergebnisse.');return;}
+  const sc=it.scores.slice().sort((a,b)=>b.points-a.points);
+  const rows=sc.map((s,i)=>`<tr><td>${i+1}.</td><td>${esc(s.name)}</td><td style="text-align:right">${s.points}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(it.title)} — Ergebnisse</title><style>@page{size:A4;margin:18mm;}body{font-family:Arial,sans-serif;color:#22322a}h1{color:#1f7554;border-bottom:3px solid #f9c74f;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:13pt}td{padding:6px 4px;border-bottom:1px solid #dfe7e1}tr:first-child td{font-weight:700}</style></head><body onload="setTimeout(()=>window.print(),400)"><h1>🏆 ${esc(it.title)} — Ergebnisse</h1><div style="font-size:10pt;color:#4a5c50;margin-bottom:10px">${esc(ev().name)}</div><table>${rows}</table></body></html>`;
+  openPrint(html);
+}
+function loadQuizTemplates(){
+  if(!confirm('Beispiel-Vorlagen laden (1 Quiz + 2 Spiele)? Bestehende bleiben erhalten.'))return;
+  const l=LS.get(kQuiz(),[]);
+  l.push({id:'q'+Date.now(),type:'quiz',title:'Cannabis-Präventionsquiz (Beispiel)',scores:[],questions:[
+    {q:'Ab welchem Alter ist der Konsum in einem CSC in Deutschland erlaubt?',opts:['16','18','21'],correct:1},
+    {q:'Wie viel Gramm darf ein Mitglied laut CanG pro Tag maximal erhalten?',opts:['10 g','25 g','50 g'],correct:1},
+    {q:'Was senkt das Risiko beim Konsum am stärksten?',opts:['Pausen & Maßhalten','Auf nüchternen Magen','Mit Alkohol kombinieren'],correct:0}
+  ]});
+  l.push({id:'g'+(Date.now()+1),type:'game',title:'Schätzspiel (Beispiel)',scores:[],notes:'Moderator stellt Schätzfragen (z.B. „Wie viele Gäste sind heute da?"). Wer am nächsten dran ist, bekommt Punkte. 3–5 Runden.'});
+  l.push({id:'g'+(Date.now()+2),type:'game',title:'Stadt-Land-Fluss (Camp-Edition)',scores:[],notes:'Kategorien: Stadt · Pflanze · Sorte · Band · Essen. Buchstabe auslosen, 60 Sekunden, danach Punkte vergeben (10 = einzigartig, 5 = doppelt).'});
+  LS.set(kQuiz(),l); renderQuiz();
+}
 function delScore(id,i){ const l=LS.get(kQuiz(),[]); const it=l.find(x=>x.id==id); if(!it)return; it.scores.splice(i,1); LS.set(kQuiz(),l); renderScores(id); }
 function presentStart(id){ const it=LS.get(kQuiz(),[]).find(x=>x.id==id); if(!it)return; _present={it,idx:0,reveal:false}; const ov=document.getElementById('presentOverlay'); ov.style.display='flex'; presentRender(); try{ov.requestFullscreen&&ov.requestFullscreen();}catch(e){} }
 function closePresent(){ const ov=document.getElementById('presentOverlay'); ov.style.display='none'; try{document.fullscreenElement&&document.exitFullscreen();}catch(e){} _present=null; }
@@ -2541,6 +2670,143 @@ function printQuiz(id,withAnswers){
   openPrint(html);
 }
 document.addEventListener('keydown',(e)=>{ if(!_present)return; if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();presentNext();} else if(e.key==='ArrowLeft'){presentPrev();} else if(e.key==='Escape'){closePresent();} });
+
+/* ===== Material / Inventar ===== */
+const INV_CATS=['Material','Deko','Verbrauch','Technik','Küche','Sonstiges'];
+const INV_STATUS={besorgen:{t:'zu besorgen',c:'#c9922b',bg:'#fdf4dc'},vorhanden:{t:'vorhanden',c:'#1c8a4e',bg:'#e6f4ec'},geliehen:{t:'geliehen',c:'#2f7ec6',bg:'#e4eefb'}};
+function addInv(){
+  const name=document.getElementById('invName').value.trim(); if(!name){alert('Bitte Gegenstand angeben.');return;}
+  const qty=Math.max(1,+document.getElementById('invQty').value||1);
+  const cat=document.getElementById('invCat').value||'Material';
+  const status=document.getElementById('invStatusSel').value||'besorgen';
+  const who=document.getElementById('invWho').value.trim();
+  const l=LS.get(kInv(),[]); l.push({name,qty,cat,status,who}); LS.set(kInv(),l);
+  ['invName','invWho'].forEach(id=>document.getElementById(id).value=''); document.getElementById('invQty').value=1;
+  renderInv();
+}
+function delInv(i){ const l=LS.get(kInv(),[]); l.splice(i,1); LS.set(kInv(),l); renderInv(); }
+function cycleInvStatus(i){ const l=LS.get(kInv(),[]); if(!l[i])return; const order=['besorgen','vorhanden','geliehen']; l[i].status=order[(order.indexOf(l[i].status)+1)%order.length]; LS.set(kInv(),l); renderInv(); }
+function renderInv(){
+  const box=document.getElementById('invList'); if(!box)return;
+  const catSel=document.getElementById('invCat'); if(catSel&&!catSel.dataset.filled){ catSel.innerHTML=INV_CATS.map(c=>`<option>${c}</option>`).join(''); catSel.dataset.filled='1'; }
+  const fSel=document.getElementById('invFilter'); if(fSel&&!fSel.dataset.filled){ fSel.innerHTML='<option value="">Alle Kategorien</option>'+INV_CATS.map(c=>`<option>${c}</option>`).join(''); fSel.dataset.filled='1'; }
+  const filter=fSel?fSel.value:'';
+  const l=LS.get(kInv(),[]);
+  const rows=l.map((x,i)=>({x,i})).filter(o=>!filter||o.x.cat===filter);
+  box.innerHTML = rows.length ? rows.map(({x,i})=>{ const st=INV_STATUS[x.status]||INV_STATUS.besorgen;
+    return `<div class="cashline"><span><b>${esc(x.name)}</b> ×${x.qty} <span style="font-size:10px;background:#eef2ef;color:var(--muted);border-radius:8px;padding:1px 6px">${esc(x.cat)}</span>${x.who?` <span style="font-size:11px;color:var(--muted)">· ${esc(x.who)}</span>`:''}</span><button onclick="cycleInvStatus(${i})" title="Status wechseln" style="cursor:pointer;border:0;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700;color:${st.c};background:${st.bg}">${st.t}</button><button class="btn danger sm" style="padding:1px 6px" onclick="delInv(${i})">×</button></div>`;
+  }).join('') : '<div class="status" style="color:var(--muted)">Noch keine Einträge.</div>';
+  const sum=document.getElementById('invSummary');
+  if(sum){ const byS={besorgen:0,vorhanden:0,geliehen:0}; l.forEach(x=>byS[x.status]=(byS[x.status]||0)+1); sum.textContent=`${l.length} Positionen · ${byS.besorgen} zu besorgen · ${byS.vorhanden} vorhanden · ${byS.geliehen} geliehen`; }
+}
+
+/* ===== Kalkulation ===== */
+const CALC_TEMPLATE=[
+  {name:'Grillfleisch/-alternativen',per:250,unit:'g',price:0.012},
+  {name:'Brötchen',per:2,unit:'Stk',price:0.30},
+  {name:'Salat/Beilagen',per:150,unit:'g',price:0.008},
+  {name:'Wasser/Softdrinks',per:1.5,unit:'l',price:0.60},
+  {name:'Snacks/Knabbereien',per:1,unit:'Portion',price:1.20},
+  {name:'Einweggeschirr/Servietten',per:1,unit:'Set',price:0.40},
+  {name:'Kohle/Gas (Strom) anteilig',per:1,unit:'Pauschale',price:1.00}
+];
+function calcPersons(){ return DATA.reduce((s,r)=>s+personsOf(r),0)||0; }
+function addCalc(){
+  const name=document.getElementById('calcName').value.trim(); if(!name){alert('Bitte Position angeben.');return;}
+  const per=parseFloat(document.getElementById('calcPer').value)||0;
+  const unit=document.getElementById('calcUnit').value.trim();
+  const price=parseFloat(document.getElementById('calcPrice').value)||0;
+  const l=LS.get(kCalc(),[]); l.push({name,per,unit,price}); LS.set(kCalc(),l);
+  ['calcName','calcPer','calcUnit','calcPrice'].forEach(id=>document.getElementById(id).value='');
+  renderCalc();
+}
+function delCalc(i){ const l=LS.get(kCalc(),[]); l.splice(i,1); LS.set(kCalc(),l); renderCalc(); }
+function loadCalcTemplate(){ if(!confirm('Grill-/Camp-Vorlage laden? Vorhandene Positionen bleiben erhalten.'))return; const l=LS.get(kCalc(),[]); CALC_TEMPLATE.forEach(t=>l.push({...t})); LS.set(kCalc(),l); renderCalc(); }
+function renderCalc(){
+  const box=document.getElementById('calcTable'); if(!box)return;
+  const pers=calcPersons(); const pEl=document.getElementById('calcPers'); if(pEl)pEl.textContent=pers;
+  const l=LS.get(kCalc(),[]);
+  let total=0;
+  const rows=l.map((x,i)=>{ const qty=(+x.per||0)*pers; const cost=qty*(+x.price||0); total+=cost;
+    return `<tr><td>${esc(x.name)}</td><td style="text-align:right">${(+x.per||0).toLocaleString('de-DE')} ${esc(x.unit||'')}/Pers.</td><td style="text-align:right">${qty.toLocaleString('de-DE',{maximumFractionDigits:1})} ${esc(x.unit||'')}</td><td style="text-align:right">${eur(cost)}</td><td style="text-align:right"><button class="btn danger sm" style="padding:1px 6px" onclick="delCalc(${i})">×</button></td></tr>`;
+  }).join('');
+  box.innerHTML = l.length ? `<table class="grid"><thead><tr><th>Position</th><th style="text-align:right">pro Person</th><th style="text-align:right">Menge gesamt</th><th style="text-align:right">Kosten</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="status" style="color:var(--muted)">Noch keine Positionen. Lade die Vorlage oder füge Positionen hinzu.</div>';
+  const tEl=document.getElementById('calcTotal'); if(tEl)tEl.textContent=eur(total);
+  box.dataset.total=total.toFixed(2);
+}
+function calcToBudget(){
+  const total=parseFloat(document.getElementById('calcTable').dataset.total||'0');
+  if(!total){alert('Noch keine Kalkulation vorhanden.');return;}
+  if(!confirm('Budget auf '+eur(total)+' setzen? (überschreibt das aktuelle Budget)'))return;
+  ev().budget=Math.round(total); LS.set('evtdash_events',events); renderFinance();
+  alert('Budget gesetzt: '+eur(Math.round(total)));
+}
+
+/* ===== Gesamt-Auswertung ===== */
+function renderReport(){
+  const box=document.getElementById('reportBox'); if(!box)return;
+  const e=ev();
+  const anm=DATA.length, pers=calcPersons();
+  const checked=DATA.filter(r=>isChecked(r)).length; const noshow=anm-checked;
+  let paid=0,onsite=0,open=0,paidC=0,onsiteC=0,openC=0;
+  DATA.forEach(r=>{const p=personsOf(r)*e.price;const st=payState(r);if(st==='paid'){paid+=p;paidC++;}else if(st==='onsite'){onsite+=p;onsiteC++;}else{open+=p;openC++;}});
+  const ppNow=parseFloat(LS.get(kPP(),''))||0; const exs=expSums();
+  const cashList=LS.get(kCash(),[]); const cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0)-exs.kasse;
+  const orgaP=orgaPool()-exs.orga; const liquide=ppNow+cashBal+orgaP;
+  const negCash=cashList.filter(c=>c.amount<0).reduce((s,c)=>s+(-c.amount),0); const ausgaben=negCash+exs.total;
+  const cap=+e.capacity||0; const util=cap?Math.round(pers/cap*100):0;
+  const roles={}; DATA.forEach(r=>{const ro=roleOf(r);roles[ro]=(roles[ro]||0)+1;});
+  const nights=DATA.filter(r=>overnightYes(r)).length;
+  const tagCount={}; DATA.forEach(r=>tagsOf(mailOf(r)).forEach(t=>tagCount[t]=(tagCount[t]||0)+1));
+  const quizzes=LS.get(kQuiz(),[]).filter(q=>q.scores&&q.scores.length);
+  const kpi=(v,l,c)=>`<div class="t"><div class="v"${c?` style="color:${c}"`:''}>${v}</div><div class="l">${l}</div></div>`;
+  let html=`<div class="totbox">${kpi(anm,'Anmeldungen')}${kpi(pers,'Personen')}${kpi(checked,'Eingecheckt','#1c6b3f')}${kpi(noshow,'nicht erschienen',noshow>0?'#a33':'')}${kpi((anm?Math.round(checked/anm*100):0)+'%','Anwesenheit')}${cap?kpi(util+'%','Auslastung',util>=100?'#a33':'#1c6b3f'):''}${kpi(nights,'Übernachtungen')}</div>`;
+  html+=`<div class="grid2" style="margin-top:14px"><div>
+    <h3 style="margin:0 0 6px;font-size:13px;color:var(--accent)">Zahlungen</h3>
+    <table class="grid"><tr><td>Bezahlt / überwiesen</td><td style="text-align:right">${paidC} · ${eur(paid)}</td></tr><tr><td>Vor Ort</td><td style="text-align:right">${onsiteC} · ${eur(onsite)}</td></tr><tr><td>Offen / unklar</td><td style="text-align:right">${openC} · ${eur(open)}</td></tr><tr><td><b>Soll gesamt</b></td><td style="text-align:right"><b>${eur(pers*e.price)}</b></td></tr></table>
+  </div><div>
+    <h3 style="margin:0 0 6px;font-size:13px;color:var(--accent)">Finanzen</h3>
+    <table class="grid"><tr><td>PayPal-Pool</td><td style="text-align:right">${eur(ppNow)}</td></tr><tr><td>Handkasse</td><td style="text-align:right">${eur(cashBal)}</td></tr><tr><td>Orga-Pool</td><td style="text-align:right">${eur(orgaP)}</td></tr><tr><td>Ausgaben</td><td style="text-align:right;color:#a33">−${eur(ausgaben)}</td></tr><tr><td><b>Gesamt liquide</b></td><td style="text-align:right"><b>${eur(liquide)}</b></td></tr></table>
+  </div></div>`;
+  const chips=(obj,fmt)=>Object.keys(obj).length?('<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px">'+Object.entries(obj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span style="border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:12px"><b>${esc(k)}</b>: ${fmt?fmt(v):v}</span>`).join('')+'</div>'):'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">—</div>';
+  const expByCat={}; cashList.filter(c=>c.amount<0).forEach(c=>{const k=c.cat||'Sonstiges';expByCat[k]=(expByCat[k]||0)+(-c.amount);}); LS.get(kExp(),[]).forEach(x=>{const k=x.cat||'Sonstiges';expByCat[k]=(expByCat[k]||0)+(+x.amount||0);});
+  html+=`<h3 style="margin:12px 0 4px;font-size:13px;color:var(--accent)">Rollen</h3>${chips(roles)}`;
+  if(Object.keys(tagCount).length) html+=`<h3 style="margin:8px 0 4px;font-size:13px;color:var(--accent)">Tags</h3>${chips(tagCount)}`;
+  if(Object.keys(expByCat).length) html+=`<h3 style="margin:8px 0 4px;font-size:13px;color:var(--accent)">Ausgaben nach Kategorie</h3>${chips(expByCat,v=>eur(v))}`;
+  if(quizzes.length){ html+='<h3 style="margin:8px 0 4px;font-size:13px;color:var(--accent)">Quiz-Sieger</h3>'; quizzes.forEach(q=>{ const top=q.scores.slice().sort((a,b)=>b.points-a.points)[0]; html+=`<div style="font-size:12.5px">🏆 <b>${esc(q.title)}</b>: ${esc(top.name)} (${top.points} Pkt.)</div>`; }); }
+  box.innerHTML=html;
+}
+
+/* ===== Einladungen ===== */
+const INVITE_STATUS={eingeladen:{t:'eingeladen',c:'#4a5c50',bg:'#eef2ef'},zugesagt:{t:'zugesagt',c:'#1c8a4e',bg:'#e6f4ec'},abgesagt:{t:'abgesagt',c:'#a33',bg:'#f7eaea'}};
+function inviteChannel(ch){
+  const e=ev(); const links=[]; if(e.form)links.push('Anmeldung: '+e.form); if(e.whatsapp)links.push('WhatsApp-Gruppe: '+e.whatsapp);
+  const dat=e.eventDate?new Date(e.eventDate).toLocaleDateString('de-DE'):'—';
+  const base=`${e.name}${e.eventDate?(' am '+dat):''}${e.place?(' in '+e.place):''}`;
+  let t='';
+  if(ch==='mail') t=`Betreff: Einladung – ${e.name}\n\nHallo,\n\nwir laden Dich herzlich zu ${base} ein! 🌿\nBeitrag: ${eur(e.price)} pro Person.\n\n${links.join('\n')}\n\nWir freuen uns auf Dich!\nEuer CSC Marburg Team`;
+  else if(ch==='whatsapp') t=`🌿 *Einladung: ${e.name}* 🌿\n\n📅 ${dat}   📍 ${e.place||'—'}\n💶 ${eur(e.price)}/Person\n\nAnmelden: ${e.form||''}\nGruppe: ${e.whatsapp||''}\n\nSei dabei! 💚`;
+  else if(ch==='discord') t=`**${e.name}** 🌿\n\n📅 ${dat}   📍 ${e.place||'—'}   💶 ${eur(e.price)}/Person\n\nAnmeldung: ${e.form||''}\n@everyone – meldet euch an und tragt euch ein!`;
+  else t=`Wir machen ein Event! 🌿 ${base}. Anmeldung im Link in der Bio${e.form?(' / '+e.form):''} #cannabissocialclub #camp`;
+  document.getElementById('inviteText').value=t;
+}
+function importInvitees(){
+  const raw=document.getElementById('inviteImport').value.split(/\n/).map(s=>s.trim()).filter(Boolean);
+  if(!raw.length)return;
+  const l=LS.get(kInvite(),[]); const have=new Set(l.map(x=>x.name.toLowerCase()));
+  raw.forEach(n=>{ if(!have.has(n.toLowerCase())){ l.push({name:n,status:'eingeladen'}); have.add(n.toLowerCase()); } });
+  LS.set(kInvite(),l); document.getElementById('inviteImport').value=''; renderInvite();
+}
+function cycleInviteStatus(i){ const l=LS.get(kInvite(),[]); if(!l[i])return; const o=['eingeladen','zugesagt','abgesagt']; l[i].status=o[(o.indexOf(l[i].status)+1)%o.length]; LS.set(kInvite(),l); renderInvite(); }
+function delInvitee(i){ const l=LS.get(kInvite(),[]); l.splice(i,1); LS.set(kInvite(),l); renderInvite(); }
+function renderInvite(){
+  const box=document.getElementById('inviteList'); if(!box)return;
+  const l=LS.get(kInvite(),[]);
+  box.innerHTML = l.length ? l.map((x,i)=>{ const st=INVITE_STATUS[x.status]||INVITE_STATUS.eingeladen;
+    return `<div class="cashline"><span>${esc(x.name)}</span><button onclick="cycleInviteStatus(${i})" style="cursor:pointer;border:0;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700;color:${st.c};background:${st.bg}">${st.t}</button><button class="btn danger sm" style="padding:1px 6px" onclick="delInvitee(${i})">×</button></div>`;
+  }).join('') : '<div class="status" style="color:var(--muted)">Noch keine Einladungen erfasst.</div>';
+  const sum=document.getElementById('inviteSummary'); if(sum){ const b={eingeladen:0,zugesagt:0,abgesagt:0}; l.forEach(x=>b[x.status]=(b[x.status]||0)+1); sum.textContent=`${l.length} eingeladen · ${b.zugesagt} zugesagt · ${b.abgesagt} abgesagt`; }
+}
 
 function renderTasks(){
   const list=LS.get(kTasks(),[]);
@@ -2593,9 +2859,11 @@ function newEvent(){
   switchEvent(id,true);openWizard();
 }
 function deleteEvent(){
-  if(events.length<2){alert('Die letzte Veranstaltung kann nicht gelöscht werden.');return;}
-  if(!confirm('Diese Veranstaltung wirklich löschen?'))return;
-  ['evtdash_cash_','evtdash_tasks_','evtdash_notes_','evtdash_manual_','evtdash_pp_'].forEach(p=>localStorage.removeItem(p+currentId));
+  if(events.length<2){alert('Die letzte Veranstaltung kann nicht gelöscht werden. Du kannst sie stattdessen absagen oder ihre Angaben im Assistenten überschreiben.');return;}
+  const nm=ev().name;
+  if(!confirm('Veranstaltung „'+nm+'" endgültig löschen? Alle lokal gespeicherten Ergänzungen (Check-in, Kasse, Ausgaben, Quiz, Inventar …) dieser Veranstaltung werden entfernt. Das kann nicht rückgängig gemacht werden.'))return;
+  // Alle zu dieser Veranstaltung gehörenden Schlüssel entfernen
+  try{ for(let i=localStorage.length-1;i>=0;i--){ const k=localStorage.key(i); if(k&&k.startsWith('evtdash_')&&k.endsWith('_'+currentId)) localStorage.removeItem(k); } }catch(e){}
   events=events.filter(e=>e.id!==currentId);LS.set('evtdash_events',events);
   currentId=events[0].id;LS.set('evtdash_current',currentId);closeModal('settingsModal');switchEvent(currentId,true);
 }
@@ -2660,6 +2928,18 @@ function collapseAll(){
   const ui=LS.get(kUI(),{});
   secs.forEach(s=>{ const key=sectionKey(s); if(anyOpen){ s.classList.add('collapsed'); ui[key]='c'; } else { s.classList.remove('collapsed'); delete ui[key]; } });
   LS.set(kUI(),ui);
+}
+const ORGA_COLLAPSE=['Community','Grafische Auswertung','Wetter','Vergleich','Mitfahr','Mitbring-Liste','Feedback','Fotos & Videos'];
+let _orgaView=false;
+function orgaView(){
+  _orgaView=!_orgaView;
+  const ui=LS.get(kUI(),{});
+  document.querySelectorAll('.section').forEach(s=>{ const key=sectionKey(s); const hit=ORGA_COLLAPSE.some(f=>key.includes(f)); if(!hit)return;
+    if(_orgaView){ s.classList.add('collapsed'); ui[key]='c'; } else { s.classList.remove('collapsed'); delete ui[key]; }
+  });
+  LS.set(kUI(),ui);
+  const btn=document.getElementById('orgaViewBtn'); if(btn){ btn.style.background=_orgaView?'#8e5cc6':''; btn.style.color=_orgaView?'#fff':''; }
+  if(_orgaView) window.scrollTo({top:0,behavior:'smooth'});
 }
 
 /* ============ Init ============ */
