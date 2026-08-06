@@ -899,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.9.2';
+const APP_VERSION='2.9.3';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1338,7 +1338,7 @@ function delShop(i){const l=LS.get(kShop(),[]);l.splice(i,1);LS.set(kShop(),l);r
 function renderTop(){
   const e=ev();
   document.getElementById('evtName').textContent=(e.cancelled?'⛔ ':'')+e.name;
-  document.getElementById('evtSub').textContent=DATA.length+' Anmeldungen · Preis '+eur(e.price);
+  document.getElementById('evtSub').textContent=anmForm()+' Anmeldungen · Preis '+eur(e.price);
   const sw=document.getElementById('evtSwitch');
   sw.innerHTML=events.map(x=>`<option value="${x.id}" ${x.id===currentId?'selected':''}>${(x.cancelled?'⛔ ':'')+x.name}</option>`).join('');
   const cs=document.getElementById('compareSection'); if(cs) cs.style.display = events.length>1?'':'none';
@@ -1368,17 +1368,17 @@ function renderKPIs(){
   const oc=orgaCount(); const oX=orgaExtraPersons(); const oT=orgaTotalPersons();
   const cap=+e.capacity||0;
   const kpis=[
-    {num:anm,lbl:'Anmeldungen'},
-    {num:pers+oX,lbl:'Personen gesamt',sub:guests+' Gäste'+(oT?' · '+oT+' Orga':'')},
+    {num:anmForm(),lbl:'Anmeldungen'},
+    {num:totalPersons(),lbl:'Personen gesamt',sub:regGuests()+' Gäste'+(orgaPersonsTotal()?' · '+orgaPersonsTotal()+' Orga':'')},
     {num:checked+'/'+anm,lbl:'Eingecheckt'},
     {num:eur(paid),lbl:'Bezahlt (PayPal)'},
     {num:eur(onsite+open),lbl:'Ausstehend',sub:eur(onsite)+' vor Ort'},
     {num:nights,lbl:'Übernachten'},
   ];
   if(cap>0){
-    const free=cap-(pers+oX); const wl=waitlistSet().size;
+    const free=cap-totalPersons(); const wl=waitlistSet().size;
     const col=free<=0?'#a33':(free<=cap*0.15?'#c9922b':'#1c8a4e');
-    kpis.push({num:`<span style="color:${col}">${pers+oX}/${cap}</span>`, lbl:'Kapazität', sub: free>0?(free+' Plätze frei'):(wl+' auf Warteliste')});
+    kpis.push({num:`<span style="color:${col}">${totalPersons()}/${cap}</span>`, lbl:'Kapazität', sub: free>0?(free+' Plätze frei'):(wl+' auf Warteliste')});
   }
   document.getElementById('kpis').innerHTML=kpis.map(k=>
     `<div class="kpi"><div class="num">${k.num}</div><div class="lbl">${k.lbl}</div>${k.sub?`<div class="sub2">${k.sub}</div>`:''}</div>`).join('');
@@ -2099,7 +2099,7 @@ function reportDoc(){
     <h1>Gesamtbericht — ${esc(e.name)}</h1>
     <div class="sub">Stand: ${new Date().toLocaleString('de-DE')}${e.eventDate?' · Datum: '+new Date(e.eventDate).toLocaleDateString('de-DE'):''}${e.place?' · '+esc(e.place):''}</div>
     <h2>Überblick</h2>
-    <table class="kv"><tr><td>Anmeldungen</td><td>${anm}</td></tr><tr><td>Personen gesamt</td><td>${pers+orgaExtraPersons()}</td></tr><tr><td>Eingecheckt</td><td>${checked} / ${anm}</td></tr></table>
+    <table class="kv"><tr><td>Anmeldungen</td><td>${anmForm()}</td></tr><tr><td>Personen gesamt</td><td>${totalPersons()}</td></tr><tr><td>Eingecheckt</td><td>${checked} / ${anm}</td></tr></table>
     <h2>Finanzen</h2>
     <table class="kv"><tr><td>Beiträge Soll</td><td>${eur(paid+onsite+open)}</td></tr><tr><td>Bezahlt / überwiesen</td><td>${eur(paid)}</td></tr><tr><td>Vor Ort erwartet</td><td>${eur(onsite)}</td></tr><tr><td>Offen</td><td>${eur(open)}</td></tr><tr><td>PayPal-Pool aktuell</td><td>${eur(ppNow)}</td></tr><tr><td>Handkasse-Stand</td><td>${eur(cashBal)}</td></tr><tr><td>Gesamt liquide</td><td>${eur(ppNow+cashBal)}</td></tr></table>
     ${crows}
@@ -3223,7 +3223,7 @@ function renderReport(){
   const cashList=LS.get(kCash(),[]); const cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0)-exs.kasse;
   const orgaP=orgaPool()-exs.orga; const liquide=ppNow+cashBal+orgaP;
   const negCash=cashList.filter(c=>c.amount<0).reduce((s,c)=>s+(-c.amount),0); const ausgaben=negCash+exs.total;
-  const cap=+e.capacity||0; const util=cap?Math.round((pers+orgaExtraPersons())/cap*100):0;
+  const cap=+e.capacity||0; const util=cap?Math.round(totalPersons()/cap*100):0;
   const roles={}; DATA.forEach(r=>{const ro=roleOf(r);roles[ro]=(roles[ro]||0)+1;});
   const nights=DATA.filter(r=>overnightYes(r)).length;
   let presentPers=0, idOk=0;
@@ -3563,7 +3563,7 @@ const CHART_DEFS=[
  {g:'Anreise & Übernachtung',id:'uebernachtung_roh',l:'Übernachtung (Original)',def:0,fn:()=>{const m=countSplit(findCol('übernacht','ubernacht'));if(Object.keys(m).length)makeChart('Übernachtung (Detail)',m,'bar');}},
  {g:'Anreise & Übernachtung',id:'personen_anreise',l:'Personen nach Anreiseart',def:0,fn:()=>sumBar('Personen nach Anreiseart',bucketAnreise,ANREISE_ORDER,r=>personsOf(r))},
  {g:'Beteiligung & Vor Ort',id:'checkin',l:'Check-in-Stand',def:1,fn:()=>{if(!DATA.length)return;const inn=DATA.filter(r=>isChecked(r)).length;makeChart('Check-in-Stand',{'Eingecheckt':inn,'Noch nicht':DATA.length-inn},'doughnut');}},
- {g:'Beteiligung & Vor Ort',id:'kapazitaet',l:'Kapazität (Personen)',def:1,fn:()=>{const cap=+ev().capacity||0;if(!cap)return;const p=DATA.reduce((s,r)=>s+personsOf(r),0)+orgaExtraPersons();makeChart('Kapazität (Personen)',{'Belegt':Math.min(p,cap),'Frei':Math.max(0,cap-p),'Warteliste':Math.max(0,p-cap)},'doughnut');}},
+ {g:'Beteiligung & Vor Ort',id:'kapazitaet',l:'Kapazität (Personen)',def:1,fn:()=>{const cap=+ev().capacity||0;if(!cap)return;const p=totalPersons();makeChart('Kapazität (Personen)',{'Belegt':Math.min(p,cap),'Frei':Math.max(0,cap-p),'Warteliste':Math.max(0,p-cap)},'doughnut');}},
  {g:'Beteiligung & Vor Ort',id:'checkin_uhr',l:'Check-ins nach Uhrzeit',def:1,fn:()=>{const m={};DATA.forEach(r=>{const t=checkedAt(r);if(t){const h=String(new Date(t).getHours()).padStart(2,'0')+' Uhr';m[h]=(m[h]||0)+1;}});if(Object.keys(m).length){const s={};Object.keys(m).sort().forEach(k=>s[k]=m[k]);makeChart('Check-ins nach Uhrzeit',s,'bar');}}},
  {g:'Beteiligung & Vor Ort',id:'quiz',l:'Präventionsquiz — Teilnahme',def:0,fn:()=>{const m=countBy(r=>bucketYesNo(r,findCol('quiz')));if(Object.keys(m).length)makeChart('Präventionsquiz — Teilnahme',m,'doughnut');}},
  {g:'Beteiligung & Vor Ort',id:'fahrdienst',l:'Fahrdienst-Bedarf',def:0,fn:()=>{const m=countBy(r=>bucketYesNo(r,findCol('fahrdienst')));if(Object.keys(m).length)makeChart('Fahrdienst-Bedarf',m,'doughnut');}},
@@ -3659,6 +3659,13 @@ syncOrgaPaidField=function(){ try{_origSyncFee();}catch(e){} var f=document.getE
 function orgaExtraPersons(){ try{ return LS.get(kOrga(),[]).length; }catch(e){ return 0; } }
 function orgaInDataPersons(){ try{ return DATA.filter(function(r){ try{ return roleOf(r)==='Orga'; }catch(e){ return false; } }).length; }catch(e){ return 0; } }
 function orgaTotalPersons(){ return orgaExtraPersons(); }
+
+function isOrgaRow(r){ try{ return roleOf(r)==='Orga'; }catch(e){ return false; } }
+function anmForm(){ try{ return DATA.filter(function(r){ return !isOrgaRow(r); }).length; }catch(e){ return (typeof DATA!=='undefined'?DATA.length:0); } }
+function regPersons(){ try{ return DATA.reduce(function(s,r){ return s+(isOrgaRow(r)?0:personsOf(r)); },0); }catch(e){ return 0; } }
+function regGuests(){ try{ return DATA.reduce(function(s,r){ return s+(isOrgaRow(r)?0:Math.max(0,personsOf(r)-1)); },0); }catch(e){ return 0; } }
+function orgaPersonsTotal(){ try{ var inData=DATA.reduce(function(s,r){ return s+(isOrgaRow(r)?personsOf(r):0); },0); var mails={}; DATA.forEach(function(r){ var m=(mailOf(r)||'').toString().toLowerCase(); if(m) mails[m]=1; }); var pool=LS.get(kOrga(),[]); var extra=pool.filter(function(o){ var nm=((o&&o.name)||'').toString().toLowerCase(); return nm && !mails[nm]; }).length; return inData+extra; }catch(e){ return 0; } }
+function totalPersons(){ return regPersons()+orgaPersonsTotal(); }
 </script>
 </body>
 </html>
