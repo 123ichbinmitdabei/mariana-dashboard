@@ -134,6 +134,8 @@
   <select id="evtSwitch" title="Veranstaltung wählen" style="padding:7px;border-radius:6px;border:0;"></select>
   <span class="status" id="syncStat" style="min-width:60px;"></span>
   <button class="btn ghost sm" id="cloudBtn" onclick="toggleCloud()" title="Cloud-Synchronisation an/aus">☁ Sync</button>
+  <button class="btn ghost sm" id="langBtn" onclick="toggleLang()" title="Sprache / Language">🌐 DE</button>
+  <button class="btn ghost sm" id="modeBtn" onclick="toggleMode()" title="Ansehen / Bearbeiten">✏️ Bearbeiten</button>
   <button class="btn ghost sm" onclick="manualSync()">↻ Aktualisieren</button>
   <a class="btn ghost sm" href="dashboard-anleitung.html" target="_blank" rel="noopener" style="text-decoration:none">❓ Anleitung</a>
   <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
@@ -224,6 +226,7 @@
         </div>
         <div>
           <b style="font-size:13px;">🧰 Handkasse</b>
+          <div class="hint" style="margin:6px 0">Einnahmen positiv buchen (z. B. „Orga-Vorfinanzierung Max" +50 €), Kosten negativ (z. B. „Grillkohle" −20 €). So fließt alles in den Gesamtüberblick oben ein.</div>
           <div id="cashList" style="margin:8px 0;"></div>
           <div class="cashline" style="border-top:2px solid var(--green);border-bottom:0;">
             <b>Kassenstand</b><span class="amt money" id="cashBalance"></span>
@@ -446,8 +449,13 @@
       <div class="field" style="flex:1"><label>Anreise</label><input id="aAnreise" placeholder="Auto / Fahrrad / Bahn …"></div>
       <div class="field" style="flex:1"><label>Übernachtung</label><input id="aUeber" placeholder="Ja / Nein"></div>
     </div>
-    <div class="field"><label>Zahlung</label>
-      <select id="aZahl"><option>Ja, ist überwiesen</option><option>Ich zahle vor Ort (bitte passend)</option><option>Nein, noch nicht</option></select>
+    <div class="row-flex">
+      <div class="field" style="flex:1"><label>Zahlung</label>
+        <select id="aZahl"><option>Ja, ist überwiesen</option><option>Ich zahle vor Ort (bitte passend)</option><option>Nein, noch nicht</option></select>
+      </div>
+      <div class="field" style="flex:1"><label>Rolle</label>
+        <select id="aRole"><option>Mitglied</option><option>Orga</option><option>Gast</option></select>
+      </div>
     </div>
     <div class="field"><label>Notiz</label><input id="aNote"></div>
     <div class="row-flex" style="justify-content:flex-end;margin-top:8px;">
@@ -697,7 +705,44 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderSetupBanner(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+
+/* ===== Sprache (DE/EN, Bereichs-Überschriften) ===== */
+const HDR_EN={ 'Community & Schnellzugriff':'Community & Quick Access','Grafische Auswertung':'Charts & Analysis','Wetter fürs Event':'Weather','Veranstaltungs-Vergleich':'Event Comparison','Orga & Finanzen':'Organization & Finance','Ablaufplan':'Schedule','Namensschilder & Listen':'Badges & Lists','Mitfahr-Börse & Fahrdienst':'Ride Share','Kommunikations-Bausteine':'Message Templates','Daten-Import (WhatsApp & PayPal)':'Data Import (WhatsApp & PayPal)','Zähler & Strichlisten':'Counters','Einkaufsliste':'Shopping List','Mitbring-Liste (Bottle-Liste)':'Bring List (Bottle List)','Teilnehmer':'Participants','Feedback':'Feedback','Foto-Galerie':'Photo Gallery' };
+function toggleLang(){ LS.set('evtdash_lang', LS.get('evtdash_lang','de')==='en'?'de':'en'); const b=document.getElementById('langBtn'); if(b)b.textContent='🌐 '+(LS.get('evtdash_lang','de')==='en'?'EN':'DE'); applyLang(); }
+function applyLang(){
+  const en=LS.get('evtdash_lang','de')==='en';
+  const b=document.getElementById('langBtn'); if(b)b.textContent='🌐 '+(en?'EN':'DE');
+  document.querySelectorAll('.section > h2').forEach(h=>{
+    if(!h.dataset.dehtml) h.dataset.dehtml=h.innerHTML;
+    let html=h.dataset.dehtml;
+    if(en) Object.keys(HDR_EN).forEach(de=>{ html=html.split(de).join(HDR_EN[de]); });
+    h.innerHTML=html;
+  });
+}
+
+/* ===== Nutzerrollen: Ansehen vs. Bearbeiten ===== */
+function updateModeBtn(){ const b=document.getElementById('modeBtn'); if(b) b.textContent = LS.get('evtdash_mode','edit')==='view'?'👁 Nur ansehen':'✏️ Bearbeiten'; }
+function toggleMode(){
+  const cur=LS.get('evtdash_mode','edit');
+  if(cur==='edit'){ LS.set('evtdash_mode','view'); }
+  else { const code=(LS.get('evtdash_editcode','')||'').trim(); if(code){ const inp=prompt('Bearbeiten-Code eingeben:'); if(inp===null)return; if(inp!==code){ alert('Falscher Code.'); return; } } LS.set('evtdash_mode','edit'); }
+  updateModeBtn(); applyMode();
+}
+function applyMode(){
+  const ro = LS.get('evtdash_mode','edit')==='view';
+  updateModeBtn();
+  const editRe=/add|del|inc|newEvent|save|Wizard|Settings|import|upload|cycleRole|editName|Checkin|checkin|ciToggle|ciPay|ciKiosk|mahnliste|Packliste|kassiert|Buchen|toggleKiosk|openAdd|Counter|Photo|Hinzuf|Veranstaltung|Assistent|Einstellungen|delManual/i;
+  document.querySelectorAll('.wrap button, .topbar button, .ciov button, label.btn').forEach(el=>{
+    const hasFile=!!el.querySelector&&!!el.querySelector('input[type=file]');
+    const oc=(el.getAttribute('onclick')||'')+' '+(hasFile?'upload import':'')+' '+(el.textContent||'');
+    const isEdit=editRe.test(oc);
+    const safe=/drucken|pdf|csv|↻|anleitung|aktualisieren/i.test(el.textContent||'');
+    if(ro && isEdit && !safe){ el.dataset.roHidden='1'; el.style.display='none'; }
+    else if(el.dataset.roHidden){ el.style.display=''; delete el.dataset.roHidden; }
+  });
+  document.querySelectorAll('.wrap input, .wrap textarea, .wrap select, .ciov input').forEach(el=>{ el.disabled=ro; });
+}
 
 /* ===== Zähler / Strichlisten ===== */
 function renderCounters(){
@@ -966,11 +1011,13 @@ function renderFinance(){
   const ausgaben=cashList.filter(c=>c.amount<0).reduce((s,c)=>s+(-c.amount),0);
   const liquide=ppNow+cashBal;
   const budget=+e.budget||0; const over=budget>0 && ausgaben>budget;
+  const posIncome=Math.max(0,+e.cashStart||0)+cashList.filter(c=>+c.amount>0).reduce((s,c)=>s+ +c.amount,0);
   document.getElementById('totbox').innerHTML=`
     <div class="t"><div class="v">${eur(pers*e.price)}</div><div class="l">Beiträge Soll</div></div>
+    <div class="t"><div class="v" style="color:#1c6b3f">${eur(paid)}</div><div class="l">Beiträge bezahlt</div></div>
     <div class="t"><div class="v">${eur(ppNow)}</div><div class="l">PayPal-Pool aktuell</div></div>
-    <div class="t"><div class="v">${eur(cashBal)}</div><div class="l">Handkasse-Stand</div></div>
-    <div class="t"><div class="v" style="color:${over?'#a33':'inherit'}">${eur(ausgaben)}${budget>0?' / '+eur(budget):''}</div><div class="l">Ausgaben${budget>0?' (Budget)':' (bar)'}</div></div>
+    <div class="t"><div class="v" style="color:#1c6b3f">${eur(posIncome)}</div><div class="l">Einnahmen bar / Orga-Vorfinanz.</div></div>
+    <div class="t"><div class="v" style="color:#a33">${eur(ausgaben)}${budget>0?' / '+eur(budget):''}</div><div class="l">Kosten${budget>0?' (Budget)':''}</div></div>
     <div class="t big"><div class="v">${eur(liquide)}</div><div class="l">Gesamt liquide (PayPal + Kasse)</div></div>`;
   document.getElementById('budgetWarn').innerHTML = over ? `<div class="banner warn" style="background:#f7eaea;border-color:#c0504d;margin:12px 0 0"><span>⚠️ <b>Budget überschritten</b> — Ausgaben ${eur(ausgaben)} über dem Budget von ${eur(budget)} (${eur(ausgaben-budget)} drüber).</span></div>` : '';
   renderCash();
@@ -1548,8 +1595,9 @@ const WIZ_STEPS=[
     {k:'capacity',l:'Maximale Plätze (0 = unbegrenzt)',type:'number'},
     {k:'badgeW',l:'Namensschild Breite (mm)',type:'number'},
     {k:'badgeH',l:'Namensschild Höhe (mm)',type:'number'} ]},
-  {t:'Team & Abschluss ✅',sub:'Team-Code: nur wer denselben Code hat, teilt die Cloud-Daten mit euch.',last:true,fields:[
-    {k:'__team',l:'Team-Code (Cloud-Zugang)',ph:'z.B. marburg2026'} ]}
+  {t:'Team & Abschluss ✅',sub:'Team-Code: nur wer denselben Code hat, teilt die Cloud-Daten. Bearbeiten-Code schützt das Umschalten von „Nur ansehen" auf „Bearbeiten".',last:true,fields:[
+    {k:'__team',l:'Team-Code (Cloud-Zugang)',ph:'z.B. marburg2026'},
+    {k:'__editcode',l:'Bearbeiten-Code (leer = jeder darf bearbeiten)',ph:'optional'} ]}
 ];
 let wizIdx=0;
 function openWizard(){ wizIdx=0; document.getElementById('wizModal').classList.add('open'); wizRender(); }
@@ -1559,7 +1607,7 @@ function wizRender(){
   document.getElementById('wizSub').textContent=step.sub||'';
   document.getElementById('wizSteps').innerHTML=WIZ_STEPS.map((_,i)=>`<div class="s ${i<wizIdx?'done':''} ${i===wizIdx?'cur':''}"></div>`).join('');
   document.getElementById('wizBody').innerHTML=step.fields.map(f=>{
-    const v=f.k==='__team'?teamCode():(e[f.k]!=null?e[f.k]:'');
+    const v=f.k==='__team'?teamCode():(f.k==='__editcode'?(LS.get('evtdash_editcode','')||''):(e[f.k]!=null?e[f.k]:''));
     return `<div class="field"><label>${esc(f.l)}</label><input id="wz_${f.k}" type="${f.type||'text'}" value="${esc(v)}" placeholder="${esc(f.ph||'')}"></div>`;
   }).join('') + (step.last?wizSummary():'');
   document.getElementById('wizBack').style.visibility=wizIdx>0?'visible':'hidden';
@@ -1571,6 +1619,7 @@ function wizSaveStep(){
   const step=WIZ_STEPS[wizIdx], e=ev();
   step.fields.forEach(f=>{ const el=document.getElementById('wz_'+f.k); if(!el)return; const v=el.value.trim();
     if(f.k==='__team'){ localStorage.setItem('evtdash_teamcode', JSON.stringify(v)); return; }
+    if(f.k==='__editcode'){ localStorage.setItem('evtdash_editcode', JSON.stringify(v)); return; }
     if(f.type==='number') e[f.k]=parseFloat(v)||0; else e[f.k]=v;
     if(f.k==='place'){ e.lat=null; e.lon=null; _wxSig=''; }
   });
@@ -1786,12 +1835,14 @@ function addParticipant(){
     zahl:aZahl.value,note:aNote.value.trim()};
   if(!m.mail){alert('Bitte Mail/Name angeben.');return;}
   const man=LS.get(kMan(),[]);man.push(m);LS.set(kMan(),man);
+  const rEl=document.getElementById('aRole'); if(rEl&&rEl.value){ const rr=LS.get(kRole(),{}); rr[m.mail]=rEl.value; LS.set(kRole(),rr); }
   ['aMail','aVerein','aWann','aAnreise','aUeber','aNote'].forEach(id=>document.getElementById(id).value='');aPers.value=1;
   closeModal('addModal');reloadData();
 }
 
 /* ============ Init ============ */
 updateSyncBtn();
+updateModeBtn();
 renderNotesTasks();
 refreshCloud().finally(()=>reloadData());
 renderWeather(); renderFeedback();
