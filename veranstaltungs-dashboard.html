@@ -1461,7 +1461,7 @@ function makeStacked(title,labels,datasets){
     data:{labels,datasets:datasets.map(ds=>({label:ds.label,data:ds.data,backgroundColor:ds.color,borderRadius:4}))},
     options:{maintainAspectRatio:false,responsive:true,indexAxis:'y',
       plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:12,font:{size:12},padding:10}},tooltip:{backgroundColor:'#08160d'}},
-      scales:{x:{stacked:true,beginAtZero:true,ticks:{precision:0,font:{size:12}},grid:{color:'#eef2ef'}},y:{stacked:true,grid:{display:false},ticks:{autoSkip:false,font:{size:12},callback:function(v){return wrapLabel(this.getLabelForValue(v),22);}}}}
+      scales:{x:{stacked:true,beginAtZero:true,ticks:{precision:0,font:{size:12}},grid:{color:'#eef2ef'}},y:{stacked:true,grid:{display:false},ticks:{autoSkip:false,font:{size:12},callback:function(v){return wrapLabel(this.getLabelForValue(v),22);}}}}}
   }));
 }
 function chartHead(t){ const d=document.createElement('div'); d.style.cssText='grid-column:1/-1;margin:6px 0 -4px;font-weight:700;color:var(--green-d,#1f7554);font-size:13px'; d.textContent=t; document.getElementById('charts').appendChild(d); }
