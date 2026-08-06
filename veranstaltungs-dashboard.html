@@ -40,10 +40,12 @@
   .section{background:var(--card);border-radius:10px;border:1px solid var(--line);margin-bottom:20px;overflow:hidden;}
   .section > h2{margin:0;padding:13px 18px 13px 16px;font-size:15px;background:linear-gradient(90deg,#e3efe8,#eef5f0);border-bottom:1px solid var(--line);border-left:4px solid var(--green);color:var(--green-d);display:flex;align-items:center;gap:8px;}
   .section .body{padding:18px;}
-  .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;}
-  .chart-box{border:1px solid var(--line);border-radius:8px;padding:12px;}
-  .chart-box h3{margin:0 0 8px;font-size:13px;color:var(--muted);text-align:center;font-weight:600;}
-  .chart-box canvas{max-height:240px;}
+  .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px;}
+  .chart-box{border:1px solid var(--line);border-radius:10px;padding:14px 16px 10px;background:#fff;}
+  .chart-box h3{margin:0 0 10px;font-size:14px;color:var(--ink);text-align:center;font-weight:700;}
+  .chart-box .cwrap{position:relative;width:100%;}
+  .chart-box.wide{grid-column:1/-1;}
+  @media(max-width:760px){ .charts{grid-template-columns:1fr;} }
   table.grid{width:100%;border-collapse:collapse;font-size:13px;}
   table.grid th,table.grid td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
   table.grid th{background:#f6f9f7;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}
@@ -69,6 +71,10 @@
   .field input,.field select,.field textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:30px 14px;overflow:auto;}
   .modal.open{display:flex;}
+  .guide-steps{counter-reset:s;list-style:none;padding:0;margin:0;}
+  .guide-steps li{counter-increment:s;position:relative;padding:8px 0 8px 42px;font-size:13.5px;line-height:1.5;border-bottom:1px dashed var(--line);}
+  .guide-steps li:last-child{border-bottom:0;}
+  .guide-steps li::before{content:counter(s);position:absolute;left:0;top:6px;width:27px;height:27px;background:var(--accent);color:#fff;border-radius:50%;text-align:center;line-height:27px;font-weight:700;font-size:13px;}
   .modal .box{background:#fff;border-radius:12px;max-width:560px;width:100%;padding:22px;}
   .modal .box h3{margin:0 0 14px;}
   .row-flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
@@ -236,10 +242,12 @@
           </div>
           <div class="row-flex" style="margin-top:10px;">
             <input id="cashText" placeholder="Beschreibung (z.B. Bar Dirk, Einkauf Kohle)" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:6px;">
+            <select id="cashCat" title="Kategorie (für Ausgaben)" style="width:130px;padding:7px;border:1px solid var(--line);border-radius:6px;"></select>
             <input id="cashAmt" type="number" step="0.01" placeholder="± €" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:6px;">
             <label class="btn ghost sm" style="color:var(--accent);border-color:var(--line);cursor:pointer" title="Beleg-Foto anhängen">📷<input type="file" id="cashPhoto" accept="image/*" style="display:none"></label>
             <button class="btn sm" onclick="addCash()">+ Buchen</button>
           </div>
+          <div style="margin-top:10px"><b style="font-size:12px;color:var(--muted)">Ausgaben nach Kategorie</b><div id="expCatBox" style="margin-top:6px"></div></div>
         </div>
       </div>
 
@@ -292,6 +300,28 @@
   </div>
 
   <div class="section">
+    <h2>🧑‍🍳 Schicht- &amp; Aufgabenplan</h2>
+    <div class="body">
+      <div class="hint">Wer übernimmt was? Lege Aufgaben/Schichten an (z. B. Einlass, Grill, Bar, Aufbau, Abbau) und weise Personen zu. Wird im Team geteilt.</div>
+      <div id="shiftBoard"></div>
+      <div class="row-flex" style="margin-top:10px;">
+        <input id="shTask" placeholder="Aufgabe (z.B. Grill)" style="flex:2;padding:7px;border:1px solid var(--line);border-radius:6px;">
+        <input id="shTime" placeholder="Zeit (z.B. Sa 18–20)" style="width:150px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+        <input id="shNeed" type="number" min="1" value="1" title="benötigte Personen" style="width:70px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+        <button class="btn sm" onclick="addShift()">+ Aufgabe</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>⛺ Schlaf- &amp; Zeltplatz-Übersicht</h2>
+    <div class="body">
+      <div class="hint">Zeigt automatisch alle, die übernachten (aus dem Formular). Weise Zelte/Schlafplätze zu und behalte die Belegung im Blick.</div>
+      <div id="sleepBoard"></div>
+    </div>
+  </div>
+
+  <div class="section">
     <h2>🖨️ Namensschilder &amp; Listen</h2>
     <div class="body">
       <div class="hint">Erzeugt druckfertige Seiten aus der aktuellen Teilnehmerliste (öffnet ein Druckfenster). Namen lassen sich pro Teilnehmer im Bereich „Teilnehmer" anpassen (✎).</div>
@@ -300,6 +330,7 @@
         <tr><td>🏷️ Namensschilder (90×54 mm)</td><td style="text-align:right"><button class="btn sm" onclick="printBadges()">Drucken</button></td></tr>
         <tr><td>📋 Teilnehmer-/Check-in-Liste</td><td style="text-align:right"><button class="btn sm" onclick="printList()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfList()">⬇ PDF</button></td></tr>
         <tr><td>📜 Teilnahme-Nachweise (eingecheckt)</td><td style="text-align:right"><button class="btn sm" onclick="printHours()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfHours()">⬇ PDF</button></td></tr>
+        <tr><td>📜 Serien-Nachweise <b>alle Teilnehmer</b> (1 Klick)</td><td style="text-align:right"><button class="btn sm" onclick="printHoursAll()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfHoursAll()">⬇ PDF</button></td></tr>
         <tr><td>🧾 Finanz-Abschlussbericht</td><td style="text-align:right"><button class="btn sm" onclick="printFinance()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfFinance()">⬇ PDF</button></td></tr>
         <tr><td>📄 <b>Gesamtbericht</b> (Überblick + Finanzen + Teilnehmer)</td><td style="text-align:right"><button class="btn sm" onclick="printReport()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfReport()">⬇ PDF</button></td></tr>
       </table>
@@ -323,6 +354,13 @@
     <div class="body">
       <div class="hint">Fertige Texte zum Kopieren für WhatsApp/Mail. Passt sich an die aktuellen Daten an.</div>
       <div class="row-flex" style="margin-bottom:10px"><button class="btn sm" onclick="mahnliste()">📧 Mahnliste: Mail an offene Zahler</button></div>
+      <div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;background:#f6f9f7">
+        <b style="font-size:13px">📲 WhatsApp-/SMS-Erinnerungen</b>
+        <div style="font-size:11.5px;color:var(--muted);margin:4px 0 8px">Bereitet pro Person einen fertigen WhatsApp-Link mit Erinnerungstext vor (Antippen öffnet WhatsApp mit vorgefülltem Text). Voraussetzung: im Formular ist eine Telefonnummer erfasst.</div>
+        <div class="row-flex"><select id="remTpl" style="flex:1;min-width:150px;padding:7px;border:1px solid var(--line);border-radius:6px;font-size:12px"></select><button class="btn sm" onclick="buildWaReminders()">Links erzeugen</button></div>
+        <div id="waReminders" style="margin-top:10px"></div>
+        <div class="hint" style="margin-top:8px">Voll-automatischer Massenversand (SMS/WhatsApp ohne Klick) benötigt einen kostenpflichtigen Zusatzdienst (z. B. Twilio) — sag Bescheid, dann richte ich das ein. Bis dahin ist der Ein-Klick-Versand oben der schnellste Weg.</div>
+      </div>
       <div id="comms"></div>
       <div style="border:1px dashed var(--mgreen);border-radius:8px;padding:12px;margin-top:8px;background:#f6f9f7">
         <b style="font-size:13px">➕ Eigene Vorlage erstellen</b>
@@ -341,14 +379,16 @@
       <div class="grid2">
         <div>
           <b style="font-size:13px">📲 WhatsApp-Chat-Export (.txt)</b>
-          <div style="font-size:12px;color:var(--muted);margin:4px 0 8px">In WhatsApp: Gruppe öffnen → ⋮ / Gruppenname → „Chat exportieren" → „Ohne Medien" → die .txt hier hochladen.</div>
-          <label class="btn sm" style="cursor:pointer">Datei wählen<input type="file" accept=".txt,text/plain" style="display:none" onchange="importWhatsApp(this)"></label>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Nie gemacht? Kein Problem — der Assistent führt dich Schritt für Schritt durch.</div>
+          <div class="row-flex"><button class="btn sm" onclick="openWaGuide()">🧭 Schritt-für-Schritt-Assistent</button>
+            <label class="btn ghost sm" style="cursor:pointer;color:var(--accent);border-color:var(--line)">Datei direkt wählen<input type="file" accept=".txt,text/plain" style="display:none" onchange="importWhatsApp(this)"></label></div>
           <div id="waResult" style="margin-top:10px"></div>
         </div>
         <div>
           <b style="font-size:13px">💳 PayPal-CSV</b>
-          <div style="font-size:12px;color:var(--muted);margin:4px 0 8px">PayPal → Aktivitäten → Herunterladen → CSV. Ich gleiche Zahlungen mit Teilnehmern ab und markiere sie als „bezahlt".</div>
-          <label class="btn sm" style="cursor:pointer">Datei wählen<input type="file" accept=".csv,text/csv" style="display:none" onchange="importPaypal(this)"></label>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Ich gleiche die Zahlungen mit den Teilnehmern ab und markiere sie als „bezahlt". Der Assistent zeigt dir, wie du die CSV bekommst.</div>
+          <div class="row-flex"><button class="btn sm" onclick="openPpGuide()">🧭 Schritt-für-Schritt-Assistent</button>
+            <label class="btn ghost sm" style="cursor:pointer;color:var(--accent);border-color:var(--line)">Datei direkt wählen<input type="file" accept=".csv,text/csv" style="display:none" onchange="importPaypal(this)"></label></div>
           <div id="ppResult" style="margin-top:10px"></div>
         </div>
       </div>
@@ -394,10 +434,19 @@
   <div class="section">
     <h2>👤 Teilnehmer <span class="spacer"></span></h2>
     <div class="body">
-      <div class="row-flex" style="margin-bottom:14px;">
+      <div class="row-flex" style="margin-bottom:10px;">
         <button class="btn sm" onclick="openAdd()">+ Teilnehmer hinzufügen</button>
         <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="toggleView()"><span id="viewLbl">Als Tabelle</span></button>
         <span class="status" style="color:var(--muted)" id="pCount"></span>
+      </div>
+      <div class="row-flex" style="margin-bottom:12px;gap:8px;">
+        <input id="fltSearch" placeholder="🔍 Name oder E-Mail suchen…" oninput="renderParticipants()" style="flex:1;min-width:150px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+        <select id="fltPay" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"><option value="">Zahlung: alle</option><option value="paid">bezahlt</option><option value="onsite">vor Ort</option><option value="open">offen</option></select>
+        <select id="fltRole" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"><option value="">Rolle: alle</option><option>Mitglied</option><option>Orga</option><option>Gast</option></select>
+        <select id="fltNight" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"><option value="">Übernachtung: alle</option><option value="yes">übernachtet</option><option value="no">nicht</option></select>
+        <select id="fltCheck" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"><option value="">Check-in: alle</option><option value="in">eingecheckt</option><option value="out">offen</option></select>
+        <select id="fltTag" onchange="renderParticipants()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"><option value="">Tag: alle</option></select>
+        <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="clearFilters()">Zurücksetzen</button>
       </div>
       <div id="pcards" class="pcards"></div>
       <div id="ptable" style="display:none;overflow:auto;"></div>
@@ -458,6 +507,36 @@
         <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('settingsModal')">Abbrechen</button>
         <button class="btn" onclick="saveSettings()">Speichern</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="waGuide">
+  <div class="box">
+    <h3>📲 WhatsApp-Chat holen — Schritt für Schritt</h3>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Noch nie gemacht? Kein Problem. Wähle unten dein Handy und folge den Schritten. Am Ende lädst du die Datei hier hoch — deine Nachrichten bleiben nur in diesem Browser.</p>
+    <div class="row-flex" style="margin-bottom:12px">
+      <button class="btn sm" id="waTabA" onclick="waDev('a')">🤖 Android</button>
+      <button class="btn ghost sm" id="waTabI" onclick="waDev('i')" style="color:var(--accent);border-color:var(--line)">🍎 iPhone</button>
+    </div>
+    <ol id="waSteps" class="guide-steps"></ol>
+    <div style="background:#fdf4dc;border-left:4px solid var(--yellow);padding:9px 12px;border-radius:0 6px 6px 0;font-size:12.5px;margin:12px 0">💡 Kommt eine <b>.zip</b>-Datei heraus (auf dem iPhone häufig)? Einmal antippen/entpacken — darin liegt eine <b>.txt</b>. Genau die lädst du hoch.</div>
+    <div class="row-flex" style="justify-content:space-between;align-items:center;margin-top:6px">
+      <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('waGuide')">Schließen</button>
+      <label class="btn" style="cursor:pointer">✅ Fertig — Datei hochladen<input type="file" accept=".txt,text/plain" style="display:none" onchange="importWhatsApp(this);closeModal('waGuide')"></label>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="ppGuide">
+  <div class="box">
+    <h3>💳 PayPal-Zahlungen holen — Schritt für Schritt</h3>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 12px">So bekommst du die Liste aller Zahlungen als Datei — am einfachsten am Computer. Sie wird nur hier im Browser ausgewertet.</p>
+    <ol id="ppSteps" class="guide-steps"></ol>
+    <div style="background:#fdf4dc;border-left:4px solid var(--yellow);padding:9px 12px;border-radius:0 6px 6px 0;font-size:12.5px;margin:12px 0">💡 Der <b>Pool-Kontostand</b> selbst steht nicht in der Datei — den trägst du im Finanzbereich von Hand ein. Diese Datei dient nur dazu, einzelne Zahler automatisch als „bezahlt" zu markieren.</div>
+    <div class="row-flex" style="justify-content:space-between;align-items:center;margin-top:6px">
+      <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('ppGuide')">Schließen</button>
+      <label class="btn" style="cursor:pointer">✅ Fertig — CSV hochladen<input type="file" accept=".csv,text/csv" style="display:none" onchange="importPaypal(this);closeModal('ppGuide')"></label>
     </div>
   </div>
 </div>
@@ -534,7 +613,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms'];
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -556,9 +635,16 @@ const kCount=()=>'evtdash_count_'+currentId;
 const kOrga =()=>'evtdash_orga_'+currentId;
 const kComms=()=>'evtdash_comms_'+currentId;
 const kRole =()=>'evtdash_role_'+currentId;
+const kTags =()=>'evtdash_tags_'+currentId;
+const kShifts=()=>'evtdash_shifts_'+currentId;
+const kSleep=()=>'evtdash_sleep_'+currentId;
 const kReceipts=()=>'evtdash_receipts_'+currentId; // lokal (Bilder, nicht synchronisiert)
 const kPhotos=()=>'evtdash_photos_'+currentId;     // lokal
 const ROLE_COLORS={'Mitglied':'#f9c74f','Orga':'#8e5cc6','Gast':'#2f7ec6'};
+const PRESET_TAGS=['Helfer','Fahrer','Neuling','VIP','Küche','Auf-/Abbau'];
+function tagsOf(mail){ const t=LS.get(kTags(),{}); return t[mail]||[]; }
+function toggleTag(mail,tag){ const t=LS.get(kTags(),{}); const cur=new Set(t[mail]||[]); if(cur.has(tag))cur.delete(tag); else cur.add(tag); t[mail]=[...cur]; if(!t[mail].length)delete t[mail]; LS.set(kTags(),t); renderParticipants(); renderCharts(); }
+function overnightYes(row){ const v=val(row,findCol('übernacht','ubernacht')).toLowerCase(); return v && !/^nein|abends nach hause|fahre abends|nach hause/.test(v.trim()); }
 function resizeImage(file, maxW, cb){
   const rd=new FileReader();
   rd.onload=()=>{ const img=new Image(); img.onload=()=>{ let w=img.width,h=img.height; if(w>maxW){h=Math.round(h*maxW/w);w=maxW;} const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); try{cb(c.toDataURL('image/jpeg',0.6));}catch(e){cb(null);} }; img.onerror=()=>cb(null); img.src=rd.result; };
@@ -745,7 +831,7 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
 
 /* ===== Sprache (DE/EN, Bereichs-Überschriften) ===== */
 const HDR_EN={ 'Community & Schnellzugriff':'Community & Quick Access','Grafische Auswertung':'Charts & Analysis','Wetter fürs Event':'Weather','Veranstaltungs-Vergleich':'Event Comparison','Orga & Finanzen':'Organization & Finance','Ablaufplan':'Schedule','Namensschilder & Listen':'Badges & Lists','Mitfahr-Börse & Fahrdienst':'Ride Share','Kommunikations-Bausteine':'Message Templates','Daten-Import (WhatsApp & PayPal)':'Data Import (WhatsApp & PayPal)','Zähler & Strichlisten':'Counters','Einkaufsliste':'Shopping List','Mitbring-Liste (Bottle-Liste)':'Bring List (Bottle List)','Teilnehmer':'Participants','Feedback':'Feedback','Foto-Galerie':'Photo Gallery' };
@@ -933,32 +1019,55 @@ function countSplit(col){
   DATA.forEach(r=>{
     let v=val(r,col).trim(); if(!v)return;
     v.split(',').map(s=>s.trim()).filter(Boolean).forEach(part=>{
-      const key=part.length>42?part.slice(0,40)+'…':part;
+      const key=part.length>70?part.slice(0,68)+'…':part;
       map[key]=(map[key]||0)+1;
     });
   });
   return map;
 }
-function makeChart(title,map,type){
+function wrapLabel(s,max){
+  s=String(s); if(s.length<=max) return s;
+  const words=s.split(' '); const lines=[]; let cur='';
+  words.forEach(w=>{ if((cur+' '+w).trim().length>max){ if(cur)lines.push(cur); cur=w; } else cur=(cur?cur+' ':'')+w; });
+  if(cur)lines.push(cur);
+  return lines.slice(0,3);
+}
+function makeChart(title,map,type,opts){
+  opts=opts||{};
   if(!map||!Object.keys(map).length) return;
-  const box=document.createElement('div'); box.className='chart-box';
-  box.innerHTML=`<h3>${title}</h3><canvas></canvas>`;
+  const box=document.createElement('div'); box.className='chart-box'+(opts.wide?' wide':'');
+  const n=Object.keys(map).length;
+  const h = type==='bar' ? Math.max(240, n*36+56) : 280;
+  box.innerHTML=`<h3>${esc(title)}</h3><div class="cwrap" style="height:${h}px"><canvas></canvas></div>`;
   document.getElementById('charts').appendChild(box);
   const labels=Object.keys(map), data=labels.map(l=>map[l]);
+  const tot=data.reduce((a,b)=>a+b,0)||1;
   const palette=['#1f9e5a','#f4a83c','#2f7ec6','#e0533d','#8e5cc6','#12b0a0','#f9c74f','#e06aa8','#5cc183','#6b7cff','#d98c3c','#3aa6a0'];
   const bg = type==='doughnut' ? palette
            : type==='line' ? 'rgba(31,158,90,.18)'
            : labels.map((_,i)=>palette[i%palette.length]);
+  let scales;
+  if(type==='doughnut'){ scales={}; }
+  else if(type==='bar'){ scales={
+      x:{beginAtZero:true,ticks:{precision:0,font:{size:12}},grid:{color:'#eef2ef'}},
+      y:{grid:{display:false},ticks:{autoSkip:false,font:{size:12},callback:function(v){return wrapLabel(this.getLabelForValue(v),26);}}}
+    }; }
+  else { scales={
+      y:{beginAtZero:true,ticks:{precision:0,font:{size:12}},grid:{color:'#eef2ef'}},
+      x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:0,font:{size:11},callback:function(v){return wrapLabel(this.getLabelForValue(v),12);}}}
+    }; }
   charts.push(new Chart(box.querySelector('canvas'),{
     type:type||'bar',
     data:{labels,datasets:[{data,fill:type==='line',tension:.35,
       backgroundColor:bg,
       borderRadius:type==='bar'?6:4,borderWidth:type==='line'?3:(type==='doughnut'?2:0),
       borderColor:type==='line'?'#1f9e5a':'#fff',pointBackgroundColor:'#1f9e5a',pointRadius:type==='line'?4:0}]},
-    options:{plugins:{legend:{display:type==='doughnut',position:'bottom',labels:{boxWidth:12,font:{size:11},padding:10}},
-      tooltip:{backgroundColor:'#08160d'}},
-      scales:type==='doughnut'?{}:{y:{beginAtZero:true,ticks:{precision:0},grid:{color:'#eef2ef'}},x:{grid:{display:false}}},
-      indexAxis:type==='bar'?'y':'x',cutout:type==='doughnut'?'55%':undefined}
+    options:{maintainAspectRatio:false,responsive:true,layout:{padding:{top:2}},
+      plugins:{legend:{display:type==='doughnut',position:'bottom',labels:{boxWidth:12,font:{size:12},padding:12}},
+      tooltip:{backgroundColor:'#08160d',padding:10,titleFont:{size:13},bodyFont:{size:13},
+        callbacks:type==='doughnut'?{label:(c)=>` ${c.label}: ${c.parsed} (${Math.round(c.parsed/tot*100)}%)`}:{}}},
+      scales,
+      indexAxis:type==='bar'?'y':'x',cutout:type==='doughnut'?'58%':undefined}
   }));
 }
 function renderCharts(){
@@ -971,8 +1080,12 @@ function renderCharts(){
   makeChart('Zahlungsstatus',pay,'doughnut');
   makeChart('Übernachtung', countSplit(findCol('übernacht','ubernacht')),'bar');
   // persons distribution
-  const pd={};DATA.forEach(r=>{const p=personsOf(r);const k=p+(p===1?' Person':' Personen');pd[k]=(pd[k]||0)+1;});
-  makeChart('Gruppengröße',pd,'doughnut');
+  const pdRaw={};DATA.forEach(r=>{const p=personsOf(r);pdRaw[p]=(pdRaw[p]||0)+1;});
+  const pd={};Object.keys(pdRaw).map(Number).sort((a,b)=>a-b).forEach(p=>{
+    const k = p===1 ? 'Alleine (1 Person)' : (p+' Personen zusammen');
+    pd[k]=pdRaw[p];
+  });
+  makeChart('Gruppengröße — Anmeldungen nach Personenzahl',pd,'doughnut');
   makeChart('Verein', countSplit(findCol('verein')),'doughnut');
   makeChart('Fahrdienst-Bedarf', countSplit(findCol('fahrdienst')),'bar');
   makeChart('Aufräumen (So)', countSplit(findCol('aufräumen','aufraumen','sonntag')),'bar');
@@ -980,6 +1093,13 @@ function renderCharts(){
   // Check-in-Fortschritt
   const inn=DATA.filter(r=>isChecked(r)).length;
   if(DATA.length) makeChart('Check-in-Stand',{'Eingecheckt':inn,'Noch nicht':DATA.length-inn},'doughnut');
+  // Tags-Auswertung
+  const tagCount={};
+  DATA.forEach(r=>tagsOf(mailOf(r)).forEach(t=>tagCount[t]=(tagCount[t]||0)+1));
+  if(Object.keys(tagCount).length) makeChart('Teilnehmer-Tags', tagCount, 'bar');
+  // Ausgaben nach Kategorie
+  const expCat={}; LS.get(kCash(),[]).filter(c=>+c.amount<0).forEach(c=>{const k=c.cat||'Sonstiges';expCat[k]=(expCat[k]||0)+(-c.amount);});
+  if(Object.keys(expCat).length) makeChart('Ausgaben nach Kategorie (€)', expCat, 'doughnut');
   // Kapazität
   const cap=+e.capacity||0;
   if(cap>0){ const pers2=DATA.reduce((s,r)=>s+personsOf(r),0); makeChart('Kapazität',{'Belegt':Math.min(pers2,cap),'Frei':Math.max(0,cap-pers2),'Warteliste':Math.max(0,pers2-cap)},'doughnut'); }
@@ -1006,10 +1126,36 @@ function renderParticipants(){
         cBring=findCol('bringst du etwas','hilft'),cNote=findCol('mitteilen'),cTs=findCol('timestamp','zeitstempel');
   const mailCounts={}; DATA.forEach(r=>{const m=mailOf(r).toLowerCase(); if(m)mailCounts[m]=(mailCounts[m]||0)+1;});
   const dupes=Object.values(mailCounts).filter(n=>n>1).length;
-  document.getElementById('pCount').innerHTML=DATA.length+' Einträge'+(dupes?` · <span style="color:#a33">${dupes} mögliche Doppelanmeldung(en)</span>`:'');
   const wl=waitlistSet();
+  // --- Tag-Filter-Dropdown befüllen ---
+  const tagStore=LS.get(kTags(),{}); const allTags=new Set(PRESET_TAGS);
+  Object.values(tagStore).forEach(arr=>arr.forEach(t=>allTags.add(t)));
+  const fltTagEl=document.getElementById('fltTag');
+  if(fltTagEl){ const cur=fltTagEl.value; fltTagEl.innerHTML='<option value="">Tag: alle</option>'+[...allTags].sort().map(t=>`<option${t===cur?' selected':''}>${esc(t)}</option>`).join(''); }
+  // --- Filter lesen ---
+  const q=(document.getElementById('fltSearch')?.value||'').toLowerCase().trim();
+  const fPay=document.getElementById('fltPay')?.value||'';
+  const fRole=document.getElementById('fltRole')?.value||'';
+  const fNight=document.getElementById('fltNight')?.value||'';
+  const fCheck=document.getElementById('fltCheck')?.value||'';
+  const fTag=document.getElementById('fltTag')?.value||'';
+  const matches=(r)=>{
+    const m=mailOf(r);
+    if(q && !(displayName(r).toLowerCase().includes(q)||m.toLowerCase().includes(q))) return false;
+    if(fPay){ const st=payState(r); if(fPay==='open'){ if(!(st==='open'||st==='unknown'))return false; } else if(st!==fPay) return false; }
+    if(fRole && roleOf(r)!==fRole) return false;
+    if(fNight==='yes' && !overnightYes(r)) return false;
+    if(fNight==='no' && overnightYes(r)) return false;
+    if(fCheck==='in' && !isChecked(r)) return false;
+    if(fCheck==='out' && isChecked(r)) return false;
+    if(fTag && !tagsOf(m).includes(fTag)) return false;
+    return true;
+  };
+  const rows=DATA.map((r,i)=>({r,i})).filter(o=>matches(o.r));
+  const anyFilter=q||fPay||fRole||fNight||fCheck||fTag;
+  document.getElementById('pCount').innerHTML=(anyFilter?`${rows.length} von ${DATA.length}`:`${DATA.length}`)+' Einträge'+(dupes?` · <span style="color:#a33">${dupes} mögliche Doppelanmeldung(en)</span>`:'');
   // cards
-  const cards=DATA.map((r,i)=>{
+  const cards=rows.map(({r,i})=>{
     const st=payState(r);
     const mail=mailOf(r);
     const line=(k,v)=>v?`<div class="r"><span class="k">${k}</span><span>${v}</span></div>`:'';
@@ -1033,16 +1179,21 @@ function renderParticipants(){
         ${line('Bringt mit',val(r,cBring))}
         ${line('Notiz',val(r,cNote))}
         ${line('Angemeldet',val(r,cTs))}
+        <div class="r" style="align-items:flex-start"><span class="k">Tags</span><span style="display:flex;flex-wrap:wrap;gap:4px">${PRESET_TAGS.map(t=>{const on=tagsOf(mail).includes(t);return `<button onclick="toggleTag('${esc(mail)}','${esc(t)}')" style="cursor:pointer;font-size:11px;padding:2px 8px;border-radius:12px;border:1px solid ${on?'#1c8a4e':'var(--line)'};background:${on?'#1c8a4e':'#fff'};color:${on?'#fff':'var(--muted)'}">${on?'✓ ':''}${esc(t)}</button>`;}).join('')}</span></div>
         <details><summary>Alle Antworten</summary>${allRows}</details>
         ${r.__manual?`<div style="margin-top:8px;text-align:right;"><button class="btn danger sm" onclick="delManual(${i})">Löschen</button></div>`:''}
       </div></div>`;
   }).join('');
-  document.getElementById('pcards').innerHTML=cards||'<div class="status">Noch keine Anmeldungen.</div>';
+  document.getElementById('pcards').innerHTML=cards||'<div class="status">Keine Treffer für die aktuellen Filter.</div>';
   // table
   const cols=[cMail,cVer,cWann,cAnr,cUeb].filter(Boolean);
-  const th=cols.map(c=>`<th>${c.length>22?c.slice(0,20)+'…':c}</th>`).join('')+'<th>Pers.</th><th>Zahlung</th>';
-  const tr=DATA.map(r=>`<tr>${cols.map(c=>`<td>${val(r,c)}</td>`).join('')}<td>${personsOf(r)}</td><td>${payPill(payState(r))}</td></tr>`).join('');
+  const th=cols.map(c=>`<th>${c.length>22?c.slice(0,20)+'…':c}</th>`).join('')+'<th>Pers.</th><th>Tags</th><th>Zahlung</th>';
+  const tr=rows.map(({r})=>`<tr>${cols.map(c=>`<td>${val(r,c)}</td>`).join('')}<td>${personsOf(r)}</td><td>${esc(tagsOf(mailOf(r)).join(', '))}</td><td>${payPill(payState(r))}</td></tr>`).join('');
   document.getElementById('ptable').innerHTML=`<table class="grid"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+}
+function clearFilters(){
+  ['fltSearch','fltPay','fltRole','fltNight','fltCheck','fltTag'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderParticipants();
 }
 function delManual(idx){
   const item=DATA[idx]; if(!item||!item.__manual)return;
@@ -1109,6 +1260,68 @@ function addAgenda(){
   ['agTime','agText','agWho'].forEach(id=>document.getElementById(id).value=''); renderAgenda();
 }
 function delAgenda(i){const l=LS.get(kAg(),[]);l.splice(i,1);LS.set(kAg(),l);renderAgenda();}
+
+/* ===== Schicht-/Aufgabenplan ===== */
+function personOptions(sel){
+  const opts=DATA.map(r=>displayName(r)).concat(LS.get(kOrga(),[]).map(o=>o.name).filter(Boolean));
+  const uniq=[...new Set(opts)].sort((a,b)=>a.localeCompare(b,'de'));
+  return '<option value="">— Person wählen —</option>'+uniq.map(n=>`<option${n===sel?' selected':''}>${esc(n)}</option>`).join('');
+}
+function addShift(){
+  const task=document.getElementById('shTask').value.trim(); if(!task)return;
+  const time=document.getElementById('shTime').value.trim();
+  const need=Math.max(1,+document.getElementById('shNeed').value||1);
+  const l=LS.get(kShifts(),[]); l.push({task,time,need,people:[]}); LS.set(kShifts(),l);
+  ['shTask','shTime'].forEach(id=>document.getElementById(id).value=''); document.getElementById('shNeed').value=1;
+  renderShifts();
+}
+function delShift(i){const l=LS.get(kShifts(),[]);l.splice(i,1);LS.set(kShifts(),l);renderShifts();}
+function assignShift(i,name){ if(!name)return; const l=LS.get(kShifts(),[]); if(!l[i])return; l[i].people=l[i].people||[]; if(!l[i].people.includes(name))l[i].people.push(name); LS.set(kShifts(),l); renderShifts(); }
+function unassignShift(i,name){ const l=LS.get(kShifts(),[]); if(!l[i])return; l[i].people=(l[i].people||[]).filter(p=>p!==name); LS.set(kShifts(),l); renderShifts(); }
+function renderShifts(){
+  const box=document.getElementById('shiftBoard'); if(!box)return;
+  const l=LS.get(kShifts(),[]);
+  if(!l.length){ box.innerHTML='<div class="status" style="color:var(--muted)">Noch keine Aufgaben angelegt.</div>'; return; }
+  box.innerHTML=l.map((s,i)=>{
+    const have=(s.people||[]).length, need=s.need||1;
+    const col=have>=need?'#1c8a4e':(have>0?'#c9922b':'#a33');
+    const chips=(s.people||[]).map(p=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#eaf4ee;border-radius:12px;padding:2px 8px;font-size:12px;margin:2px">${esc(p)}<button onclick="unassignShift(${i},'${esc(p).replace(/'/g,"\\'")}')" style="border:0;background:none;cursor:pointer;color:#a33;font-weight:700">×</button></span>`).join('');
+    return `<div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div class="row-flex" style="justify-content:space-between;align-items:center">
+        <div><b>${esc(s.task)}</b>${s.time?` <span style="color:var(--muted);font-size:12px">· ${esc(s.time)}</span>`:''}</div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="color:${col};font-weight:700;font-size:12px">${have}/${need} besetzt</span><button class="btn danger sm" onclick="delShift(${i})">✕</button></div>
+      </div>
+      <div style="margin:6px 0">${chips||'<span style="color:var(--muted);font-size:12px">niemand zugewiesen</span>'}</div>
+      <select onchange="assignShift(${i},this.value);this.value=''" style="padding:6px;border:1px solid var(--line);border-radius:6px;font-size:12px">${personOptions('')}</select>
+    </div>`;
+  }).join('');
+}
+
+/* ===== Schlaf-/Zeltplatz-Übersicht ===== */
+function assignSleep(mail,spot){ const s=LS.get(kSleep(),{}); if(spot)s[mail]=spot; else delete s[mail]; LS.set(kSleep(),s); renderSleep(); }
+function renderSleep(){
+  const box=document.getElementById('sleepBoard'); if(!box)return;
+  const stayers=DATA.filter(r=>overnightYes(r));
+  const store=LS.get(kSleep(),{});
+  if(!stayers.length){ box.innerHTML='<div class="status" style="color:var(--muted)">Noch niemand mit Übernachtung im Formular.</div>'; return; }
+  // Belegung je Zelt/Platz
+  const byspot={}; stayers.forEach(r=>{const sp=store[mailOf(r)]; if(sp)byspot[sp]=(byspot[sp]||0)+1;});
+  const assigned=stayers.filter(r=>store[mailOf(r)]).length;
+  const summary=`<div class="totbox" style="grid-template-columns:repeat(auto-fit,minmax(90px,1fr));margin-bottom:10px">
+    <div class="t"><div class="v">${stayers.length}</div><div class="l">übernachten</div></div>
+    <div class="t"><div class="v">${assigned}</div><div class="l">zugewiesen</div></div>
+    <div class="t"><div class="v">${stayers.length-assigned}</div><div class="l">noch offen</div></div>
+    <div class="t"><div class="v">${Object.keys(byspot).length}</div><div class="l">Zelte/Plätze</div></div>
+  </div>`;
+  const occ=Object.keys(byspot).length?('<div style="margin-bottom:10px;font-size:12.5px;color:var(--muted)">Belegung: '+Object.entries(byspot).sort().map(([k,v])=>`<b>${esc(k)}</b> (${v})`).join(' · ')+'</div>'):'';
+  const rows=stayers.map(r=>{
+    const mail=mailOf(r), cur=store[mail]||'';
+    const night=val(r,findCol('übernacht','ubernacht'));
+    return `<tr><td>${esc(displayName(r))}</td><td style="font-size:12px;color:var(--muted)">${esc(night)}</td>
+      <td><input value="${esc(cur)}" placeholder="z.B. Zelt 3 / Hütte" onchange="assignSleep('${esc(mail)}',this.value.trim())" style="width:150px;padding:5px;border:1px solid var(--line);border-radius:6px;font-size:12px"></td></tr>`;
+  }).join('');
+  box.innerHTML=summary+occ+`<table class="grid"><thead><tr><th>Name</th><th>Übernachtung</th><th>Zelt / Platz</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
 
 /* ===== QR helper ===== */
 function qrDataURL(text){
@@ -1267,7 +1480,9 @@ const BUILTIN_COMMS=[
   {t:'Letzte Infos vor dem Event', body:'Hallo zusammen,\n\nes geht bald los mit dem {event} (noch {tage} Tage)! Kurz das Wichtigste:\n• Bitte pünktlich kommen, Zelt/Schlafsack nicht vergessen.\n• Verpflegung: jeder bringt mit, was er essen/trinken möchte (kein Alkohol).\n• Fragen? Einfach hier in der Gruppe melden.\n\nWir freuen uns auf Euch! 🌿💚'},
   {t:'Mitfahr-Aufruf', body:'Mitfahr-Börse fürs {event}: Wer hat Platz im Auto oder sucht eine Mitfahrgelegenheit? Bitte kurz hier melden mit Startort und Uhrzeit, dann bringen wir das zusammen. 🚗'},
   {t:'Aufräum-Aufruf (Sonntag)', body:'Kurzer Aufruf: Am Sonntag Vormittag räumen wir die Hütte gemeinsam auf und übergeben sie. Wer noch da ist und mit anpacken kann, meldet sich bitte – viele Hände, schnelles Ende! 🧹'},
-  {t:'Danke nach dem Event', body:'Danke an alle, die beim {event} dabei waren – es war ein tolles Wochenende! 🌿💚\nFotos und Feedback folgen. Bis zum nächsten Mal!\nEuer CSC Marburg Team'}
+  {t:'Danke nach dem Event', body:'Danke an alle, die beim {event} dabei waren – es war ein tolles Wochenende! 🌿💚\nFotos und Feedback folgen. Bis zum nächsten Mal!\nEuer CSC Marburg Team'},
+  {t:'Erinnerung (WhatsApp/SMS, kurz)', body:'Hey! Erinnerung: {event} in {tage} Tagen ({datum}) in {ort}. Bitte Zelt/Schlafsack & gute Laune mitbringen. Beitrag {preis}/Person – offene Beiträge bitte vorab in den Pool: {paypal}. Bis bald! 🌿'},
+  {t:'Dankes-Mail (nach Event, formell)', body:'Betreff: Danke fürs Mitmachen beim {event}!\n\nHallo,\n\nvielen Dank, dass Du beim {event} am {datum} in {ort} dabei warst – mit {anmeldungen} Anmeldungen und {personen} Personen war es ein rundum gelungenes Wochenende. 🌿💚\n\nWir würden uns sehr über Dein kurzes Feedback freuen (Link folgt) und teilen bald die Fotos.\n\nBis zum nächsten Mal!\nEuer CSC Marburg Team'}
 ];
 function fillPlaceholders(t){
   const e=ev();
@@ -1290,6 +1505,36 @@ function renderComms(){
       <textarea id="comm${i}" rows="5" style="width:100%;border:0;padding:10px 12px;font-family:inherit;font-size:12.5px;resize:vertical;">${esc(fillPlaceholders(b.body))}</textarea>
       ${b.open&&openList.length?`<div style="padding:0 12px 10px;font-size:11px;color:var(--muted)">Offene Mailadressen: ${esc(openList.join(', '))}</div>`:''}
     </div>`).join('');
+  fillRemTpl();
+}
+function normPhone(s){
+  let d=String(s||'').replace(/[^\d+]/g,'');
+  if(!d) return '';
+  if(d.startsWith('+')) d=d.slice(1);
+  else if(d.startsWith('00')) d=d.slice(2);
+  else if(d.startsWith('0')) d='49'+d.slice(1);
+  return /^\d{8,15}$/.test(d)?d:'';
+}
+function fillRemTpl(){
+  const sel=document.getElementById('remTpl'); if(!sel)return;
+  const custom=LS.get(kComms(),[]);
+  const all=BUILTIN_COMMS.concat(custom);
+  sel.innerHTML=all.map((b,i)=>`<option value="${i}">${esc(b.t)}</option>`).join('');
+  // Standard: Erinnerung wählen, falls vorhanden
+  const idx=all.findIndex(b=>/erinnerung/i.test(b.t)); if(idx>=0)sel.value=String(idx);
+}
+function buildWaReminders(){
+  const box=document.getElementById('waReminders'); if(!box)return;
+  const cPhone=findCol('telefon','handy','phone','mobil','nummer','whatsapp-nummer');
+  const custom=LS.get(kComms(),[]); const all=BUILTIN_COMMS.concat(custom);
+  const tpl=all[+document.getElementById('remTpl').value]||all[0];
+  const text=fillPlaceholders(tpl?tpl.body:'');
+  if(!cPhone){ box.innerHTML='<div class="status" style="color:#a33;font-size:12px">Im Formular wurde keine Telefonnummer-Spalte gefunden. Ergänze eine Handynummer-Frage im Anmeldeformular, dann funktionieren die Direkt-Links.</div>'; return; }
+  const rows=DATA.map(r=>({r,ph:normPhone(val(r,cPhone))})).filter(o=>o.ph);
+  if(!rows.length){ box.innerHTML='<div class="status" style="color:var(--muted);font-size:12px">Keine gültigen Telefonnummern in den Anmeldungen gefunden.</div>'; return; }
+  const enc=encodeURIComponent(text);
+  box.innerHTML=`<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">${rows.length} Teilnehmer mit Nummer · Text: „${esc(text.slice(0,60))}…"</div>`+
+    '<div style="display:flex;flex-wrap:wrap;gap:6px">'+rows.map(o=>`<a class="btn ghost sm" style="color:var(--accent);border-color:var(--line);text-decoration:none" href="https://wa.me/${o.ph}?text=${enc}" target="_blank" rel="noopener">📲 ${esc(displayName(o.r))}</a>`).join('')+'</div>';
 }
 function addComm(){
   const t=document.getElementById('newCommT').value.trim(); const body=document.getElementById('newCommB').value;
@@ -1302,22 +1547,25 @@ function delComm(i){ if(i<0)return; const c=LS.get(kComms(),[]); c.splice(i,1); 
 function copyText(id){ const t=document.getElementById(id); t.select(); try{document.execCommand('copy');}catch(e){} if(navigator.clipboard)navigator.clipboard.writeText(t.value); const b=event.target; const o=b.textContent; b.textContent='✓ Kopiert'; setTimeout(()=>b.textContent=o,1200); }
 
 /* ===== PDF-Nachweise (Druck → als PDF speichern) ===== */
-function hoursDoc(){
+function hoursDoc(mode){
   const e=ev(); const cVer=findCol('verein');
-  const list=DATA.filter(r=>isChecked(r));
+  const list=mode==='all'?DATA.slice():DATA.filter(r=>isChecked(r));
   if(!list.length){ return ''; }
   const today=new Date().toLocaleDateString('de-DE');
-  const pages=list.map(r=>`
+  const pages=list.map(r=>{
+    const conf=isChecked(r)?'an der Veranstaltung <b>'+esc(e.name)+'</b> teilgenommen hat (vor Ort eingecheckt) und dabei im Rahmen der Mitwirkungspflicht mitgewirkt hat.'
+                          :'für die Veranstaltung <b>'+esc(e.name)+'</b> angemeldet war und teilgenommen hat.';
+    return `
     <div class="cert">
       <img class="logo" src="${LOGO}" alt="">
       <h1>Teilnahme-Nachweis</h1>
       <p>Hiermit bestätigen wir, dass</p>
       <div class="nm">${esc(displayName(r))}</div>
       <div class="ma">${esc(mailOf(r))}${val(r,cVer)?' · '+esc(val(r,cVer)):''}</div>
-      <p>an der Veranstaltung <b>${esc(e.name)}</b> teilgenommen hat (vor Ort eingecheckt) und dabei im Rahmen der Mitwirkungspflicht mitgewirkt hat.</p>
+      <p>${conf}</p>
       <p class="hrs">Angerechnete Mitwirkungsstunden: <b>______ Std.</b></p>
       <div class="sig"><div>${esc(today)}, Marburg</div><div>Unterschrift CSC Marburg Team</div></div>
-    </div>`).join('');
+    </div>`;}).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mitwirkungsnachweise</title><style>
     @page{size:A4 portrait;margin:0;} body{margin:0;font-family:Arial,sans-serif;color:#22322a;}
     .cert{height:100vh;box-sizing:border-box;padding:26mm 24mm;display:flex;flex-direction:column;page-break-after:always;}
@@ -1332,6 +1580,8 @@ function hoursDoc(){
 }
 function printHours(){ const h=hoursDoc(); if(!h){alert('Noch niemand eingecheckt — bitte zuerst im Check-in-Modus einchecken.');return;} openPrint(h); }
 function pdfHours(){ const h=hoursDoc(); if(!h){alert('Noch niemand eingecheckt.');return;} savePdf(h,'teilnahme-nachweise.pdf','portrait'); }
+function pdfHoursAll(){ const h=hoursDoc('all'); if(!h){alert('Keine Teilnehmer vorhanden.');return;} savePdf(h,'teilnahme-nachweise-alle.pdf','portrait'); }
+function printHoursAll(){ const h=hoursDoc('all'); if(!h){alert('Keine Teilnehmer vorhanden.');return;} openPrint(h); }
 function financeDoc(){
   const e=ev();
   const pers=DATA.reduce((s,r)=>s+personsOf(r),0);
@@ -1421,6 +1671,45 @@ function importJSON(input){
 function manualSync(){ refreshCloud().then(()=>reloadData()); }
 
 /* ===== WhatsApp-Chat-Import ===== */
+/* ===== Import-Assistenten (Schritt für Schritt) ===== */
+const WA_STEPS={
+  a:[
+    'Öffne WhatsApp und gehe in eure <b>Camp-Gruppe</b>.',
+    'Tippe oben rechts auf die <b>drei Punkte ⋮</b>.',
+    'Wähle <b>„Mehr"</b> → <b>„Chat exportieren"</b>.',
+    'Wähle <b>„Ohne Medien"</b> — das ist schneller und reicht völlig.',
+    'Wähle <b>„In Dateien speichern"</b> (oder schicke die Datei per Mail an dich selbst).',
+    'Komm hierher zurück, tippe unten auf <b>„Fertig — Datei hochladen"</b> und wähle die gespeicherte <b>.txt</b>-Datei.'
+  ],
+  i:[
+    'Öffne WhatsApp und gehe in eure <b>Camp-Gruppe</b>.',
+    'Tippe oben auf den <b>Gruppennamen</b> (öffnet die Gruppen-Info).',
+    'Scrolle ganz nach unten und tippe auf <b>„Chat exportieren"</b>.',
+    'Wähle <b>„Ohne Medien"</b>.',
+    'Tippe im Teilen-Menü auf <b>„In Dateien sichern"</b> (oder maile sie an dich).',
+    'Komm hierher zurück, tippe unten auf <b>„Fertig — Datei hochladen"</b> und wähle die gespeicherte Datei (siehe Hinweis zur .zip).'
+  ]
+};
+function waDev(d){
+  const el=document.getElementById('waSteps'); if(el)el.innerHTML=(WA_STEPS[d]||WA_STEPS.a).map(s=>'<li>'+s+'</li>').join('');
+  const a=document.getElementById('waTabA'), i=document.getElementById('waTabI'); if(!a||!i)return;
+  a.className=d==='a'?'btn sm':'btn ghost sm'; i.className=d==='i'?'btn sm':'btn ghost sm';
+  a.style.cssText=d==='a'?'':'color:var(--accent);border-color:var(--line)';
+  i.style.cssText=d==='i'?'':'color:var(--accent);border-color:var(--line)';
+}
+function openWaGuide(){ waDev('a'); const m=document.getElementById('waGuide'); if(m)m.classList.add('open'); }
+const PP_STEPS=[
+  'Melde dich bei <b>PayPal</b> an — am besten am Computer auf <b>paypal.com</b> (geht auch in der App).',
+  'Klicke oben auf <b>„Aktivitäten"</b> — dort stehen alle eure Zahlungen.',
+  'Klicke auf <b>„Herunterladen"</b> (⬇). Falls nicht sichtbar: <b>„Berichte" → „Aktivitätsbericht"</b>.',
+  'Wähle Transaktionstyp <b>„Guthabenwirksam"</b> (bzw. alle), den <b>Zeitraum</b> und als Format <b>„CSV"</b>.',
+  'Klicke auf <b>„Bericht erstellen"</b>, warte kurz — dann <b>„Herunterladen"</b>.',
+  'Komm hierher zurück, tippe unten auf <b>„Fertig — CSV hochladen"</b> und wähle die <b>.csv</b>-Datei.'
+];
+function openPpGuide(){
+  const el=document.getElementById('ppSteps'); if(el)el.innerHTML=PP_STEPS.map(s=>'<li>'+s+'</li>').join('');
+  const m=document.getElementById('ppGuide'); if(m)m.classList.add('open');
+}
 function importWhatsApp(input){
   const f=input.files[0]; if(!f)return;
   const rd=new FileReader();
@@ -1825,15 +2114,30 @@ function beep(ok){
     o.connect(g); g.connect(a.destination); o.frequency.value=ok?880:220; g.gain.value=.08; o.start(); setTimeout(()=>{o.stop();a.close();},ok?140:260);
   }catch(e){}
 }
+const EXP_CATS=['Location','Essen/Trinken','Material','Deko','Technik','Sonstiges'];
 function renderCash(){
   const e=ev();
+  const sel=document.getElementById('cashCat');
+  if(sel && !sel.dataset.filled){ sel.innerHTML='<option value="">Kategorie…</option>'+EXP_CATS.map(c=>`<option>${c}</option>`).join(''); sel.dataset.filled='1'; }
   const list=LS.get(kCash(),[]); const rc=LS.get(kReceipts(),{});
   let bal=+e.cashStart||0;
   let html=`<div class="cashline"><span>Startbestand</span><span class="amt money">${eur(+e.cashStart||0)}</span></div>`;
   list.forEach((c,i)=>{bal+=+c.amount; const rid=c.id||c.date; const rec=rc[rid];
-    html+=`<div class="cashline"><span>${c.text||'—'}</span><span class="amt money ${c.amount<0?'neg':'pos'}">${(c.amount<0?'':'+')+(+c.amount).toLocaleString('de-DE',{minimumFractionDigits:2})} €</span>${rec?`<img src="${rec}" title="Beleg ansehen" style="height:22px;border-radius:3px;cursor:zoom-in;margin-left:6px" onclick="viewReceipt(${rid})">`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delCash(${i})">×</button></div>`;});
+    const catBadge=(c.amount<0&&c.cat)?` <span style="font-size:10px;background:#eef2ef;color:var(--muted);border-radius:8px;padding:1px 6px">${esc(c.cat)}</span>`:'';
+    html+=`<div class="cashline"><span>${esc(c.text||'—')}${catBadge}</span><span class="amt money ${c.amount<0?'neg':'pos'}">${(c.amount<0?'':'+')+(+c.amount).toLocaleString('de-DE',{minimumFractionDigits:2})} €</span>${rec?`<img src="${rec}" title="Beleg ansehen" style="height:22px;border-radius:3px;cursor:zoom-in;margin-left:6px" onclick="viewReceipt(${rid})">`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delCash(${i})">×</button></div>`;});
   document.getElementById('cashList').innerHTML=html;
   document.getElementById('cashBalance').textContent=eur(bal);
+  // Ausgaben nach Kategorie
+  const catBox=document.getElementById('expCatBox');
+  if(catBox){
+    const byCat={}; list.filter(c=>+c.amount<0).forEach(c=>{const k=c.cat||'Sonstiges';byCat[k]=(byCat[k]||0)+(-c.amount);});
+    const keys=Object.keys(byCat);
+    if(!keys.length){ catBox.innerHTML='<div class="status" style="color:var(--muted);font-size:12px">Noch keine Ausgaben gebucht.</div>'; }
+    else{
+      const tot=keys.reduce((s,k)=>s+byCat[k],0);
+      catBox.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px">'+keys.sort((a,b)=>byCat[b]-byCat[a]).map(k=>`<div style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px"><b>${esc(k)}</b>: ${eur(byCat[k])} <span style="color:var(--muted)">(${Math.round(byCat[k]/tot*100)}%)</span></div>`).join('')+'</div>';
+    }
+  }
 }
 function viewReceipt(id){ const r=LS.get(kReceipts(),{}); if(r[id])showImg(r[id]); }
 function addCash(){
@@ -1841,11 +2145,13 @@ function addCash(){
   const a=parseFloat(document.getElementById('cashAmt').value);
   if(!isFinite(a)){alert('Bitte Betrag angeben (negativ für Ausgabe).');return;}
   const id=Date.now();
-  const list=LS.get(kCash(),[]); list.push({id,text:t,amount:a,date:id}); LS.set(kCash(),list);
+  const cat=(document.getElementById('cashCat')||{}).value||'';
+  const list=LS.get(kCash(),[]); list.push({id,text:t,amount:a,date:id,cat:a<0?cat:''}); LS.set(kCash(),list);
   const pf=document.getElementById('cashPhoto');
   if(pf&&pf.files&&pf.files[0]){ resizeImage(pf.files[0],1000,(d)=>{ if(d){const r=LS.get(kReceipts(),{});r[id]=d;LS.set(kReceipts(),r);renderCash();} }); pf.value=''; }
   document.getElementById('cashText').value='';document.getElementById('cashAmt').value='';
-  renderCash();
+  const cc=document.getElementById('cashCat'); if(cc)cc.value='';
+  renderFinance();
 }
 function delCash(i){const list=LS.get(kCash(),[]);list.splice(i,1);LS.set(kCash(),list);renderCash();}
 
