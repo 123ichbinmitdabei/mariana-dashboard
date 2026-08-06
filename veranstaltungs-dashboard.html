@@ -899,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.9.1';
+const APP_VERSION='2.9.2';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3656,9 +3656,9 @@ var _origPayLblFee=(typeof payLbl==='function')?payLbl:function(){return ''; };
 payLbl=function(r){ try{ if(personFeeFree(r)) return 'beitragsfrei'; }catch(e){} return _origPayLblFee(r); };
 var _origSyncFee=(typeof syncOrgaPaidField==='function')?syncOrgaPaidField:function(){};
 syncOrgaPaidField=function(){ try{_origSyncFee();}catch(e){} var f=document.getElementById('aFee'); var rr=document.getElementById('aRole'); if(f&&rr) f.value=(rr.value==='Orga')?'nein':'ja'; };
-function orgaExtraPersons(){ try{ var mails={}; DATA.forEach(function(r){ var m=(mailOf(r)||'').toString().toLowerCase(); if(m) mails[m]=1; }); var pool=LS.get(kOrga(),[]); return pool.filter(function(o){ var nm=((o&&o.name)||'').toString().toLowerCase(); return nm && !mails[nm]; }).length; }catch(e){ try{return LS.get(kOrga(),[]).length;}catch(e2){return 0;} } }
+function orgaExtraPersons(){ try{ return LS.get(kOrga(),[]).length; }catch(e){ return 0; } }
 function orgaInDataPersons(){ try{ return DATA.filter(function(r){ try{ return roleOf(r)==='Orga'; }catch(e){ return false; } }).length; }catch(e){ return 0; } }
-function orgaTotalPersons(){ return orgaInDataPersons()+orgaExtraPersons(); }
+function orgaTotalPersons(){ return orgaExtraPersons(); }
 </script>
 </body>
 </html>
