@@ -3088,10 +3088,12 @@ function renderReport(){
   const cap=+e.capacity||0; const util=cap?Math.round(pers/cap*100):0;
   const roles={}; DATA.forEach(r=>{const ro=roleOf(r);roles[ro]=(roles[ro]||0)+1;});
   const nights=DATA.filter(r=>overnightYes(r)).length;
+  let presentPers=0, idOk=0;
+  DATA.forEach(r=>{ const m=mailOf(r); if(isChecked(r)) presentPers+=1+Math.min(personsOf(r)-1, +extraOf(m).guestsPresent||0); if(extraOf(m).idChecked) idOk++; });
   const tagCount={}; DATA.forEach(r=>tagsOf(mailOf(r)).forEach(t=>tagCount[t]=(tagCount[t]||0)+1));
   const quizzes=LS.get(kQuiz(),[]).filter(q=>q.scores&&q.scores.length);
   const kpi=(v,l,c)=>`<div class="t"><div class="v"${c?` style="color:${c}"`:''}>${v}</div><div class="l">${l}</div></div>`;
-  let html=`<div class="totbox">${kpi(anm,'Anmeldungen')}${kpi(pers,'Personen')}${kpi(checked,'Eingecheckt','#1c6b3f')}${kpi(noshow,'nicht erschienen',noshow>0?'#a33':'')}${kpi((anm?Math.round(checked/anm*100):0)+'%','Anwesenheit')}${cap?kpi(util+'%','Auslastung',util>=100?'#a33':'#1c6b3f'):''}${kpi(nights,'Übernachtungen')}</div>`;
+  let html=`<div class="totbox">${kpi(anm,'Anmeldungen')}${kpi(pers,'Personen')}${kpi(checked,'Eingecheckt','#1c6b3f')}${kpi(presentPers,'Personen anwesend','#1c6b3f')}${kpi(noshow,'nicht erschienen',noshow>0?'#a33':'')}${kpi((anm?Math.round(checked/anm*100):0)+'%','Anwesenheit')}${cap?kpi(util+'%','Auslastung',util>=100?'#a33':'#1c6b3f'):''}${kpi(nights,'Übernachtungen')}${idOk?kpi(idOk,'Ausweise geprüft'):''}</div>`;
   html+=`<div class="grid2" style="margin-top:14px"><div>
     <h3 style="margin:0 0 6px;font-size:13px;color:var(--accent)">Zahlungen</h3>
     <table class="grid"><tr><td>Bezahlt / überwiesen</td><td style="text-align:right">${paidC} · ${eur(paid)}</td></tr><tr><td>Vor Ort</td><td style="text-align:right">${onsiteC} · ${eur(onsite)}</td></tr><tr><td>Offen / unklar</td><td style="text-align:right">${openC} · ${eur(open)}</td></tr><tr><td><b>Soll gesamt</b></td><td style="text-align:right"><b>${eur(pers*e.price)}</b></td></tr></table>
