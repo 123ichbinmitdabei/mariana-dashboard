@@ -38,7 +38,11 @@
   .kpi .lbl{font-size:12px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.5px;}
   .kpi .sub2{font-size:12px;color:var(--muted);margin-top:4px;}
   .section{background:var(--card);border-radius:10px;border:1px solid var(--line);margin-bottom:20px;overflow:hidden;}
-  .section > h2{margin:0;padding:13px 18px 13px 16px;font-size:15px;background:linear-gradient(90deg,#e3efe8,#eef5f0);border-bottom:1px solid var(--line);border-left:4px solid var(--green);color:var(--green-d);display:flex;align-items:center;gap:8px;}
+  .section > h2{margin:0;padding:13px 18px 13px 16px;font-size:15px;background:linear-gradient(90deg,#e3efe8,#eef5f0);border-bottom:1px solid var(--line);border-left:4px solid var(--green);color:var(--green-d);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+  .section > h2 .caret{margin-left:auto;font-size:13px;transition:transform .15s;color:var(--muted);}
+  .section.collapsed > h2{border-bottom:0;}
+  .section.collapsed > h2 .caret{transform:rotate(-90deg);}
+  .section.collapsed > .body{display:none;}
   .section .body{padding:18px;}
   .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px;}
   .chart-box{border:1px solid var(--line);border-radius:10px;padding:14px 16px 10px;background:#fff;}
@@ -143,6 +147,7 @@
   <button class="btn ghost sm" id="langBtn" onclick="toggleLang()" title="Sprache / Language">🌐 DE</button>
   <button class="btn ghost sm" id="modeBtn" onclick="toggleMode()" title="Ansehen / Bearbeiten">✏️ Bearbeiten</button>
   <button class="btn ghost sm" onclick="manualSync()">↻ Daten</button>
+  <button class="btn ghost sm" onclick="collapseAll()" title="Alle Bereiche ein-/ausklappen">🗂️ Bereiche</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <a class="btn ghost sm" href="dashboard-anleitung.html" target="_blank" rel="noopener" style="text-decoration:none">❓ Anleitung</a>
   <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
@@ -286,6 +291,33 @@
   </div>
 
   <div class="section">
+    <h2>🧾 Ausgaben &amp; Belege</h2>
+    <div class="body">
+      <div class="hint">Rechnungen/Kassenzettel hochladen — mit automatischer Betragserkennung (OCR, läuft im Browser). Gib an, aus welcher Quelle bezahlt wurde; die Beträge werden im Finanzüberblick verrechnet.</div>
+      <div class="hint" style="background:#fdf4dc;border-color:var(--yellow)">Bar-Ausgaben entweder <b>hier</b> mit Beleg erfassen <b>oder</b> in der Handkasse als Minus buchen — nicht doppelt.</div>
+      <div id="expList"></div>
+      <div class="cashline" style="border-top:2px solid var(--green);border-bottom:0;"><b>Ausgaben gesamt (mit Beleg)</b><span class="amt money neg" id="expTotal"></span></div>
+      <div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:10px;background:#f6f9f7">
+        <div class="row-flex">
+          <input id="expDesc" placeholder="Beschreibung / Händler" style="flex:2;padding:7px;border:1px solid var(--line);border-radius:6px;">
+          <input id="expAmt" type="number" step="0.01" placeholder="Betrag €" style="width:110px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+          <select id="expCat" style="width:130px;padding:7px;border:1px solid var(--line);border-radius:6px;"></select>
+          <select id="expSrc" style="width:150px;padding:7px;border:1px solid var(--line);border-radius:6px;">
+            <option value="kasse">aus Handkasse</option><option value="paypal">aus PayPal-Pool</option><option value="orga">aus Orga-Pool</option>
+          </select>
+        </div>
+        <div class="row-flex" style="margin-top:8px;align-items:center">
+          <label class="btn ghost sm" style="color:var(--accent);border-color:var(--line);cursor:pointer">📎 Beleg wählen (Foto/PDF)<input type="file" id="expFile" accept="image/*,.pdf" style="display:none" onchange="expFilePicked(this)"></label>
+          <span id="expOcrStatus" style="font-size:12px;color:var(--muted)"></span>
+          <span class="spacer" style="flex:1"></span>
+          <button class="btn sm" onclick="addExp()">+ Ausgabe buchen</button>
+        </div>
+        <div id="expPreview" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <h2>🗓️ Ablaufplan</h2>
     <div class="body">
       <div class="hint">Programm/Timeline der Veranstaltung – z. B. Aufbau, Ankunft, Programmpunkte, Abbau. Wird lokal gespeichert.</div>
@@ -328,6 +360,7 @@
       <div class="hint" style="background:#eaf4ee;border-color:var(--mgreen)">„Drucken" öffnet den Druckdialog (dort auch „Als PDF speichern", beste Qualität mit Logo). „PDF" lädt direkt eine PDF-Datei herunter.</div>
       <table class="grid" style="max-width:560px">
         <tr><td>🏷️ Namensschilder (90×54 mm)</td><td style="text-align:right"><button class="btn sm" onclick="printBadges()">Drucken</button></td></tr>
+        <tr><td>🛡️ <b>Orga</b>-Namensschilder (mit Funktion)</td><td style="text-align:right"><button class="btn sm" style="background:#8e5cc6" onclick="printOrgaBadges()">Drucken</button></td></tr>
         <tr><td>📋 Teilnehmer-/Check-in-Liste</td><td style="text-align:right"><button class="btn sm" onclick="printList()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfList()">⬇ PDF</button></td></tr>
         <tr><td>📜 Teilnahme-Nachweise (eingecheckt)</td><td style="text-align:right"><button class="btn sm" onclick="printHours()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfHours()">⬇ PDF</button></td></tr>
         <tr><td>📜 Serien-Nachweise <b>alle Teilnehmer</b> (1 Klick)</td><td style="text-align:right"><button class="btn sm" onclick="printHoursAll()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfHoursAll()">⬇ PDF</button></td></tr>
@@ -359,7 +392,7 @@
         <div style="font-size:11.5px;color:var(--muted);margin:4px 0 8px">Bereitet pro Person einen fertigen WhatsApp-Link mit Erinnerungstext vor (Antippen öffnet WhatsApp mit vorgefülltem Text). Voraussetzung: im Formular ist eine Telefonnummer erfasst.</div>
         <div class="row-flex"><select id="remTpl" style="flex:1;min-width:150px;padding:7px;border:1px solid var(--line);border-radius:6px;font-size:12px"></select><button class="btn sm" onclick="buildWaReminders()">Links erzeugen</button></div>
         <div id="waReminders" style="margin-top:10px"></div>
-        <div class="hint" style="margin-top:8px">Voll-automatischer Massenversand (SMS/WhatsApp ohne Klick) benötigt einen kostenpflichtigen Zusatzdienst (z. B. Twilio) — sag Bescheid, dann richte ich das ein. Bis dahin ist der Ein-Klick-Versand oben der schnellste Weg.</div>
+        <div class="hint" style="margin-top:8px">Der Ein-Klick-Versand oben ist der schnellste Weg. Voll-automatischer Massenversand (SMS/WhatsApp ohne Klick) ist <b>vorbereitet, aber optional</b>: Er läuft über einen kostenpflichtigen Zusatzdienst (Twilio). Sobald du ein Twilio-Konto hast und die Zugangsdaten hinterlegst, kann ich den automatischen Versand aktivieren — du musst nicht.</div>
       </div>
       <div id="comms"></div>
       <div style="border:1px dashed var(--mgreen);border-radius:8px;padding:12px;margin-top:8px;background:#f6f9f7">
@@ -392,6 +425,19 @@
           <div id="ppResult" style="margin-top:10px"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🎲 Quiz, Spiele &amp; Vorträge</h2>
+    <div class="body">
+      <div class="hint">Erstelle Quizze (mit Auswertung), hinterlege Spiele und Vorträge (als Link oder Datei), präsentiere im Vollbild (Beamer) und drucke Arbeitsblätter.</div>
+      <div class="row-flex" style="margin-bottom:12px">
+        <button class="btn sm" onclick="openQuizEditor('quiz')">➕ Quiz erstellen</button>
+        <button class="btn sm" style="background:#2f7ec6" onclick="openQuizEditor('game')">➕ Spiel anlegen</button>
+        <button class="btn sm" style="background:#8e5cc6" onclick="openQuizEditor('talk')">➕ Vortrag anlegen</button>
+      </div>
+      <div id="quizList"></div>
     </div>
   </div>
 
@@ -475,7 +521,7 @@
   </div>
 
   <div style="text-align:center;color:var(--muted);font-size:11px;padding:10px 0 30px;">
-    Veranstaltungs-Dashboard · Daten live aus Google&nbsp;Tabellen · lokal gespeicherte Ergänzungen bleiben in diesem Browser.
+    Veranstaltungs-Dashboard <b id="footVer"></b> · Daten live aus Google&nbsp;Tabellen · lokal gespeicherte Ergänzungen bleiben in diesem Browser.
   </div>
 </div>
 
@@ -569,12 +615,64 @@
         <select id="aRole"><option>Mitglied</option><option>Orga</option><option>Gast</option></select>
       </div>
     </div>
+    <div class="row-flex">
+      <div class="field" style="flex:1"><label>Telefon (für Erinnerungen)</label><input id="aPhone" placeholder="z.B. 0151 …"></div>
+      <div class="field" style="flex:1"><label>Orga-Funktion (bei Rolle Orga)</label><input id="aOrgaRole" placeholder="z.B. Einlass, Grill, Leitung"></div>
+    </div>
     <div class="field"><label>Notiz</label><input id="aNote"></div>
     <div class="row-flex" style="justify-content:flex-end;margin-top:8px;">
       <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('addModal')">Abbrechen</button>
       <button class="btn" onclick="addParticipant()">Hinzufügen</button>
     </div>
   </div>
+</div>
+
+<div class="modal" id="extraModal">
+  <div class="box" style="max-width:440px">
+    <h3>✏️ Teilnehmerdaten ergänzen</h3>
+    <div id="extraName" style="font-weight:700;margin-bottom:8px;color:var(--accent)"></div>
+    <input type="hidden" id="exMail">
+    <div class="field"><label>Anzeigename</label><input id="exName"></div>
+    <div class="field"><label>Telefon (für WhatsApp-/SMS-Erinnerungen)</label><input id="exPhone" placeholder="z.B. 0151 2345678"></div>
+    <div class="field"><label>Orga-Funktion (erscheint auf dem Orga-Namensschild)</label><input id="exOrga" placeholder="z.B. Einlass, Grill, Leitung"></div>
+    <div class="field"><label>Interne Notiz</label><textarea id="exNote" rows="2" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:6px"></textarea></div>
+    <div class="row-flex" style="justify-content:flex-end;margin-top:8px">
+      <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('extraModal')">Abbrechen</button>
+      <button class="btn" onclick="saveExtra()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="quizModal">
+  <div class="box" style="max-width:660px">
+    <h3 id="quizModalTitle">Quiz erstellen</h3>
+    <input type="hidden" id="qzId"><input type="hidden" id="qzType">
+    <div class="field"><label>Titel</label><input id="qzTitle" placeholder="z.B. Cannabis-Präventionsquiz"></div>
+    <div id="qzTalkFields" style="display:none">
+      <div class="field"><label>Link (YouTube, Präsentation, Website …)</label><input id="qzUrl" placeholder="https://…"></div>
+      <div class="field"><label>oder Datei (Bild/PDF)</label><label class="btn ghost sm" style="cursor:pointer;color:var(--accent);border-color:var(--line)">📎 Datei wählen<input type="file" id="qzFile" accept="image/*,.pdf" style="display:none" onchange="qzFilePicked(this)"></label> <span id="qzFileInfo" style="font-size:12px;color:var(--muted)"></span></div>
+      <div class="field"><label>Moderations-Notizen / Spielregeln</label><textarea id="qzNotes" rows="3" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:6px"></textarea></div>
+    </div>
+    <div id="qzQuizFields">
+      <div id="qzQuestions"></div>
+      <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="qzAddQuestion()">+ Frage hinzufügen</button>
+    </div>
+    <div class="row-flex" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('quizModal')">Abbrechen</button>
+      <button class="btn" onclick="saveQuiz()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div id="presentOverlay" style="display:none;position:fixed;inset:0;background:#08160d;z-index:400;color:#fff;flex-direction:column;">
+  <div style="position:absolute;top:12px;right:16px;display:flex;gap:8px;z-index:2">
+    <button class="btn ghost sm" style="color:#fff;border-color:#3a5a49" onclick="presentPrev()">◀ Zurück</button>
+    <button class="btn ghost sm" style="color:#fff;border-color:#3a5a49" onclick="presentReveal()">Antwort zeigen</button>
+    <button class="btn ghost sm" style="color:#fff;border-color:#3a5a49" onclick="presentNext()">Weiter ▶</button>
+    <button class="btn sm" style="background:#a33" onclick="closePresent()">✕ Ende</button>
+  </div>
+  <div id="presentBody" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6vh 6vw;"></div>
+  <div id="presentFoot" style="text-align:center;padding:14px;color:#8fbba1;font-size:15px"></div>
 </div>
 
 <!-- Einrichtungs-Assistent -->
@@ -613,7 +711,8 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep'];
+const APP_VERSION='2.1';
+const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
 let currentId = LS.get('evtdash_current', events[0].id);
@@ -638,6 +737,20 @@ const kRole =()=>'evtdash_role_'+currentId;
 const kTags =()=>'evtdash_tags_'+currentId;
 const kShifts=()=>'evtdash_shifts_'+currentId;
 const kSleep=()=>'evtdash_sleep_'+currentId;
+const kExtra=()=>'evtdash_extra_'+currentId;   // pro Person: {mail:{phone,orgaRole,note}}
+const kExp  =()=>'evtdash_exp_'+currentId;      // Ausgaben mit Beleg/Quelle
+const kQuiz =()=>'evtdash_quiz_'+currentId;     // Quizze/Spiele/Vorträge
+const kWaPh =()=>'evtdash_waph_'+currentId;     // Name->Telefon aus WhatsApp
+const kUI   =()=>'evtdash_ui_'+currentId;       // UI-Zustand (eingeklappte Bereiche)
+function extraOf(mail){ return (LS.get(kExtra(),{})[mail])||{}; }
+function phoneOf(row){
+  const mail=mailOf(row);
+  const ex=extraOf(mail); if(ex.phone) return ex.phone;
+  const cPhone=findCol('telefon','handy','phone','mobil','nummer');
+  const fromForm=cPhone?val(row,cPhone):''; if(fromForm) return fromForm;
+  const wp=LS.get(kWaPh(),{}); const nm=displayName(row);
+  return wp[nm]||'';
+}
 const kReceipts=()=>'evtdash_receipts_'+currentId; // lokal (Bilder, nicht synchronisiert)
 const kPhotos=()=>'evtdash_photos_'+currentId;     // lokal
 const ROLE_COLORS={'Mitglied':'#f9c74f','Orga':'#8e5cc6','Gast':'#2f7ec6'};
@@ -708,6 +821,30 @@ function editName(mail){
   if(nn===null)return;
   if(nn.trim())names[mail]=nn.trim(); else delete names[mail];
   LS.set(kNames(),names); renderParticipants();
+}
+function openExtra(mail){
+  const r=DATA.find(x=>mailOf(x)===mail); const ex=extraOf(mail);
+  document.getElementById('exMail').value=mail;
+  document.getElementById('extraName').textContent=r?displayName(r):mail;
+  document.getElementById('exName').value=(LS.get(kNames(),{})[mail])||'';
+  const cPhone=findCol('telefon','handy','phone','mobil','nummer');
+  document.getElementById('exPhone').value=ex.phone||(r&&cPhone?val(r,cPhone):'')||'';
+  document.getElementById('exOrga').value=ex.orgaRole||'';
+  document.getElementById('exNote').value=ex.note||'';
+  document.getElementById('extraModal').classList.add('open');
+}
+function saveExtra(){
+  const mail=document.getElementById('exMail').value;
+  const nm=document.getElementById('exName').value.trim();
+  const names=LS.get(kNames(),{}); if(nm)names[mail]=nm; else delete names[mail]; LS.set(kNames(),names);
+  const ex=LS.get(kExtra(),{}); const o={...(ex[mail]||{})};
+  const ph=document.getElementById('exPhone').value.trim(), or=document.getElementById('exOrga').value.trim(), nt=document.getElementById('exNote').value.trim();
+  if(ph)o.phone=ph; else delete o.phone;
+  if(or)o.orgaRole=or; else delete o.orgaRole;
+  if(nt)o.note=nt; else delete o.note;
+  if(Object.keys(o).length)ex[mail]=o; else delete ex[mail];
+  LS.set(kExtra(),ex);
+  closeModal('extraModal'); renderParticipants();
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function parseTs(s){ const p=(s||'').split(' ')[0]; if(!p)return 0; const m=p.split('/'); if(m.length===3){const d=new Date(+m[2],+m[0]-1,+m[1]); return d.getTime()||0;} return new Date(s).getTime()||0; }
@@ -831,7 +968,7 @@ function toggleCloud(){ LS.set('evtdash_cloud', !cloudOn()); updateSyncBtn(); if
 function updateSyncBtn(){ const b=document.getElementById('cloudBtn'); if(b) b.textContent=cloudOn()?'☁ Sync: an':'☁ Sync: aus'; }
 
 /* ============ Rendering ============ */
-function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
+function renderAll(){ renderTop(); renderQuick(); renderKPIs(); renderCharts(); renderParticipants(); renderFinance(); renderBottle(); renderPP(); renderShop(); renderAgenda(); renderShifts(); renderSleep(); renderRides(); renderComms(); renderWa(); renderGallery(); renderCounters(); renderOrga(); renderQuiz(); renderSetupBanner(); applyLang(); applyMode(); if(document.getElementById('ciov').classList.contains('open')) renderCheckin(); }
 
 /* ===== Sprache (DE/EN, Bereichs-Überschriften) ===== */
 const HDR_EN={ 'Community & Schnellzugriff':'Community & Quick Access','Grafische Auswertung':'Charts & Analysis','Wetter fürs Event':'Weather','Veranstaltungs-Vergleich':'Event Comparison','Orga & Finanzen':'Organization & Finance','Ablaufplan':'Schedule','Namensschilder & Listen':'Badges & Lists','Mitfahr-Börse & Fahrdienst':'Ride Share','Kommunikations-Bausteine':'Message Templates','Daten-Import (WhatsApp & PayPal)':'Data Import (WhatsApp & PayPal)','Zähler & Strichlisten':'Counters','Einkaufsliste':'Shopping List','Mitbring-Liste (Bottle-Liste)':'Bring List (Bottle List)','Teilnehmer':'Participants','Feedback':'Feedback','Foto-Galerie':'Photo Gallery' };
@@ -1093,6 +1230,9 @@ function renderCharts(){
   // Check-in-Fortschritt
   const inn=DATA.filter(r=>isChecked(r)).length;
   if(DATA.length) makeChart('Check-in-Stand',{'Eingecheckt':inn,'Noch nicht':DATA.length-inn},'doughnut');
+  // Rollen-Verteilung (Mitglied/Orga/Gast)
+  const roleCount={}; DATA.forEach(r=>{const ro=roleOf(r);roleCount[ro]=(roleCount[ro]||0)+1;});
+  if(Object.keys(roleCount).length>1||roleCount['Orga']) makeChart('Rollen (inkl. Orga)', roleCount, 'doughnut');
   // Tags-Auswertung
   const tagCount={};
   DATA.forEach(r=>tagsOf(mailOf(r)).forEach(t=>tagCount[t]=(tagCount[t]||0)+1));
@@ -1165,6 +1305,7 @@ function renderParticipants(){
         <div><b>${esc(displayName(r))}</b>
           <button class="btn ghost sm" title="Anzeigename ändern" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="editName('${esc(mail)}')">✎</button>
           <button class="btn sm" title="Rolle wechseln (Mitglied/Orga/Gast)" style="padding:1px 7px;font-size:11px;background:${ROLE_COLORS[roleOf(r)]};color:#08160d;border:0" onclick="cycleRole('${esc(mail)}')">${roleOf(r)}</button>
+          <button class="btn ghost sm" title="Daten ergänzen (Telefon, Orga-Funktion, Notiz)" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="openExtra('${esc(mail)}')">✏️</button>
           <div style="font-size:11px;color:var(--muted);word-break:break-all;">${esc(mail)}</div></div>
         <span style="text-align:right;">${mailCounts[mail.toLowerCase()]>1?'<span class="pill off">doppelt</span> ':''}${wl.has(mail)?'<span class="pill" style="background:#fde2c0;color:#8a5a12">Warteliste</span> ':''}${r.__manual?'<span class="pill man">manuell</span> ':''}${payPill(st)}
           <label style="display:block;font-size:11px;color:var(--muted);margin-top:4px;cursor:pointer;"><input type="checkbox" class="ci" ${isChecked(r)?'checked':''} onchange="toggleCheckin('${esc(mail)}')"> da</label></span></div>
@@ -1179,6 +1320,7 @@ function renderParticipants(){
         ${line('Bringt mit',val(r,cBring))}
         ${line('Notiz',val(r,cNote))}
         ${line('Angemeldet',val(r,cTs))}
+        ${(()=>{const ex=extraOf(mail);const b=[];if(ex.phone)b.push('📞 '+esc(ex.phone));if(ex.orgaRole)b.push('🛡️ '+esc(ex.orgaRole));if(ex.note)b.push('📝 '+esc(ex.note));return b.length?`<div class="r"><span class="k">Ergänzt</span><span>${b.join(' · ')}</span></div>`:'';})()}
         <div class="r" style="align-items:flex-start"><span class="k">Tags</span><span style="display:flex;flex-wrap:wrap;gap:4px">${PRESET_TAGS.map(t=>{const on=tagsOf(mail).includes(t);return `<button onclick="toggleTag('${esc(mail)}','${esc(t)}')" style="cursor:pointer;font-size:11px;padding:2px 8px;border-radius:12px;border:1px solid ${on?'#1c8a4e':'var(--line)'};background:${on?'#1c8a4e':'#fff'};color:${on?'#fff':'var(--muted)'}">${on?'✓ ':''}${esc(t)}</button>`;}).join('')}</span></div>
         <details><summary>Alle Antworten</summary>${allRows}</details>
         ${r.__manual?`<div style="margin-top:8px;text-align:right;"><button class="btn danger sm" onclick="delManual(${i})">Löschen</button></div>`:''}
@@ -1220,10 +1362,13 @@ function renderFinance(){
   // Gesamtübersicht
   const ppNow=parseFloat(LS.get(kPP(),''))||0;
   const cashList=LS.get(kCash(),[]);
-  let cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0);
-  const ausgaben=cashList.filter(c=>c.amount<0).reduce((s,c)=>s+(-c.amount),0);
-  const orgaP=orgaPool();
-  const liquide=ppNow+cashBal+orgaP;
+  const exs=expSums();
+  let cashBal=(+e.cashStart||0)+cashList.reduce((s,c)=>s+(+c.amount||0),0) - exs.kasse;
+  const negCash=cashList.filter(c=>c.amount<0).reduce((s,c)=>s+(-c.amount),0);
+  const ausgaben=negCash + exs.total;
+  const orgaP=orgaPool() - exs.orga;
+  const ppEff=ppNow; // manuell gepflegt – Pool-Ausgaben spiegeln sich dort bereits
+  const liquide=ppEff+cashBal+orgaP;
   const budget=+e.budget||0; const over=budget>0 && ausgaben>budget;
   const posIncome=Math.max(0,+e.cashStart||0)+cashList.filter(c=>+c.amount>0).reduce((s,c)=>s+ +c.amount,0);
   document.getElementById('totbox').innerHTML=`
@@ -1231,11 +1376,11 @@ function renderFinance(){
     <div class="t"><div class="v" style="color:#1c6b3f">${eur(paid)}</div><div class="l">Beiträge bezahlt</div></div>
     <div class="t"><div class="v">${eur(ppNow)}</div><div class="l">PayPal-Pool aktuell</div></div>
     <div class="t"><div class="v" style="color:#1c6b3f">${eur(posIncome)}</div><div class="l">Einnahmen bar / Orga-Vorfinanz.</div></div>
-    <div class="t"><div class="v" style="color:#1c6b3f">${eur(orgaP)}</div><div class="l">Orga-Pool (${orgaCount()})</div></div>
+    <div class="t"><div class="v" style="color:#1c6b3f">${eur(orgaP)}</div><div class="l">Orga-Pool${exs.orga?' (nach Ausgaben)':''} (${orgaCount()})</div></div>
     <div class="t"><div class="v" style="color:#a33">${eur(ausgaben)}${budget>0?' / '+eur(budget):''}</div><div class="l">Kosten${budget>0?' (Budget)':''}</div></div>
     <div class="t big"><div class="v">${eur(liquide)}</div><div class="l">Gesamt liquide (PayPal + Kasse + Orga)</div></div>`;
   document.getElementById('budgetWarn').innerHTML = over ? `<div class="banner warn" style="background:#f7eaea;border-color:#c0504d;margin:12px 0 0"><span>⚠️ <b>Budget überschritten</b> — Ausgaben ${eur(ausgaben)} über dem Budget von ${eur(budget)} (${eur(ausgaben-budget)} drüber).</span></div>` : '';
-  renderCash();
+  renderCash(); renderExp();
 }
 function agMin(t){ const m=(t||'').match(/(\d{1,2}):(\d{2})/); return m?(+m[1]*60+ +m[2]):null; }
 function renderAgenda(){
@@ -1347,20 +1492,24 @@ function badgesWrapper(cells){
     .foot{height:4mm;flex-shrink:0;}
   </style></head><body onload="setTimeout(()=>window.print(),400)">${cells}</body></html>`;
 }
-function badgeHTML(name, sub, role, qr){
-  const e=ev(); const col=ROLE_COLORS[role]||'#f9c74f';
+function badgeHTML(name, sub, role, qr, roleLabel){
+  const e=ev(); const col=ROLE_COLORS[role]||'#f9c74f'; const isOrga=role==='Orga';
   return `<div class="badge">
     <div class="bar" style="background:${col}"></div>
     <div class="top"><img class="logo" src="${LOGO}" alt=""><div class="ev">${esc(e.name)}</div></div>
-    <div class="mid"><div class="nm">${name}</div><div class="ver">${sub||''}</div></div>
-    <div class="rl" style="color:${col==='#f9c74f'?'#8a6d1f':col}">${esc(role||'')}</div>
+    <div class="mid"><div class="nm">${name}</div><div class="ver">${sub||''}</div>${isOrga?`<div style="margin-top:2mm;font-size:9pt;font-weight:800;color:#fff;background:${col};border-radius:3mm;padding:.6mm 3mm;letter-spacing:.4pt">ORGA-TEAM</div>`:''}</div>
+    <div class="rl" style="color:${col==='#f9c74f'?'#8a6d1f':col}">${esc(roleLabel||role||'')}</div>
     ${qr?`<img class="qr" src="${qr}" alt="">`:''}
     <div class="foot" style="background:${col}"></div></div>`;
+}
+function badgeRoleLabel(r){
+  const role=roleOf(r); if(role!=='Orga') return role;
+  const or=extraOf(mailOf(r)).orgaRole; return or?('Orga · '+or):'Orga';
 }
 function printBadges(){
   const cVer=findCol('verein'); let cells='';
   DATA.forEach(r=>{
-    cells+=badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)));
+    cells+=badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)), esc(badgeRoleLabel(r)));
     const g=personsOf(r)-1;
     for(let i=0;i<g;i++) cells+=badgeHTML('Gast', 'Begleitung: '+esc(displayName(r)), 'Gast', '');
   });
@@ -1370,7 +1519,15 @@ function printBadges(){
 function printOneBadge(mail){
   const r=DATA.find(x=>mailOf(x)===mail); if(!r)return;
   const cVer=findCol('verein');
-  openPrint(badgesWrapper(badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)))));
+  openPrint(badgesWrapper(badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)), esc(badgeRoleLabel(r)))));
+}
+function printOrgaBadges(){
+  const cVer=findCol('verein'); let cells='';
+  DATA.filter(r=>roleOf(r)==='Orga').forEach(r=>{
+    cells+=badgeHTML(esc(displayName(r)), esc(val(r,cVer)), 'Orga', qrDataURL(mailOf(r)), esc(badgeRoleLabel(r)));
+  });
+  if(!cells){alert('Kein Orga-Mitglied markiert. Setze bei den betreffenden Personen die Rolle auf „Orga".');return;}
+  openPrint(badgesWrapper(cells));
 }
 /* ===== QR-Aushang (WhatsApp / Anmeldung) ===== */
 function printAushang(kind){
@@ -1525,16 +1682,26 @@ function fillRemTpl(){
 }
 function buildWaReminders(){
   const box=document.getElementById('waReminders'); if(!box)return;
-  const cPhone=findCol('telefon','handy','phone','mobil','nummer','whatsapp-nummer');
   const custom=LS.get(kComms(),[]); const all=BUILTIN_COMMS.concat(custom);
   const tpl=all[+document.getElementById('remTpl').value]||all[0];
-  const text=fillPlaceholders(tpl?tpl.body:'');
-  if(!cPhone){ box.innerHTML='<div class="status" style="color:#a33;font-size:12px">Im Formular wurde keine Telefonnummer-Spalte gefunden. Ergänze eine Handynummer-Frage im Anmeldeformular, dann funktionieren die Direkt-Links.</div>'; return; }
-  const rows=DATA.map(r=>({r,ph:normPhone(val(r,cPhone))})).filter(o=>o.ph);
-  if(!rows.length){ box.innerHTML='<div class="status" style="color:var(--muted);font-size:12px">Keine gültigen Telefonnummern in den Anmeldungen gefunden.</div>'; return; }
-  const enc=encodeURIComponent(text);
-  box.innerHTML=`<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">${rows.length} Teilnehmer mit Nummer · Text: „${esc(text.slice(0,60))}…"</div>`+
-    '<div style="display:flex;flex-wrap:wrap;gap:6px">'+rows.map(o=>`<a class="btn ghost sm" style="color:var(--accent);border-color:var(--line);text-decoration:none" href="https://wa.me/${o.ph}?text=${enc}" target="_blank" rel="noopener">📲 ${esc(displayName(o.r))}</a>`).join('')+'</div>';
+  const text=fillPlaceholders(tpl?tpl.body:''); const enc=encodeURIComponent(text);
+  // 1) Teilnehmer mit bekannter Nummer (Formular oder ergänzt oder aus WhatsApp)
+  const rows=DATA.map(r=>({r,ph:normPhone(phoneOf(r))})).filter(o=>o.ph);
+  // 2) WhatsApp-Nummern ohne Zuordnung (aus Chat-Import)
+  const waNums=LS.get(kWaPh(),{}).__numbers||{};
+  const known=new Set(rows.map(o=>o.ph));
+  const extra=Object.keys(waNums).filter(p=>!known.has(p));
+  let html='';
+  if(rows.length){
+    html+=`<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">${rows.length} Teilnehmer mit Nummer · Text: „${esc(text.slice(0,55))}…"</div>`+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">'+rows.map(o=>`<a class="btn ghost sm" style="color:var(--accent);border-color:var(--line);text-decoration:none" href="https://wa.me/${o.ph}?text=${enc}" target="_blank" rel="noopener">📲 ${esc(displayName(o.r))}</a>`).join('')+'</div>';
+  }
+  if(extra.length){
+    html+=`<div style="font-size:11.5px;color:var(--muted);margin:10px 0 6px">${extra.length} weitere WhatsApp-Nummern aus dem Chat-Import (ohne Namenszuordnung):</div>`+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">'+extra.map(p=>`<a class="btn ghost sm" style="color:var(--accent);border-color:var(--line);text-decoration:none" href="https://wa.me/${p}?text=${enc}" target="_blank" rel="noopener">📲 ${esc(waNums[p])}</a>`).join('')+'</div>';
+  }
+  if(!html){ html='<div class="status" style="color:#a33;font-size:12px">Noch keine Telefonnummern. Optionen: (1) Nummer pro Person über „✏️ Ergänzen" eintragen, (2) eine Telefon-Frage ins Formular aufnehmen, oder (3) den WhatsApp-Chat importieren — daraus werden Nummern automatisch erkannt.</div>'; }
+  box.innerHTML=html;
 }
 function addComm(){
   const t=document.getElementById('newCommT').value.trim(); const body=document.getElementById('newCommB').value;
@@ -1713,8 +1880,19 @@ function openPpGuide(){
 function importWhatsApp(input){
   const f=input.files[0]; if(!f)return;
   const rd=new FileReader();
-  rd.onload=()=>{ const msgs=parseWhatsApp(rd.result); LS.set(kWa(),msgs); renderWa(); alert(msgs.length+' Nachrichten eingelesen und ausgewertet.'); };
+  rd.onload=()=>{ const msgs=parseWhatsApp(rd.result); LS.set(kWa(),msgs); const n=extractWaPhones(rd.result,msgs); renderWa(); renderComms(); alert(msgs.length+' Nachrichten eingelesen. '+n+' Telefonnummern erkannt (für Erinnerungen nutzbar).'); };
   rd.readAsText(f,'utf-8'); input.value='';
+}
+function extractWaPhones(raw,msgs){
+  const store=LS.get(kWaPh(),{});
+  const numbers={...(store.__numbers||{})};
+  const isPhone=(s)=>/^\+?[\d][\d ()\/\-]{6,}$/.test((s||'').trim());
+  // Autoren, die als Telefonnummer auftreten (Nicht-Kontakte)
+  (msgs||[]).forEach(m=>{ const a=(m.author||'').trim(); if(isPhone(a)){ const p=normPhone(a); if(p)numbers[p]=a; } });
+  // zusätzlich freie +49-Nummern im Text
+  (raw.match(/\+\d[\d ()\/\-]{7,}/g)||[]).forEach(x=>{ const p=normPhone(x); if(p)numbers[p]=numbers[p]||x.trim(); });
+  store.__numbers=numbers; LS.set(kWaPh(),store);
+  return Object.keys(numbers).length;
 }
 function parseWhatsApp(text){
   const lines=text.split(/\r?\n/); const msgs=[];
@@ -2126,11 +2304,13 @@ function renderCash(){
     const catBadge=(c.amount<0&&c.cat)?` <span style="font-size:10px;background:#eef2ef;color:var(--muted);border-radius:8px;padding:1px 6px">${esc(c.cat)}</span>`:'';
     html+=`<div class="cashline"><span>${esc(c.text||'—')}${catBadge}</span><span class="amt money ${c.amount<0?'neg':'pos'}">${(c.amount<0?'':'+')+(+c.amount).toLocaleString('de-DE',{minimumFractionDigits:2})} €</span>${rec?`<img src="${rec}" title="Beleg ansehen" style="height:22px;border-radius:3px;cursor:zoom-in;margin-left:6px" onclick="viewReceipt(${rid})">`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delCash(${i})">×</button></div>`;});
   document.getElementById('cashList').innerHTML=html;
-  document.getElementById('cashBalance').textContent=eur(bal);
-  // Ausgaben nach Kategorie
+  const exKasse=expSums().kasse;
+  document.getElementById('cashBalance').textContent=eur(bal-exKasse)+(exKasse?' (nach Beleg-Ausgaben)':'');
+  // Ausgaben nach Kategorie (Handkasse-Minus + Beleg-Ausgaben)
   const catBox=document.getElementById('expCatBox');
   if(catBox){
     const byCat={}; list.filter(c=>+c.amount<0).forEach(c=>{const k=c.cat||'Sonstiges';byCat[k]=(byCat[k]||0)+(-c.amount);});
+    LS.get(kExp(),[]).forEach(x=>{const k=x.cat||'Sonstiges';byCat[k]=(byCat[k]||0)+(+x.amount||0);});
     const keys=Object.keys(byCat);
     if(!keys.length){ catBox.innerHTML='<div class="status" style="color:var(--muted);font-size:12px">Noch keine Ausgaben gebucht.</div>'; }
     else{
@@ -2153,7 +2333,214 @@ function addCash(){
   const cc=document.getElementById('cashCat'); if(cc)cc.value='';
   renderFinance();
 }
-function delCash(i){const list=LS.get(kCash(),[]);list.splice(i,1);LS.set(kCash(),list);renderCash();}
+function delCash(i){const list=LS.get(kCash(),[]);list.splice(i,1);LS.set(kCash(),list);renderFinance();}
+
+/* ===== Ausgaben mit Beleg + OCR + Quelle ===== */
+const SRC_LABEL={kasse:'Handkasse',paypal:'PayPal-Pool',orga:'Orga-Pool'};
+let _tessLoading=null;
+function ensureTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(_tessLoading) return _tessLoading;
+  _tessLoading=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'; s.onload=()=>res(); s.onerror=()=>rej(new Error('OCR-Bibliothek konnte nicht geladen werden')); document.head.appendChild(s); });
+  return _tessLoading;
+}
+let _expReceipt=null;
+function expFilePicked(input){
+  const f=input.files[0]; if(!f){return;}
+  const status=document.getElementById('expOcrStatus');
+  if(f.type==='application/pdf'){
+    const rd=new FileReader(); rd.onload=()=>{ _expReceipt=rd.result; document.getElementById('expPreview').innerHTML='<div style="font-size:12px;color:var(--muted)">📄 PDF-Beleg angehängt (keine automatische Erkennung bei PDF).</div>'; }; rd.readAsDataURL(f); status.textContent=''; input.value=''; return;
+  }
+  resizeImage(f,1400,(d)=>{
+    _expReceipt=d||null;
+    document.getElementById('expPreview').innerHTML=d?`<img src="${d}" style="max-height:120px;border-radius:6px;border:1px solid var(--line)">`:'';
+    if(!d){status.textContent='';return;}
+    status.textContent='🔎 Beleg wird gelesen (OCR lädt beim ersten Mal kurz)…';
+    ensureTesseract().then(()=>window.Tesseract.recognize(d,'deu+eng')).then(({data})=>{
+      const txt=data.text||'';
+      const nums=(txt.match(/\d{1,4}[.,]\d{2}/g)||[]).map(x=>parseFloat(x.replace(/\.(?=\d{3})/g,'').replace(',','.'))).filter(x=>x>0&&x<100000);
+      const amt=nums.length?Math.max(...nums):0;
+      const firstLine=(txt.split('\n').map(s=>s.trim()).filter(s=>s.length>2)[0]||'').slice(0,40);
+      const dEl=document.getElementById('expDesc'), aEl=document.getElementById('expAmt');
+      if(firstLine&&!dEl.value)dEl.value=firstLine;
+      if(amt&&!aEl.value)aEl.value=amt.toFixed(2);
+      status.textContent='✓ Erkannt'+(amt?(': '+amt.toFixed(2)+' € (bitte prüfen)'):' — kein Betrag gefunden, bitte eintippen');
+    }).catch(()=>{ status.textContent='OCR nicht verfügbar — bitte Betrag manuell eingeben (Beleg ist trotzdem angehängt).'; });
+  });
+  input.value='';
+}
+function addExp(){
+  const desc=document.getElementById('expDesc').value.trim();
+  const amt=Math.abs(parseFloat(document.getElementById('expAmt').value)||0);
+  if(!amt){alert('Bitte Betrag angeben.');return;}
+  const cat=document.getElementById('expCat').value||'';
+  const src=document.getElementById('expSrc').value||'kasse';
+  const id=Date.now();
+  if(_expReceipt){ const rc=LS.get(kReceipts(),{}); rc[id]=_expReceipt; LS.set(kReceipts(),rc); }
+  const l=LS.get(kExp(),[]); l.push({id,desc,amount:amt,cat,src,date:id,receipt:_expReceipt?1:0}); LS.set(kExp(),l);
+  _expReceipt=null;
+  ['expDesc','expAmt'].forEach(x=>document.getElementById(x).value=''); document.getElementById('expPreview').innerHTML=''; document.getElementById('expOcrStatus').textContent='';
+  renderExp(); renderFinance();
+}
+function delExp(i){ const l=LS.get(kExp(),[]); const it=l[i]; if(it){ const rc=LS.get(kReceipts(),{}); if(rc[it.id]){delete rc[it.id];LS.set(kReceipts(),rc);} } l.splice(i,1); LS.set(kExp(),l); renderExp(); renderFinance(); }
+function expSums(){ const l=LS.get(kExp(),[]); const o={kasse:0,paypal:0,orga:0,total:0}; l.forEach(x=>{const s=x.src||'kasse';o[s]=(o[s]||0)+(+x.amount||0);o.total+=(+x.amount||0);}); return o; }
+function renderExp(){
+  const box=document.getElementById('expList'); if(!box)return;
+  const sel=document.getElementById('expCat'); if(sel&&!sel.dataset.filled){ sel.innerHTML='<option value="">Kategorie…</option>'+EXP_CATS.map(c=>`<option>${c}</option>`).join(''); sel.dataset.filled='1'; }
+  const l=LS.get(kExp(),[]); const rc=LS.get(kReceipts(),{});
+  box.innerHTML = l.length ? l.map((x,i)=>`<div class="cashline"><span>${esc(x.desc||'—')} <span style="font-size:10px;background:#eef2ef;color:var(--muted);border-radius:8px;padding:1px 6px">${esc(x.cat||'—')} · ${SRC_LABEL[x.src]||x.src}</span></span><span class="amt money neg">−${(+x.amount).toLocaleString('de-DE',{minimumFractionDigits:2})} €</span>${rc[x.id]?`<img src="${rc[x.id]}" title="Beleg ansehen" style="height:22px;border-radius:3px;cursor:zoom-in;margin-left:6px" onclick="viewReceipt(${x.id})">`:''}<button class="btn danger sm" style="padding:1px 6px" onclick="delExp(${i})">×</button></div>`).join('') : '<div class="status" style="color:var(--muted)">Noch keine Ausgaben mit Beleg erfasst.</div>';
+  const el=document.getElementById('expTotal'); if(el)el.textContent='−'+eur(l.reduce((s,x)=>s+(+x.amount||0),0));
+}
+
+/* ===== Quiz / Spiele / Vorträge ===== */
+let _qzFile=null, _qzQCount=0, _present=null;
+function openQuizEditor(type,id){
+  document.getElementById('qzType').value=type;
+  document.getElementById('qzId').value=id||'';
+  _qzFile=null;
+  const isQuiz=type==='quiz';
+  document.getElementById('qzQuizFields').style.display=isQuiz?'':'none';
+  document.getElementById('qzTalkFields').style.display=isQuiz?'none':'';
+  document.getElementById('quizModalTitle').textContent=(id?'Bearbeiten: ':'Neu: ')+({quiz:'Quiz',game:'Spiel',talk:'Vortrag'}[type]||'');
+  const item=id?(LS.get(kQuiz(),[]).find(x=>x.id==id)):null;
+  document.getElementById('qzTitle').value=item?item.title:'';
+  document.getElementById('qzUrl').value=item&&item.url?item.url:'';
+  document.getElementById('qzNotes').value=item&&item.notes?item.notes:'';
+  document.getElementById('qzFileInfo').textContent=item&&item.fileId?'Datei vorhanden':'';
+  document.getElementById('qzQuestions').innerHTML='';
+  if(isQuiz){ const qs=(item&&item.questions&&item.questions.length)?item.questions:[{q:'',opts:['','',''],correct:0}]; qs.forEach(q=>qzAddQuestion(q)); }
+  document.getElementById('quizModal').classList.add('open');
+}
+function qzAddQuestion(q){
+  q=q||{q:'',opts:['','',''],correct:0};
+  const i=_qzQCount++;
+  const wrap=document.createElement('div'); wrap.className='qzq'; wrap.dataset.i=i;
+  wrap.style.cssText='border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:#f6f9f7';
+  const opts=(q.opts&&q.opts.length?q.opts:['','','']);
+  wrap.innerHTML=`<div class="row-flex" style="margin-bottom:6px"><input class="qzQ" placeholder="Frage" value="${esc(q.q||'')}" style="flex:1;padding:6px;border:1px solid var(--line);border-radius:6px"><button class="btn danger sm" onclick="this.closest('.qzq').remove()">×</button></div>`+
+    '<div class="qzOpts">'+opts.map((o,oi)=>qzOptRow(i,oi,o,q.correct)).join('')+'</div>'+
+    `<button class="btn ghost sm" style="color:var(--accent);border-color:var(--line);margin-top:4px" onclick="qzAddOpt(this,${i})">+ Antwort</button>`;
+  document.getElementById('qzQuestions').appendChild(wrap);
+}
+function qzOptRow(qi,oi,v,correct){
+  return `<label style="display:flex;align-items:center;gap:6px;margin:3px 0"><input type="radio" name="qzc${qi}" ${oi===correct?'checked':''} title="richtige Antwort"><input class="qzO" placeholder="Antwort ${oi+1}" value="${esc(v||'')}" style="flex:1;padding:5px;border:1px solid var(--line);border-radius:6px"></label>`;
+}
+function qzAddOpt(btn,qi){ const box=btn.parentElement.querySelector('.qzOpts'); box.insertAdjacentHTML('beforeend', qzOptRow(qi,box.children.length,'',-1)); }
+function qzFilePicked(input){
+  const f=input.files[0]; if(!f)return; const info=document.getElementById('qzFileInfo');
+  if(f.type.startsWith('image/')){ resizeImage(f,1600,(d)=>{_qzFile=d;info.textContent='Bild angehängt ✓';}); }
+  else { const rd=new FileReader(); rd.onload=()=>{_qzFile=rd.result;info.textContent='PDF angehängt ✓';}; rd.readAsDataURL(f); }
+  input.value='';
+}
+function saveQuiz(){
+  const type=document.getElementById('qzType').value;
+  const id=document.getElementById('qzId').value||('q'+Date.now());
+  const title=document.getElementById('qzTitle').value.trim(); if(!title){alert('Bitte Titel angeben.');return;}
+  const list=LS.get(kQuiz(),[]);
+  let item=list.find(x=>x.id==id); const isNew=!item;
+  if(isNew){ item={id,type,scores:[]}; }
+  item.title=title; item.type=type;
+  if(type==='quiz'){
+    const qs=[];
+    document.querySelectorAll('#qzQuestions .qzq').forEach(w=>{
+      const q=w.querySelector('.qzQ').value.trim();
+      const opts=[...w.querySelectorAll('.qzO')].map(o=>o.value.trim());
+      const radios=[...w.querySelectorAll('input[type=radio]')];
+      let correct=radios.findIndex(r=>r.checked); if(correct<0)correct=0;
+      const kept=[]; let nc=0; opts.forEach((o,oi)=>{ if(o){ if(oi===correct)nc=kept.length; kept.push(o); } });
+      if(q&&kept.length>=2) qs.push({q,opts:kept,correct:nc});
+    });
+    if(!qs.length){alert('Bitte mindestens eine Frage mit 2 Antworten anlegen.');return;}
+    item.questions=qs;
+  } else {
+    item.url=document.getElementById('qzUrl').value.trim();
+    item.notes=document.getElementById('qzNotes').value.trim();
+    if(_qzFile){ const rc=LS.get(kReceipts(),{}); const fid='qf'+id; rc[fid]=_qzFile; LS.set(kReceipts(),rc); item.fileId=fid; }
+  }
+  if(isNew) list.push(item);
+  LS.set(kQuiz(),list);
+  closeModal('quizModal'); renderQuiz();
+}
+function renderQuiz(){
+  const box=document.getElementById('quizList'); if(!box)return;
+  const list=LS.get(kQuiz(),[]);
+  if(!list.length){ box.innerHTML='<div class="status" style="color:var(--muted)">Noch nichts angelegt. Erstelle ein Quiz, Spiel oder einen Vortrag.</div>'; return; }
+  const icon={quiz:'❓',game:'🎯',talk:'🎤'};
+  box.innerHTML=list.map(it=>{
+    const meta = it.type==='quiz' ? `${(it.questions||[]).length} Fragen` : ((it.url?'🔗 Link':'')+(it.fileId?' 📎 Datei':'')||'—');
+    const evalBtn = (it.type!=='talk') ? `<button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="toggleScores('${it.id}')">🏆 Auswertung</button>` : '';
+    const printBtn = it.type==='quiz' ? `<button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="printQuiz('${it.id}',false)">🖨️ Blatt</button><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="printQuiz('${it.id}',true)">🖨️ +Lösung</button>` : '';
+    return `<div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div class="row-flex" style="justify-content:space-between;align-items:center;gap:8px">
+        <div><b>${icon[it.type]||''} ${esc(it.title)}</b> <span style="font-size:12px;color:var(--muted)">· ${esc(meta)}</span></div>
+        <div class="row-flex" style="gap:6px">
+          <button class="btn sm" onclick="presentStart('${it.id}')">▶ Präsentieren</button>
+          ${printBtn}${evalBtn}
+          <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" title="Bearbeiten" onclick="openQuizEditor('${it.type}','${it.id}')">✎</button>
+          <button class="btn danger sm" onclick="delQuiz('${it.id}')">×</button>
+        </div>
+      </div>
+      <div id="scores_${it.id}" style="display:none;margin-top:10px"></div>
+    </div>`;
+  }).join('');
+}
+function delQuiz(id){ if(!confirm('Wirklich löschen?'))return; let l=LS.get(kQuiz(),[]); const it=l.find(x=>x.id==id); if(it&&it.fileId){const rc=LS.get(kReceipts(),{});delete rc[it.fileId];LS.set(kReceipts(),rc);} l=l.filter(x=>x.id!=id); LS.set(kQuiz(),l); renderQuiz(); }
+function toggleScores(id){ const box=document.getElementById('scores_'+id); if(!box)return; if(box.style.display==='none'){ box.style.display=''; renderScores(id); } else box.style.display='none'; }
+function renderScores(id){
+  const box=document.getElementById('scores_'+id); const it=LS.get(kQuiz(),[]).find(x=>x.id==id); if(!box||!it)return;
+  const sc=(it.scores||[]).slice().sort((a,b)=>b.points-a.points);
+  const max=Math.max(1,...sc.map(s=>s.points));
+  box.innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Punkte pro Team/Person</div>'+
+    (sc.length?sc.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><span style="width:22px;text-align:right;font-weight:700">${i+1}.</span><span style="flex:1">${esc(s.name)}</span><div style="flex:2;background:#eef2ef;border-radius:6px;overflow:hidden;height:16px"><div style="width:${Math.round(s.points/max*100)}%;height:100%;background:#1f9e5a"></div></div><b style="width:44px;text-align:right">${s.points}</b><button class="btn danger sm" style="padding:0 6px" onclick="delScore('${id}',${i})">×</button></div>`).join(''):'<div style="font-size:12px;color:var(--muted)">Noch keine Einträge.</div>')+
+    `<div class="row-flex" style="margin-top:8px"><input id="scN_${id}" placeholder="Team / Name" style="flex:1;padding:6px;border:1px solid var(--line);border-radius:6px"><input id="scP_${id}" type="number" placeholder="Punkte" style="width:90px;padding:6px;border:1px solid var(--line);border-radius:6px"><button class="btn sm" onclick="addScore('${id}')">+ Punkte</button></div>`;
+}
+function addScore(id){ const l=LS.get(kQuiz(),[]); const it=l.find(x=>x.id==id); if(!it)return; const n=document.getElementById('scN_'+id).value.trim(); const p=parseInt(document.getElementById('scP_'+id).value)||0; if(!n)return; it.scores=it.scores||[]; const ex=it.scores.find(s=>s.name===n); if(ex)ex.points+=p; else it.scores.push({name:n,points:p}); LS.set(kQuiz(),l); renderScores(id); }
+function delScore(id,i){ const l=LS.get(kQuiz(),[]); const it=l.find(x=>x.id==id); if(!it)return; it.scores.splice(i,1); LS.set(kQuiz(),l); renderScores(id); }
+function presentStart(id){ const it=LS.get(kQuiz(),[]).find(x=>x.id==id); if(!it)return; _present={it,idx:0,reveal:false}; const ov=document.getElementById('presentOverlay'); ov.style.display='flex'; presentRender(); try{ov.requestFullscreen&&ov.requestFullscreen();}catch(e){} }
+function closePresent(){ const ov=document.getElementById('presentOverlay'); ov.style.display='none'; try{document.fullscreenElement&&document.exitFullscreen();}catch(e){} _present=null; }
+function presentNext(){ if(!_present)return; if(_present.it.type==='quiz'){ if(!_present.reveal)_present.reveal=true; else {_present.idx++;_present.reveal=false;} } presentRender(); }
+function presentPrev(){ if(!_present)return; _present.reveal=false; if(_present.idx>0)_present.idx--; presentRender(); }
+function presentReveal(){ if(!_present)return; _present.reveal=true; presentRender(); }
+function presentRender(){
+  if(!_present)return; const it=_present.it, idx=_present.idx, reveal=_present.reveal;
+  const body=document.getElementById('presentBody'), foot=document.getElementById('presentFoot');
+  if(it.type==='quiz'){
+    const qs=it.questions||[];
+    if(idx>=qs.length){ body.innerHTML=`<div style="font-size:40px;font-weight:800;margin-bottom:24px">🏆 ${esc(it.title)}</div><div style="font-size:22px;color:#cfe6d8;margin-bottom:20px">Quiz beendet</div><button class="btn" style="font-size:18px" onclick="toggleScoresPresent('${it.id}')">Auswertung eintragen</button>`; foot.textContent='Fertig'; return; }
+    const q=qs[idx]; const letters=['A','B','C','D','E','F'];
+    body.innerHTML=`<div style="font-size:20px;color:#8fbba1;margin-bottom:10px">${esc(it.title)}</div>
+      <div style="font-size:34px;font-weight:800;margin-bottom:30px;max-width:1100px;line-height:1.2">${esc(q.q)}</div>
+      <div style="display:flex;flex-direction:column;gap:14px;width:min(800px,90vw)">${q.opts.map((o,oi)=>`<div style="font-size:24px;padding:13px 20px;border-radius:12px;border:2px solid ${reveal&&oi===q.correct?'#1f9e5a':'#3a5a49'};background:${reveal&&oi===q.correct?'rgba(31,158,90,.28)':'transparent'};text-align:left">${letters[oi]}) ${esc(o)}${reveal&&oi===q.correct?' ✓':''}</div>`).join('')}</div>`;
+    foot.textContent=`Frage ${idx+1} / ${qs.length}`+(reveal?' · richtige Antwort markiert':' · „Antwort zeigen" / Pfeiltasten');
+  } else {
+    const rc=LS.get(kReceipts(),{}); const img=(it.fileId&&rc[it.fileId]&&String(rc[it.fileId]).startsWith('data:image'))?rc[it.fileId]:null;
+    body.innerHTML=`<div style="font-size:40px;font-weight:800;margin-bottom:18px">${it.type==='game'?'🎯':'🎤'} ${esc(it.title)}</div>`+
+      (img?`<img src="${img}" style="max-height:58vh;max-width:85vw;border-radius:10px;margin-bottom:16px">`:'')+
+      (it.notes?`<div style="font-size:22px;color:#cfe6d8;max-width:900px;white-space:pre-wrap;margin-bottom:16px">${esc(it.notes)}</div>`:'')+
+      (it.url?`<a href="${esc(it.url)}" target="_blank" rel="noopener" class="btn" style="font-size:20px">🔗 Öffnen</a>`:'')+
+      (it.fileId&&!img?`<a href="#" onclick="openReceiptTab('${it.fileId}');return false;" class="btn" style="font-size:20px">📎 Datei öffnen</a>`:'');
+    foot.textContent=it.type==='game'?'Spiel':'Vortrag';
+  }
+}
+function toggleScoresPresent(id){ closePresent(); const box=document.getElementById('scores_'+id); if(box&&box.style.display==='none')toggleScores(id); if(box)box.scrollIntoView({behavior:'smooth'}); }
+function openReceiptTab(fid){ const rc=LS.get(kReceipts(),{}); const d=rc[fid]; if(!d)return; const w=window.open(); if(w){ w.document.write(String(d).startsWith('data:image')?`<img src="${d}" style="max-width:100%">`:`<iframe src="${d}" style="border:0;width:100%;height:100vh"></iframe>`); } }
+function printQuiz(id,withAnswers){
+  const it=LS.get(kQuiz(),[]).find(x=>x.id==id); if(!it||it.type!=='quiz')return;
+  const letters=['A','B','C','D','E','F']; const qs=it.questions||[];
+  const body=qs.map((q,i)=>`<div class="q"><div class="qt">${i+1}. ${esc(q.q)}</div>${q.opts.map((o,oi)=>`<div class="o ${withAnswers&&oi===q.correct?'ok':''}">${letters[oi]}) ${esc(o)}${withAnswers&&oi===q.correct?' ✔':''}</div>`).join('')}</div>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(it.title)}</title><style>
+    @page{size:A4;margin:16mm;} body{font-family:Arial,sans-serif;color:#22322a;}
+    h1{color:#1f7554;font-size:20pt;border-bottom:3px solid #f9c74f;padding-bottom:6px;}
+    .q{margin:0 0 14px;break-inside:avoid;} .qt{font-weight:700;font-size:13pt;margin-bottom:4px;}
+    .o{font-size:12pt;margin:2px 0 2px 10px;} .o.ok{color:#1f7554;font-weight:700;}
+    .hd{display:flex;justify-content:space-between;font-size:10pt;color:#4a5c50;margin-bottom:10px}
+  </style></head><body onload="setTimeout(()=>window.print(),400)">
+    <h1>${esc(it.title)}${withAnswers?' — Lösungsbogen':''}</h1>
+    <div class="hd"><span>Name: ____________________</span><span>${esc(ev().name)}</span></div>
+    ${body}</body></html>`;
+  openPrint(html);
+}
+document.addEventListener('keydown',(e)=>{ if(!_present)return; if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();presentNext();} else if(e.key==='ArrowLeft'){presentPrev();} else if(e.key==='Escape'){closePresent();} });
 
 function renderTasks(){
   const list=LS.get(kTasks(),[]);
@@ -2225,7 +2612,9 @@ function addParticipant(){
   if(!m.mail){alert('Bitte Mail/Name angeben.');return;}
   const man=LS.get(kMan(),[]);man.push(m);LS.set(kMan(),man);
   const rEl=document.getElementById('aRole'); if(rEl&&rEl.value){ const rr=LS.get(kRole(),{}); rr[m.mail]=rEl.value; LS.set(kRole(),rr); }
-  ['aMail','aVerein','aWann','aAnreise','aUeber','aFahr','aAuf','aBring','aQuiz','aNote'].forEach(id=>document.getElementById(id).value='');aPers.value=1;
+  const ph=gv('aPhone'), orl=gv('aOrgaRole');
+  if(ph||orl){ const ex=LS.get(kExtra(),{}); ex[m.mail]={...(ex[m.mail]||{})}; if(ph)ex[m.mail].phone=ph; if(orl)ex[m.mail].orgaRole=orl; LS.set(kExtra(),ex); }
+  ['aMail','aVerein','aWann','aAnreise','aUeber','aFahr','aAuf','aBring','aQuiz','aNote','aPhone','aOrgaRole'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});aPers.value=1;
   closeModal('addModal');reloadData();
 }
 
@@ -2241,11 +2630,41 @@ async function checkVersion(){
   try{
     const r=await fetch(location.pathname+'?vc='+Date.now(),{method:'HEAD',cache:'no-store'});
     const tag=r.headers.get('etag')||r.headers.get('last-modified');
-    if(tag){ if(APP_TAG===null){ APP_TAG=tag; } else if(tag!==APP_TAG){ const el=document.getElementById('verBanner'); if(el)el.innerHTML='<div class="banner" style="background:#e2f0e8;border-color:#30a46c"><span>🆕 <b>Neue Version verfügbar.</b> Zum Aktualisieren neu laden.</span><button class="btn sm" style="margin-left:auto;background:#1c8a4e" onclick="hardReload()">Jetzt neu laden</button></div>'; } }
+    if(tag){ if(APP_TAG===null){ APP_TAG=tag; } else if(tag!==APP_TAG){ const el=document.getElementById('verBanner'); if(el)el.innerHTML='<div class="banner" style="background:#e2f0e8;border-color:#30a46c"><span>🆕 <b>Neue Version verfügbar</b> (aktuell v'+APP_VERSION+'). Zum Aktualisieren neu laden.</span><button class="btn sm" style="margin-left:auto;background:#1c8a4e" onclick="hardReload()">Jetzt neu laden</button></div>'; } }
   }catch(e){}
 }
 
+/* ===== Einklappbare Bereiche ===== */
+function sectionKey(sec){ const h=sec.querySelector(':scope > h2'); return (h?h.textContent:'').replace(/▾|\s+/g,' ').trim().slice(0,44); }
+function initCollapsibles(){
+  const ui=LS.get(kUI(),{});
+  document.querySelectorAll('.section').forEach(sec=>{
+    const h=sec.querySelector(':scope > h2'); if(!h)return;
+    if(!h.querySelector('.caret')){
+      const c=document.createElement('span'); c.className='caret'; c.textContent='▾'; h.appendChild(c);
+      h.addEventListener('click',(e)=>{ if(e.target.closest('button,a,input,select,label,textarea'))return; toggleSection(sec); });
+    }
+    const key=sectionKey(sec);
+    if(ui[key]==='c') sec.classList.add('collapsed');
+  });
+}
+function toggleSection(sec){
+  sec.classList.toggle('collapsed');
+  const ui=LS.get(kUI(),{}); const key=sectionKey(sec);
+  if(sec.classList.contains('collapsed')) ui[key]='c'; else delete ui[key];
+  LS.set(kUI(),ui);
+}
+function collapseAll(){
+  const secs=[...document.querySelectorAll('.section')];
+  const anyOpen=secs.some(s=>!s.classList.contains('collapsed'));
+  const ui=LS.get(kUI(),{});
+  secs.forEach(s=>{ const key=sectionKey(s); if(anyOpen){ s.classList.add('collapsed'); ui[key]='c'; } else { s.classList.remove('collapsed'); delete ui[key]; } });
+  LS.set(kUI(),ui);
+}
+
 /* ============ Init ============ */
+try{ const fv=document.getElementById('footVer'); if(fv)fv.textContent='v'+APP_VERSION; }catch(e){}
+initCollapsibles();
 checkVersion(); setInterval(checkVersion, 120000);
 updateSyncBtn();
 updateModeBtn();
