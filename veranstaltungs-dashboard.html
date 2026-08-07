@@ -1022,7 +1022,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.64.0';
+const APP_VERSION='2.65.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1382,7 +1382,7 @@ function openEventReport(){ try{
      +(cap>0?'<div class="kpi"><b>'+reg+'/'+cap+'</b>Kapazität</div>':'')
      +(wl.length?'<div class="kpi"><b>'+wl.length+'</b>Warteliste</div>':'')
    +'</div>'
-   +'<h2>Finanzen</h2><div style="font-size:13px">Preis pro Person: '+(price?('€ '+price.toFixed(2)):'–')+' &nbsp;·&nbsp; Bezahlt: '+paid+' &nbsp;·&nbsp; Offen: '+(reg-paid)+'</div>'
+   +'<h2>Finanzen</h2><div style="font-size:13px">Preis pro Person: '+(price?('€ '+price.toFixed(2)):'–')+' &nbsp;·&nbsp; Bezahlt: '+paid+' &nbsp;·&nbsp; Offen: '+(reg-paid)+'</div>'+ (function(){ try{ var out=''; var st=(typeof loadStands==='function'?loadStands():[])||[]; if(st.length){ var srev=0,stok=0; st.forEach(function(s){ srev+=(+s.rev||0); stok+=((+s.ti||0)-(+s.tr||0)); }); var tv=+(localStorage.getItem('evtdash_tokval')||0)||0; out+='<h2>Stände &amp; Wertmarken</h2><div style="font-size:13px">'; st.forEach(function(s){ out+=esc(s.name)+': '+eur(+s.rev||0)+' &nbsp;·&nbsp; Marken offen: '+((+s.ti||0)-(+s.tr||0))+'<br>'; }); out+='<b>Gesamt-Umsatz Stände: '+eur(srev)+'</b>'; if(tv>0) out+=' &nbsp;·&nbsp; Offener Marken-Wert: '+eur(stok*tv); out+='</div>'; } var soll=(typeof cashSoll==='function')?cashSoll():null; var closes=(typeof kCashClose==='function')?(LS.get(kCashClose(),[])||[]):[]; var last=closes.length?closes[closes.length-1]:null; if(soll!==null||last){ out+='<h2>Handkasse</h2><div style="font-size:13px">'; if(soll!==null) out+='Aktueller Soll-Bestand: '+eur(soll)+'<br>'; if(last) out+='Letzter Kassenschluss: Soll '+eur(last.soll)+' &nbsp;·&nbsp; Ist '+eur(last.ist)+' &nbsp;·&nbsp; Differenz '+((last.diff>=0?'+':'')+eur(last.diff)); out+='</div>'; } var mc=0; try{ var ex=LS.get(kExtra(),{})||{}; for(var k in ex){ if(ex[k]&&ex[k].memChecked) mc++; } }catch(_e){} if(mc>0) out+='<h2>Mitglieder-Check</h2><div style="font-size:13px">Mitgliedschaft geprüft: <b>'+mc+'</b></div>'; return out; }catch(e){ return ''; } })()
    +'<h2>Anwesend ('+present+')</h2>'+list(presentNames)
    +'<h2>Nicht erschienen ('+absentNames.length+')</h2>'+list(absentNames)
    +(wl.length?('<h2>Warteliste ('+wl.length+')</h2>'+list(wl)):'')
