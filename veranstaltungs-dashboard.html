@@ -174,6 +174,7 @@
   <button class="btn ghost sm" onclick="collapseAll()" title="Alle Bereiche ein-/ausklappen">🗂️ Bereiche</button>
   <button class="btn ghost sm" id="orgaViewBtn" onclick="orgaView()" title="Orga-Ansicht: blendet teilnehmer-/infolastige Bereiche aus">🛡️ Orga-Ansicht</button>
   <button class="btn ghost sm" onclick="openSections()" title="Bereiche/Funktionen ein- oder ausblenden">🧩 Funktionen</button>
+  <button class="btn ghost sm" onclick="openDay()" title="Tagesübersicht: wer ist da / fehlt">📋 Tagesübersicht</button>
   <button class="btn ghost sm" onclick="openInfoScreen()" title="Öffentlicher Info-Screen fürs Foyer (Vollbild)">📺 Info-Screen</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <button class="btn ghost sm" onclick="openHelp()">❓ Hilfe</button>
@@ -789,6 +790,11 @@
   <div id="secBody" style="max-height:60vh;overflow:auto"></div>
   <div style="margin-top:12px;text-align:right"><button class="btn sm" onclick="closeModal('secModal')">Fertig</button></div>
 </div></div>
+<div class="modal" id="dayModal"><div class="box" style="max-width:560px">
+  <h3>📋 Tagesübersicht</h3>
+  <div id="dayBody"></div>
+  <div style="margin-top:12px;text-align:right"><button class="btn sm" onclick="closeModal('dayModal')">Schließen</button></div>
+</div></div>
 <div class="modal" id="addModal">
   <div class="box">
     <h3>+ Teilnehmer hinzufügen</h3>
@@ -950,7 +956,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.22.0';
+const APP_VERSION='2.23.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1142,6 +1148,14 @@ async function sendWhatsAppAnnounce(){ var template=prompt('WhatsApp: Name der b
 function ciPad(){ var p=document.getElementById('ciPad'); if(!p)return; p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; }
 function ciKey(d){ var s=document.getElementById('ciSearch'); if(!s)return; if(d==='<') s.value=s.value.slice(0,-1); else if(d==='C') s.value=''; else s.value=(s.value+d); if(typeof renderCheckin==='function') renderCheckin(); try{s.focus();}catch(e){} }
 async function mailPromotion(){ var prom=LS.get(kProm(),{}); var recips=[]; Object.keys(prom).forEach(function(m){ var r=DATA.find(function(x){return mailOf(x)===m;}); if(r){ var em=mailOf(r); if(/@/.test(em)) recips.push({email:em, name:displayName(r)}); } }); if(!recips.length){ alert('Keine E-Mail-Adressen bei den Nachrückern gefunden.'); return; } if(!confirm('Einladungs-Mail an '+recips.length+' nachgerückte Person(en) senden?')) return; var subject='Gute Nachricht – du bist nachgerückt!'; var message='Hallo,\n\nauf der Warteliste ist ein Platz frei geworden und du bist nachgerückt – du bist jetzt dabei!\n\nViele Grüße vom Orga-Team'; try{ var res=await fetch(CLOUD.url+'/functions/v1/send-email',{ method:'POST', headers:{ 'apikey':CLOUD.key, 'Authorization':'Bearer '+CLOUD.key, 'Content-Type':'application/json' }, body: JSON.stringify({ event_id: currentId, team_code: teamCode(), subject: subject, message: message, recipients: recips }) }); var d=await res.json().catch(function(){return {};}); if(res.ok&&d.ok){ alert('Einladung an '+d.sent+' von '+d.total+' Nachrücker gesendet.'+(d.failed?(' '+d.failed+' fehlgeschlagen.'):'')); } else { alert('Fehler: '+(d.error||res.status)); } }catch(e){ alert('Sende-Fehler: '+((e&&e.message)||e)); } }
+function openDay(){ try{ var wl=(typeof waitlistSet==='function')?waitlistSet():{has:function(){return false;}}; var present=[],missing=[],wait=[]; DATA.forEach(function(r){ var m=mailOf(r); var nm=displayName(r); if(isCancelledP(m))return; if(wl.has&&wl.has(m)){wait.push(nm);return;} if(isChecked(r))present.push(nm); else missing.push(nm); });
+  var body="<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px'>"
+   +"<div style='flex:1;min-width:90px;text-align:center;background:#eaf7ef;border-radius:8px;padding:10px'><div style='font-size:26px;font-weight:800;color:#1c8a4e'>"+present.length+"</div><div>da</div></div>"
+   +"<div style='flex:1;min-width:90px;text-align:center;background:#fdeaea;border-radius:8px;padding:10px'><div style='font-size:26px;font-weight:800;color:#a33'>"+missing.length+"</div><div>fehlen</div></div>"
+   +"<div style='flex:1;min-width:90px;text-align:center;background:#fff6e5;border-radius:8px;padding:10px'><div style='font-size:26px;font-weight:800;color:#8a5a12'>"+wait.length+"</div><div>Warteliste</div></div></div>";
+  body+="<h4 style='margin:8px 0 4px'>Fehlt noch ("+missing.length+")</h4><div style='font-size:14px;max-height:34vh;overflow:auto'>"+(missing.length?missing.map(esc).join(' · '):"<span style='color:var(--muted)'>alle da 🎉</span>")+"</div>";
+  body+="<h4 style='margin:10px 0 4px'>Anwesend ("+present.length+")</h4><div style='font-size:13px;color:var(--muted);max-height:20vh;overflow:auto'>"+(present.length?present.map(esc).join(' · '):"—")+"</div>";
+  var el=document.getElementById('dayBody'); if(el)el.innerHTML=body; var mo=document.getElementById('dayModal'); if(mo)mo.classList.add('open'); }catch(e){ alert('Fehler: '+((e&&e.message)||e)); } }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
