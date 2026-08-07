@@ -182,7 +182,7 @@
       <div id="scanMsg" class="cnt" style="margin-bottom:12px;"></div>
     </div>
     <div id="kioskSplash" style="display:none;text-align:center;padding:40px 10px;"></div>
-    <input class="search" id="ciSearch" placeholder="Name oder Mail suchen…" oninput="renderCheckin()" autocomplete="off">
+    <input class="search" id="ciSearch" placeholder="Name, Mail oder Nr. suchen…" oninput="renderCheckin()" autocomplete="off">
     <div id="ciList"></div>
   </div>
 </div>
@@ -399,7 +399,7 @@
       <div class="hint" style="background:#eaf4ee;border-color:var(--mgreen)">„Drucken" öffnet den Druckdialog (dort auch „Als PDF speichern", beste Qualität mit Logo). „PDF" lädt direkt eine PDF-Datei herunter.</div>
       <table class="grid" style="max-width:560px">
         <tr><td>🏷️ Namensschilder (90×54 mm)</td><td style="text-align:right"><button class="btn sm" onclick="printBadges()">Drucken</button></td></tr>
-        <tr><td>🛡️ <b>Orga</b>-Namensschilder (mit Funktion)</td><td style="text-align:right"><button class="btn sm" style="background:#8e5cc6" onclick="printOrgaBadges()">Drucken</button></td></tr>
+        <tr><td>🛡️ Orga &amp; Gäste sind auf den normalen Schildern dabei (Orga mit Funktion, Gäste mit QR + Nr.)</td><td></td></tr>
         <tr><td>📋 Teilnehmer-/Check-in-Liste</td><td style="text-align:right"><button class="btn sm" onclick="printList()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfList()">⬇ PDF</button></td></tr>
         <tr><td>📜 Teilnahme-Nachweise (eingecheckt)</td><td style="text-align:right"><button class="btn sm" onclick="printHours()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfHours()">⬇ PDF</button></td></tr>
         <tr><td>📜 Serien-Nachweise <b>alle Teilnehmer</b> (1 Klick)</td><td style="text-align:right"><button class="btn sm" onclick="printHoursAll()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfHoursAll()">⬇ PDF</button></td></tr>
@@ -899,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.13.2';
+const APP_VERSION='2.13.3';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1807,13 +1807,14 @@ function badgesWrapper(cells){
     .foot{height:4mm;flex-shrink:0;}
   </style></head><body onload="setTimeout(()=>window.print(),400)">${cells}</body></html>`;
 }
-function badgeHTML(name, sub, role, qr, roleLabel){
+function badgeCode(mail){ mail=(mail||'').toLowerCase(); let h=5381; for(let i=0;i<mail.length;i++){ h=((h<<5)+h+mail.charCodeAt(i))>>>0; } return String(1000+(h%9000)); }
+function badgeHTML(name, sub, role, qr, roleLabel, code){
   const e=ev(); const col=ROLE_COLORS[role]||'#f9c74f'; const isOrga=role==='Orga';
   return `<div class="badge">
     <div class="bar" style="background:${col}"></div>
     <div class="top"><img class="logo" src="${LOGO}" alt=""><div class="ev">${esc(e.name)}</div></div>
     <div class="mid"><div class="nm">${name}</div><div class="ver">${sub||''}</div>${isOrga?`<div style="margin-top:2mm;font-size:9pt;font-weight:800;color:#fff;background:${col};border-radius:3mm;padding:.6mm 3mm;letter-spacing:.4pt">ORGA-TEAM</div>`:''}</div>
-    <div class="rl" style="color:${col==='#f9c74f'?'#8a6d1f':col}">${esc(roleLabel||role||'')}</div>
+    <div class="rl" style="color:${col==='#f9c74f'?'#8a6d1f':col}">${esc(roleLabel||role||'')}</div>${code?`<div style="font-size:8pt;font-weight:800;color:#555;letter-spacing:.5pt;margin-top:.4mm">Nr. ${code}</div>`:``}
     ${qr?`<img class="qr" src="${qr}" alt="">`:''}
     <div class="foot" style="background:${col}"></div></div>`;
 }
@@ -1824,9 +1825,9 @@ function badgeRoleLabel(r){
 function printBadges(){
   const cVer=findCol('verein'); let cells='';
   DATA.forEach(r=>{
-    cells+=badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)), esc(badgeRoleLabel(r)));
+    cells+=badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)), esc(badgeRoleLabel(r)), badgeCode(mailOf(r)));
     const g=personsOf(r)-1;
-    for(let i=0;i<g;i++) cells+=badgeHTML('Gast', 'Begleitung: '+esc(displayName(r)), 'Gast', '');
+    for(let i=0;i<g;i++) cells+=badgeHTML('Gast', 'Begleitung: '+esc(displayName(r)), 'Gast', qrDataURL(mailOf(r)), 'Gast', badgeCode(mailOf(r)));
   });
   if(!cells){alert('Keine Teilnehmer vorhanden.');return;}
   openPrint(badgesWrapper(cells));
@@ -1834,7 +1835,7 @@ function printBadges(){
 function printOneBadge(mail){
   const r=DATA.find(x=>mailOf(x)===mail); if(!r)return;
   const cVer=findCol('verein');
-  openPrint(badgesWrapper(badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)), esc(badgeRoleLabel(r)))));
+  openPrint(badgesWrapper(badgeHTML(esc(displayName(r)), esc(val(r,cVer)), roleOf(r), qrDataURL(mailOf(r)), esc(badgeRoleLabel(r)), badgeCode(mailOf(r)))));
 }
 function printOrgaBadges(){
   const cVer=findCol('verein'); let cells='';
@@ -2551,7 +2552,7 @@ function renderCheckin(){
   let list=DATA.filter(r=>{
     if(onlyMiss && isChecked(r)) return false;
     if(!q) return kioskMode?false:true;
-    return (displayName(r)+' '+mailOf(r)).toLowerCase().includes(q);
+    return (displayName(r)+' '+mailOf(r)+' '+badgeCode(mailOf(r))).toLowerCase().includes(q);
   });
   if(kioskMode){
     document.getElementById('ciList').innerHTML = !q
