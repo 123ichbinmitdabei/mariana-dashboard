@@ -156,7 +156,7 @@
   <button class="btn ghost sm" id="orgaViewBtn" onclick="orgaView()" title="Orga-Ansicht: blendet teilnehmer-/infolastige Bereiche aus">🛡️ Orga-Ansicht</button>
   <button class="btn ghost sm" onclick="openInfoScreen()" title="Öffentlicher Info-Screen fürs Foyer (Vollbild)">📺 Info-Screen</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
-  <a class="btn ghost sm" href="dashboard-anleitung.html" target="_blank" rel="noopener" style="text-decoration:none">❓ Anleitung</a>
+  <button class="btn ghost sm" onclick="openHelp()">❓ Hilfe</button>
   <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
   <button class="btn ghost sm" onclick="openSettings()">⚙ Einstellungen</button>
   <button class="btn sm" onclick="newEvent()">+ Veranstaltung</button>
@@ -742,6 +742,18 @@
 </div>
 
 <!-- Add participant modal -->
+<div class="modal" id="helpModal"><div class="box" style="max-width:640px">
+  <h3>🙋 Willkommen – wobei hilft dir das Dashboard?</h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
+    <button class="btn sm" onclick="pickRole('veranstalter')">🎪 Veranstalter</button>
+    <button class="btn sm" onclick="pickRole('orga')">🛡️ Orga-Team</button>
+    <button class="btn sm" onclick="pickRole('helfer')">🙋 Helfer</button>
+  </div>
+  <div id="helpBody" style="font-size:14px;line-height:1.55"></div>
+  <div style="margin-top:14px;text-align:right">
+    <button class="btn sm" onclick="closeModal('helpModal')">Schließen</button>
+  </div>
+</div></div>
 <div class="modal" id="addModal">
   <div class="box">
     <h3>+ Teilnehmer hinzufügen</h3>
@@ -903,7 +915,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.15.0';
+const APP_VERSION='2.16.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1077,6 +1089,14 @@ async function enablePush(){ try{ if(!('serviceWorker' in navigator)||!('PushMan
 async function sendPushAnnounce(){ var msg=prompt('Push-Ansage an alle mit aktiviertem Push:'); if(!msg) return; try{ var res=await fetch(CLOUD.url+'/functions/v1/send-push',{ method:'POST', headers:{ 'apikey':CLOUD.key, 'Authorization':'Bearer '+CLOUD.key, 'Content-Type':'application/json' }, body: JSON.stringify({ event_id: currentId, team_code: teamCode(), title: '📣 '+((ev()&&ev().name)||'Event'), message: msg, url:'/veranstaltungs-dashboard.html' }) }); var d=await res.json().catch(function(){return {};}); if(res.ok&&d.ok){ alert('Gesendet an '+d.sent+' Gerät(e).'+(d.removed?(' '+d.removed+' abgelaufene entfernt.'):'')); } else { alert('Senden fehlgeschlagen: '+(d.error||res.status)); } }catch(e){ alert('Sende-Fehler: '+((e&&e.message)||e)); } }
 function pushPromotion(names){ try{ if(!names||!names.length) return; fetch(CLOUD.url+'/functions/v1/send-push',{ method:'POST', headers:{ 'apikey':CLOUD.key, 'Authorization':'Bearer '+CLOUD.key, 'Content-Type':'application/json' }, body: JSON.stringify({ event_id: currentId, team_code: teamCode(), title:'⬆️ Warteliste', message: names.join(', ')+(names.length>1?' sind nachgerückt':' ist nachgerückt')+' – bitte benachrichtigen.', url:'/veranstaltungs-dashboard.html' }) }); }catch(e){} }
 async function sendEmailAnnounce(){ var subject=prompt('E-Mail Betreff:'); if(!subject) return; var message=prompt('Nachricht an die Teilnehmer:'); if(!message) return; var seen={}, recips=[]; DATA.forEach(function(r){ var m=mailOf(r); if(!m||isCancelledP(m))return; m=(''+m).trim(); if(/@/.test(m)&&!seen[m.toLowerCase()]){ seen[m.toLowerCase()]=1; recips.push({ email:m, name:displayName(r) }); } }); if(!recips.length){ alert('Keine E-Mail-Adressen gefunden.'); return; } if(!confirm('E-Mail an '+recips.length+' Teilnehmer senden?')) return; try{ var res=await fetch(CLOUD.url+'/functions/v1/send-email',{ method:'POST', headers:{ 'apikey':CLOUD.key, 'Authorization':'Bearer '+CLOUD.key, 'Content-Type':'application/json' }, body: JSON.stringify({ event_id: currentId, team_code: teamCode(), subject: subject, message: message, recipients: recips }) }); var d=await res.json().catch(function(){return {};}); if(res.ok&&d.ok){ alert('E-Mail: '+d.sent+' von '+d.total+' gesendet'+(d.failed?(', '+d.failed+' fehlgeschlagen'):'')+'.'+((d.errors&&d.errors.length)?('\n'+d.errors.join('\n')):'')); } else { alert('Fehler: '+(d.error||res.status)); } }catch(e){ alert('Sende-Fehler: '+((e&&e.message)||e)); } }
+function openHelp(){ var el=document.getElementById('helpModal'); if(!el)return; el.classList.add('open'); var r=LS.get('evtdash_selfrole',''); if(r) renderHelpBody(r); else { var b=document.getElementById('helpBody'); if(b) b.innerHTML="<p style='color:var(--muted)'>Waehle oben deine Rolle – dann zeige ich dir die passenden Funktionen.</p>"; } }
+function pickRole(r){ LS.set('evtdash_selfrole', r); renderHelpBody(r); }
+function renderHelpBody(r){ var el=document.getElementById('helpBody'); if(!el)return; var m={};
+ m.veranstalter="<b>Als Veranstalter</b> steuerst du alles zentral:<ul style='margin:6px 0 0;padding-left:18px'><li><b>Anmeldungen</b> laufen automatisch aus der Tabelle rein (oben '↻ Daten').</li><li><b>Check-in &amp; Namensschilder</b> im Druck-Bereich – QR + Nummer auf jedem Schild.</li><li><b>Warteliste</b> automatisch; Absagen geben Plätze frei, Nachrücker werden markiert.</li><li><b>Kasse/Finanzen, Aufgaben, Feedback</b> in den jeweiligen Bereichen.</li><li><b>Ansagen</b> per 📣 Push und 📧 E-Mail.</li><li>Neue Veranstaltung: oben <b>🧭 Assistent</b>; Feineinstellungen unter <b>⚙ Einstellungen</b>.</li></ul>";
+ m.orga="<b>Als Orga-Team</b> hilfst du vor Ort:<ul style='margin:6px 0 0;padding-left:18px'><li><b>Einlass/Check-in:</b> QR scannen oder die kurze <b>Nummer</b> vom Schild eintippen; Name/Nr. sind auch suchbar.</li><li><b>Schichten</b> über den Schicht-Link (schicht.html) selbst eintragen.</li><li><b>Orga-Ansicht</b> oben (🛡️) blendet teilnehmerlastige Bereiche aus.</li><li><b>Selbst als Orga eintragen:</b> '➕ Teilnehmer/Orga' → Rolle <b>Orga</b> wählen (+ Orga-Funktion).</li></ul>";
+ m.helfer="<b>Als Helfer</b> brauchst du meist nur zwei Dinge:<ul style='margin:6px 0 0;padding-left:18px'><li><b>Check-in</b> am Einlass: QR scannen oder Nummer vom Schild eintippen.</li><li><b>Schichten</b> über den Schicht-Link eintragen.</li><li>Dieses Fenster jederzeit über <b>❓ Hilfe</b> oben wieder öffnen.</li></ul>";
+ el.innerHTML=(m[r]||m.veranstalter)+"<p style='margin:10px 0 0'><a href='dashboard-anleitung.html' target='_blank' rel='noopener'>📖 Zur ausführlichen Anleitung</a></p>";
+}
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
@@ -3568,7 +3588,7 @@ if(_joinCode){ liveJoinInit(_joinCode); }
 else { initDashboard(); }
 function initDashboard(){
 try{ const fv=document.getElementById('footVer'); if(fv)fv.textContent='v'+APP_VERSION; }catch(e){}
-initCollapsibles();
+initCollapsibles(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){}
 checkVersion(); setInterval(checkVersion, 120000);
 updateSyncBtn();
 updateModeBtn();
