@@ -156,7 +156,10 @@
 }
 .tbToggle{ display:none; }
 .ciNum{ font-size:22px; padding:16px 0; font-weight:700; min-height:56px; }
+#mBar{ display:none; }
+@media (max-width:760px){ #mBar{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:60; background:#08160d; gap:4px; padding:6px; box-shadow:0 -2px 8px rgba(0,0,0,.3); } #mBar button{ flex:1; min-height:50px; font-size:13px; } body{ padding-bottom:66px; } }
 </style>
+<div id="mBar"><button class="btn" onclick="openCheckin()">✅ Check-in</button><button class="btn ghost" onclick="openDay()">📋 Übersicht</button><button class="btn ghost" onclick="document.querySelector('.topbar').classList.toggle('open')">☰ Menü</button></div>
 <div class="topbar">
   <div class="brandlogo"><img src="https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png" alt="Mariana"></div>
   <div>
@@ -964,7 +967,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.24.0';
+const APP_VERSION='2.25.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
