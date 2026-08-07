@@ -9,7 +9,11 @@
 <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
-  :root{
+  html.dark{--bg:#0f1620;--card:#1a232e;--ink:#e6edf3;--muted:#9aa9b4;--line:#2a3744;--green-l:#15271d;color-scheme:dark;}
+html.dark body{background:var(--bg);color:var(--ink);}
+html.dark input,html.dark select,html.dark textarea{background:#0f1720;color:var(--ink);border-color:var(--line);}
+html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
+:root{
     --green:#1f7554; --green-d:#12301c; --green-l:#eaf4ee; --dark:#08160d;
     --yellow:#f9c74f; --accent:#1c6b3f; --mgreen:#30a46c;
     --bg:#eef2ef; --card:#ffffff; --ink:#22322a; --muted:#6b7c71; --line:#e0e7e2;
@@ -184,6 +188,7 @@
   <button class="btn ghost sm" id="foyerBtn" onclick="openFoyer()" title="Große Anwesenheitsanzeige für Eingang/Foyer (Vollbild)">📺 Foyer-Anzeige</button>
   <button class="btn ghost sm" id="remBtn" onclick="openReminders()" title="Terminierte automatische Erinnerungen">⏰ Erinnerungen</button>
   <button class="btn ghost sm" id="rdyBtn" onclick="openReadiness()" title="Startklar-Check vor dem Event">✅ Bereit?</button>
+  <button class="btn ghost sm" id="themeBtn" onclick="toggleTheme()" title="Hell/Dunkel umschalten">🌙 Dunkel</button>
   <button class="btn ghost sm" onclick="openInfoScreen()" title="Öffentlicher Info-Screen fürs Foyer (Vollbild)">📺 Info-Screen</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <button class="btn ghost sm" onclick="openHelp()">❓ Hilfe</button>
@@ -999,7 +1004,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.39.0';
+const APP_VERSION='2.40.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1289,6 +1294,8 @@ function _readyRows(){
   return rows.join('');
 }
 function openReadiness(){ var m=document.getElementById('rdyModal'); if(!m)return; var b=document.getElementById('rdyBody'); if(b){ b.innerHTML='<h3 style="margin:0 0 4px">✅ Bereit fürs Event?</h3><div style="font-size:13px;opacity:.7;margin-bottom:10px">Automatische Kurzprüfung – aktualisiert bei jedem Öffnen.</div>'+_readyRows()+'<div style="margin-top:12px;font-weight:600;font-size:13px">Schnellaktionen</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'+(typeof printBadges==='function'?'<button class="btn ghost sm" onclick="closeModal();printBadges()">🏷️ Namensschilder</button>':'')+(typeof printSelfQRSheet==='function'?'<button class="btn ghost sm" onclick="closeModal();printSelfQRSheet()">📱 QR-Blatt</button>':'')+(typeof makeBackup==='function'?'<button class="btn ghost sm" onclick="makeBackup()">💾 Backup jetzt</button>':'')+(typeof openReminders==='function'?'<button class="btn ghost sm" onclick="closeModal();openReminders()">⏰ Erinnerungen</button>':'')+'</div><div style="text-align:right;margin-top:14px"><button class="btn ghost" onclick="closeModal()">Schließen</button></div>'; } m.classList.add('open'); }
+function applyTheme(){ try{ var pref=LS.get('evtdash_theme',''); var dark = pref? (pref==='dark') : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.classList.toggle('dark', !!dark); var b=document.getElementById('themeBtn'); if(b) b.textContent = dark?'☀️ Hell':'🌙 Dunkel'; }catch(e){} }
+function toggleTheme(){ var dark=document.documentElement.classList.contains('dark'); LS.set('evtdash_theme', dark?'light':'dark'); applyTheme(); }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
@@ -3780,7 +3787,7 @@ if(_joinCode){ liveJoinInit(_joinCode); }
 else { initDashboard(); }
 function initDashboard(){
 try{ const fv=document.getElementById('footVer'); if(fv)fv.textContent='v'+APP_VERSION; }catch(e){}
-initCollapsibles(); applyHidden(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){} setTimeout(function(){try{autoBackup();}catch(e){}},6000); try{applyFinLock();}catch(e){} try{_wrapUndo();}catch(e){} try{updateOffline(); window.addEventListener('online',updateOffline); window.addEventListener('offline',updateOffline);}catch(e){} try{ setTimeout(checkReminders,8000); setInterval(checkReminders,60000); }catch(e){}
+initCollapsibles(); applyHidden(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){} setTimeout(function(){try{autoBackup();}catch(e){}},6000); try{applyFinLock();}catch(e){} try{_wrapUndo();}catch(e){} try{updateOffline(); window.addEventListener('online',updateOffline); window.addEventListener('offline',updateOffline);}catch(e){} try{ setTimeout(checkReminders,8000); setInterval(checkReminders,60000); }catch(e){} try{applyTheme();}catch(e){}
 checkVersion(); setInterval(checkVersion, 120000);
 updateSyncBtn();
 updateModeBtn();
