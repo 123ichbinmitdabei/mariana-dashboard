@@ -693,7 +693,7 @@
     <div class="hint">Tipp: Die Tabelle muss auf „Jeder mit dem Link" freigegeben (oder veröffentlicht) sein, damit der automatische Abruf funktioniert. Der Team-Code trennt eure Cloud-Daten von anderen — gib denselben Code an alle Orga-Leute.</div>
     <div class="row-flex" style="justify-content:space-between;margin-top:10px;">
       <div class="row-flex" style="gap:6px">
-        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button><button class="btn sm" style="background:#2f9e6c" onclick="cloudBackupNow()">☁⬆ Cloud-Backup</button><button class="btn sm" style="background:#6c7a9e" onclick="cloudRestore()">☁⬇ Wiederherstellen</button><button class="btn sm" style="background:#8a5cc6" onclick="sharePublicInfo()">🔗 Info-Seite teilen</button>
+        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button><button class="btn sm" style="background:#2f9e6c" onclick="cloudBackupNow()">☁⬆ Cloud-Backup</button><button class="btn sm" style="background:#6c7a9e" onclick="cloudRestore()">☁⬇ Wiederherstellen</button><button class="btn sm" style="background:#8a5cc6" onclick="sharePublicInfo()">🔗 Info-Seite teilen</button><button class="btn sm" style="background:#8a5cc6" onclick="shareShiftLink()">🗓 Schichtplan-Link</button>
         <button class="btn sm" style="background:#c9922b" onclick="cancelEvent()">Absagen</button>
         <button class="btn danger sm" onclick="deleteEvent()">Löschen</button>
       </div>
@@ -899,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.10.0';
+const APP_VERSION='2.11.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3677,6 +3677,14 @@ function sharePublicInfo(){
    .catch(function(){ setSync('offline'); alert('Offline — Info nicht veroeffentlicht.'); });
 }
 function showPublicLink(link){ try{ if(navigator.clipboard) navigator.clipboard.writeText(link); }catch(e){} window.prompt('Oeffentlicher Info-Link (kopiert) — zum Teilen:', link); }
+
+function shareShiftLink(){
+  if(!teamCode()){ alert('Bitte zuerst einen Team-Code in den Einstellungen setzen.'); return; }
+  if(!cloudOn()){ alert('Bitte Cloud-Sync einschalten, damit sich Helfer online eintragen koennen.'); return; }
+  try{ cloudPush(cloudNS(),'shifts',LS.get(kShifts(),[])); }catch(e){}
+  var link=location.origin+'/schicht.html?t='+encodeURIComponent(teamCode())+'&e='+encodeURIComponent(currentId);
+  showPublicLink(link);
+}
 </script>
 </body>
 </html>
