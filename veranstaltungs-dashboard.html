@@ -1005,7 +1005,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.49.0';
+const APP_VERSION='2.50.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1134,7 +1134,7 @@ function openExtra(mail){
   document.getElementById('exPhone').value=ex.phone||(r&&cPhone?val(r,cPhone):'')||'';
   document.getElementById('exOrga').value=ex.orgaRole||'';
   document.getElementById('exNote').value=ex.note||'';
-  try{renderIdCheckRow(mail,r,ex);}catch(_e){} document.getElementById('extraModal').classList.add('open');
+  try{renderIdCheckRow(mail,r,ex);}catch(_e){} try{renderPhotoRow(mail,ex);}catch(_e2){} document.getElementById('extraModal').classList.add('open');
 }
 function saveExtra(){
   const mail=document.getElementById('exMail').value;
@@ -1326,6 +1326,8 @@ function _ageFrom(r){ try{ if(!r) return null; var c=(typeof findCol==='function
 function idCheckOn(){ try{ return !!(ev()&&ev().idcheck); }catch(e){ return false; } }
 function setIdOk(mail,v){ try{ var ex=LS.get(kExtra(),{}); var o=Object.assign({},(ex[mail]||{})); if(v) o.idok=Date.now(); else delete o.idok; ex[mail]=o; LS.set(kExtra(),ex); }catch(e){} }
 function renderIdCheckRow(mail,r,ex){ try{ var modal=document.getElementById('extraModal'); if(!modal) return; var row=document.getElementById('exIdRow'); if(!idCheckOn()){ if(row) row.style.display='none'; return; } if(!row){ row=document.createElement('div'); row.id='exIdRow'; row.style.cssText='margin:10px 0;padding:10px;border:1px solid rgba(128,128,128,.3);border-radius:8px;background:rgba(28,138,78,.06)'; var anchor=document.getElementById('exNote'); var host=anchor?(anchor.closest('label')||anchor.parentNode):null; if(host&&host.parentNode){ host.parentNode.insertBefore(row, host.nextSibling); } else { modal.appendChild(row); } } var age=_ageFrom(r); var warn=(age!=null&&age<18)?('<div style="color:#c62828;font-weight:600;font-size:13px;margin-top:6px">⚠️ Laut Formular ca. '+age+' Jahre – bitte Ausweis genau prüfen!</div>'):((age!=null)?('<div style="color:#5f6f65;font-size:12px;margin-top:6px">Laut Formular ca. '+age+' Jahre</div>'):''); row.innerHTML='<label style="display:flex;gap:10px;align-items:center;font-size:15px;cursor:pointer"><input type="checkbox" id="exIdOk" style="width:20px;height:20px"> 🪪 Ausweis geprüft / 18+ bestätigt</label>'+warn; var cb=row.querySelector('#exIdOk'); if(cb){ cb.checked=!!(ex&&ex.idok); cb.onchange=function(){ setIdOk(mail, cb.checked); }; } row.style.display=''; }catch(e){} }
+function setPhotoOk(mail,v){ try{ var ex=LS.get(kExtra(),{}); var o=Object.assign({},(ex[mail]||{})); if(v) o.photook=Date.now(); else delete o.photook; ex[mail]=o; LS.set(kExtra(),ex); }catch(e){} }
+function renderPhotoRow(mail,ex){ try{ var modal=document.getElementById('extraModal'); if(!modal) return; var row=document.getElementById('exPhotoRow'); if(!row){ row=document.createElement('div'); row.id='exPhotoRow'; row.style.cssText='margin:8px 0;padding:10px;border:1px solid rgba(128,128,128,.3);border-radius:8px'; var idr=document.getElementById('exIdRow'); var host; if(idr){ host=idr; } else { var anchor=document.getElementById('exNote'); host=anchor?(anchor.closest('label')||anchor.parentNode):null; } if(host && host.parentNode){ host.parentNode.insertBefore(row, host.nextSibling); } else { modal.appendChild(row); } } row.innerHTML='<label style="display:flex;gap:10px;align-items:center;font-size:15px;cursor:pointer"><input type="checkbox" id="exPhotoOk" style="width:20px;height:20px"> 📷 Foto-Einwilligung erteilt</label>'; var cb=row.querySelector('#exPhotoOk'); if(cb){ cb.checked=!!(ex&&ex.photook); cb.onchange=function(){ setPhotoOk(mail, cb.checked); }; } }catch(e){} }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
