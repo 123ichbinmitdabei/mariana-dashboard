@@ -880,7 +880,7 @@
     <div class="field"><label>Telefon (für WhatsApp-/SMS-Erinnerungen)</label><input id="exPhone" placeholder="z.B. 0151 2345678"></div>
     <div class="field"><label>Orga-Funktion (erscheint auf dem Orga-Namensschild)</label><input id="exOrga" placeholder="z.B. Einlass, Grill, Leitung"></div>
     <div class="field"><label>Interne Notiz</label><textarea id="exNote" rows="2" style="width:100%;padding:7px;border:1px solid var(--line);border-radius:6px"></textarea></div>
-    <div class="row-flex" style="gap:6px;margin:6px 0 4px"><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="exportPerson()" title="DSGVO: alle zu dieser Person gespeicherten Daten exportieren">⬇ Daten exportieren</button><button class="btn danger sm" onclick="deletePersonData()" title="DSGVO: alle lokal ergänzten Daten dieser Person löschen">🗑 Daten löschen (DSGVO)</button></div>
+    <div class="row-flex" style="gap:6px;margin:6px 0 4px"><button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="exportPerson()" title="DSGVO: alle zu dieser Person gespeicherten Daten exportieren">⬇ Daten exportieren</button><button class="btn ghost sm" onclick="anonymizePerson()" title="DSGVO: Name, Telefon und Notiz durch ein Pseudonym ersetzen – Anwesenheit/Zahlung bleiben als Statistik">🕶 Anonymisieren</button><button class="btn danger sm" onclick="deletePersonData()" title="DSGVO: alle lokal ergänzten Daten dieser Person löschen">🗑 Daten löschen (DSGVO)</button></div>
     <div class="row-flex" style="justify-content:flex-end;margin-top:8px">
       <button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="closeModal('extraModal')">Abbrechen</button>
       <button class="btn" onclick="saveExtra()">Speichern</button>
@@ -991,7 +991,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.32.0';
+const APP_VERSION='2.33.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1221,6 +1221,14 @@ function showUndoToast(label){ try{ var old=document.getElementById('undoToast')
 function openTrash(){ var st=(LS.get(_undoKey(), [])||[]).slice().reverse(); var rows=st.length? st.map(function(e){ var ds=new Date(e.ts).toLocaleString('de-DE'); return '<tr><td>'+esc(e.label||'Änderung')+'</td><td style=\'white-space:nowrap\'>'+ds+'</td><td><button class=\'btn sm\' onclick=\'restoreTrash('+e.ts+')\'>Wiederherstellen</button></td></tr>'; }).join('') : '<tr><td colspan=\'3\' style=\'opacity:.6;padding:10px\'>Papierkorb ist leer. Hier landen automatisch Wiederherstellungspunkte vor Absagen und Löschungen.</td></tr>'; var b=document.getElementById('trashBody'); if(b) b.innerHTML='<h3 style=\'margin-top:0\'>\uD83D\uDDD1 Papierkorb / Rückgängig</h3><p style=\'opacity:.75;font-size:14px\'>Vor jeder Absage oder Löschung wird automatisch ein Wiederherstellungspunkt gespeichert (die letzten 20). Wiederherstellen setzt die Daten auf diesen Stand zurück.</p><div style=\'overflow:auto\'><table style=\'width:100%;border-collapse:collapse\'><thead><tr><th style=\'text-align:left\'>Aktion</th><th style=\'text-align:left\'>Zeitpunkt</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div><div style=\'text-align:right;margin-top:14px\'><button class=\'btn ghost\' onclick=\'closeModal()\'>Schließen</button></div>'; var m=document.getElementById('trashModal'); if(m) m.classList.add('open'); }
 function restoreTrash(ts){ var st=LS.get(_undoKey(), [])||[]; var e=st.filter(function(x){return x.ts===ts;})[0]; if(!e){ alert('Nicht gefunden.'); return; } if(!confirm('Diesen Wiederherstellungspunkt laden? Die aktuellen Daten werden auf diesen Stand zurückgesetzt.')) return; _restoreSnap(e.snap); closeModal(); }
 function _wrapUndo(){ try{ [['toggleCancelP','Absage/Reaktivierung'],['deletePersonData','Personendaten gelöscht'],['cancelEvent','Veranstaltung abgesagt'],['deleteEvent','Veranstaltung gelöscht']].forEach(function(p){ var fn=p[0]; if(typeof window[fn]==='function' && !window[fn]._undoWrapped){ var orig=window[fn]; var f=function(){ try{ pushUndo(p[1]); }catch(e){} return orig.apply(this,arguments); }; f._undoWrapped=true; window[fn]=f; } }); }catch(e){} }
+function anonymizePerson(){
+  var mail=document.getElementById('exMail')?document.getElementById('exMail').value:''; if(!mail)return;
+  if(!confirm('Diese Person anonymisieren?\n\nDer Anzeigename wird zu \u201EAnonym\u201C, Telefon/Notiz und Tags werden entfernt. Anwesenheit und Zahlung bleiben als reine Statistik erhalten.\n\nHinweis: Die urspr\u00FCngliche Antwort in der Google-Tabelle wird dadurch NICHT ver\u00E4ndert.'))return;
+  try{ pushUndo('Person anonymisiert'); }catch(e){}
+  try{ var nm=LS.get(kNames(),{}); if(!nm||typeof nm!=='object')nm={}; nm[mail]='Anonym'; LS.set(kNames(),nm); }catch(e){}
+  [kExtra,kTags].forEach(function(kf){ try{ var o=LS.get(kf(),{}); if(o&&typeof o==='object'&&o[mail]!==undefined){ delete o[mail]; LS.set(kf(),o); } }catch(e){} });
+  try{ closeModal('extraModal'); }catch(e){} try{ rebuildData(); }catch(e){} alert('Person anonymisiert (lokal).');
+}
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
