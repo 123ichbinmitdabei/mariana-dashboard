@@ -34,7 +34,7 @@
 </style>
 </head>
 <body>
-<div class="wrap"><div id="app"><div class="load">Lade Schichtplan…</div></div></div>
+<div class="wrap"><div id="app"><div class="load">Lade Schichtplan… · Loading shift plan…</div></div></div>
 <script>
 var CLOUD={url:'https://gvzayggvtlychyjbnsgv.supabase.co',key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf'};
 var q=new URLSearchParams(location.search); var T=q.get('t')||''; var E=q.get('e')||''; var EID=T+'|'+E;
@@ -56,29 +56,29 @@ async function saveShifts(arr){
 var _shifts=[];
 async function load(){
   var app=document.getElementById('app');
-  if(!T||!E){ app.innerHTML='<div class="err">Ungültiger Link.</div>'; return; }
+  if(!T||!E){ app.innerHTML='<div class="err">Ungültiger Link. · Invalid link.</div>'; return; }
   try{
     var d=await fetchAll();
     _shifts=d.shifts||[];
     if(d.pubinfo&&d.pubinfo.name)TITLE=d.pubinfo.name;
     render();
-  }catch(e){ app.innerHTML='<div class="err">Konnte den Schichtplan nicht laden. Bitte den Link prüfen.</div>'; }
+  }catch(e){ app.innerHTML='<div class="err">Konnte den Schichtplan nicht laden. Bitte den Link prüfen. · Could not load the shift plan. Please check the link.</div>'; }
 }
 function myName(){ var el=document.getElementById('myname'); return el?el.value.trim():''; }
 function render(){
   var app=document.getElementById('app');
   var h='<div class="hero"><div class="kick">CSC Marburg · Schichtplan</div><h1>'+esc(TITLE)+'</h1></div><div class="body">';
-  h+='<div class="namebar"><label>Dein Name</label><input id="myname" placeholder="Vorname Nachname" autocomplete="name"></div>';
-  if(!_shifts.length){ h+='<div class="err">Es sind noch keine Schichten eingetragen.</div>'; }
+  h+='<div class="namebar"><label>Dein Name · Your name</label><input id="myname" placeholder="Vorname Nachname / First Last" autocomplete="name"></div>';
+  if(!_shifts.length){ h+='<div class="err">Es sind noch keine Schichten eingetragen. · No shifts have been added yet.</div>'; }
   _shifts.forEach(function(s,i){
     var ppl=s.people||[]; var need=+s.need||0; var full=need>0 && ppl.length>=need;
     h+='<div class="shift"><div class="top"><div><div class="task">'+esc(s.task||('Schicht '+(i+1)))+'</div>'+(s.time?'<div class="time">'+esc(s.time)+'</div>':'')+'</div>';
     h+='<span class="cnt '+(full?'full':'ok')+'">'+ppl.length+(need?'/'+need:'')+'</span></div>';
-    h+='<div class="chips">'+(ppl.length?ppl.map(function(p,pi){return '<span class="chip">'+esc(p)+'<button title="Austragen" onclick="leave('+i+','+pi+')">×</button></span>';}).join(''):'<span class="time">Noch niemand eingetragen</span>')+'</div>';
-    h+='<button class="signup" '+(full?'disabled':'')+' onclick="join('+i+')">'+(full?'Voll belegt':'✅ Hier eintragen')+'</button>';
+    h+='<div class="chips">'+(ppl.length?ppl.map(function(p,pi){return '<span class="chip">'+esc(p)+'<button title="Austragen" onclick="leave('+i+','+pi+')">×</button></span>';}).join(''):'<span class="time">Noch niemand eingetragen · Nobody signed up yet</span>')+'</div>';
+    h+='<button class="signup" '+(full?'disabled':'')+' onclick="join('+i+')">'+(full?'Voll belegt · Full':'✅ Hier eintragen · Sign up')+'</button>';
     h+='<div class="msg" id="msg'+i+'"></div></div>';
   });
-  h+='<div class="foot">Deine Eintragung ist sofort für das Orga-Team sichtbar. 🌿</div></div>';
+  h+='<div class="foot">Deine Eintragung ist sofort für das Orga-Team sichtbar. · Your sign-up is instantly visible to the orga team. 🌿</div></div>';
   app.innerHTML=h;
 }
 function setMsg(i,t,err){ var el=document.getElementById('msg'+i); if(el){ el.textContent=t; el.style.color=err?'#c0504d':'var(--accent)'; } }
