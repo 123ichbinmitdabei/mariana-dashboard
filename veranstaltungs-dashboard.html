@@ -139,6 +139,23 @@
 </head>
 <body>
 
+<style>
+@media (max-width:760px){
+  .topbar{ flex-wrap:wrap; gap:6px; padding:8px 10px; }
+  .topbar h1{ font-size:15px; line-height:1.15; }
+  .topbar .sub{ display:none; }
+  .topbar > button:not(.tbToggle){ display:none; }
+  .topbar.open > button:not(.tbToggle){ display:inline-flex; }
+  .tbToggle{ display:inline-flex !important; }
+  .btn{ min-height:40px; }
+  .btn.sm{ min-height:36px; }
+  input, select, textarea{ font-size:16px; }
+  .kpis{ grid-template-columns:repeat(2,1fr) !important; }
+  .section table{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .modal .box{ max-width:96vw !important; width:96vw; max-height:88vh; overflow:auto; margin:6vh auto; }
+}
+.tbToggle{ display:none; }
+</style>
 <div class="topbar">
   <div class="brandlogo"><img src="https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png" alt="Mariana"></div>
   <div>
@@ -148,6 +165,7 @@
   <div class="spacer"></div>
   <select id="evtSwitch" title="Veranstaltung wählen" style="padding:7px;border-radius:6px;border:0;"></select>
   <span class="status" id="syncStat" style="min-width:60px;"></span>
+  <button class="btn ghost sm tbToggle" onclick="document.querySelector('.topbar').classList.toggle('open')" title="Menü">☰ Menü</button>
   <button class="btn ghost sm" id="cloudBtn" onclick="toggleCloud()" title="Cloud-Synchronisation an/aus">☁ Sync</button>
   <button class="btn ghost sm" id="langBtn" onclick="toggleLang()" title="Sprache / Language">🌐 DE</button>
   <button class="btn ghost sm" id="modeBtn" onclick="toggleMode()" title="Ansehen / Bearbeiten">✏️ Bearbeiten</button>
@@ -924,7 +942,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.19.0';
+const APP_VERSION='2.20.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
