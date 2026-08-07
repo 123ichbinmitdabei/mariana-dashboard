@@ -693,7 +693,7 @@
     <div class="hint">Tipp: Die Tabelle muss auf „Jeder mit dem Link" freigegeben (oder veröffentlicht) sein, damit der automatische Abruf funktioniert. Der Team-Code trennt eure Cloud-Daten von anderen — gib denselben Code an alle Orga-Leute.</div>
     <div class="row-flex" style="justify-content:space-between;margin-top:10px;">
       <div class="row-flex" style="gap:6px">
-        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button><button class="btn sm" style="background:#2f9e6c" onclick="cloudBackupNow()">☁⬆ Cloud-Backup</button><button class="btn sm" style="background:#6c7a9e" onclick="cloudRestore()">☁⬇ Wiederherstellen</button><button class="btn sm" style="background:#8a5cc6" onclick="sharePublicInfo()">🔗 Info-Seite teilen</button><button class="btn sm" style="background:#8a5cc6" onclick="shareShiftLink()">🗓 Schichtplan-Link</button>
+        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button><button class="btn sm" style="background:#2f9e6c" onclick="cloudBackupNow()">☁⬆ Cloud-Backup</button><button class="btn sm" style="background:#6c7a9e" onclick="cloudRestore()">☁⬇ Wiederherstellen</button><button class="btn sm" style="background:#8a5cc6" onclick="sharePublicInfo()">🔗 Info-Seite teilen</button><button class="btn sm" style="background:#8a5cc6" onclick="shareShiftLink()">🗓 Schichtplan-Link</button><button class="btn sm" style="background:#8a5cc6" onclick="shareFeedbackLink()">💬 Feedback-Link</button><button class="btn sm" style="background:#5c8ac6" onclick="showCloudFeedback()">📊 Feedback ansehen</button>
         <button class="btn sm" style="background:#c9922b" onclick="cancelEvent()">Absagen</button>
         <button class="btn danger sm" onclick="deleteEvent()">Löschen</button>
       </div>
@@ -899,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.11.0';
+const APP_VERSION='2.12.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3684,6 +3684,44 @@ function shareShiftLink(){
   try{ cloudPush(cloudNS(),'shifts',LS.get(kShifts(),[])); }catch(e){}
   var link=location.origin+'/schicht.html?t='+encodeURIComponent(teamCode())+'&e='+encodeURIComponent(currentId);
   showPublicLink(link);
+}
+
+function shareFeedbackLink(){
+  if(!teamCode()){ alert('Bitte zuerst einen Team-Code in den Einstellungen setzen.'); return; }
+  var link=location.origin+'/feedback.html?t='+encodeURIComponent(teamCode())+'&e='+encodeURIComponent(currentId);
+  showPublicLink(link);
+}
+function fbStars(k){ var s=''; var rk=Math.round(k); for(var i=1;i<=5;i++){ s+=(i<=rk)?'★':'☆'; } return s; }
+async function showCloudFeedback(){
+  if(!teamCode()){ alert('Bitte zuerst einen Team-Code in den Einstellungen setzen.'); return; }
+  setSync('lade Feedback...');
+  try{
+    var r=await fetch(CLOUD.url+'/rest/v1/event_feedback?event_id=eq.'+encodeURIComponent(cloudNS())+'&select=name,rating,text,created_at&order=created_at.desc',{headers:cloudHeaders()});
+    if(!r.ok){ setSync('Fehler '+r.status); alert('Konnte Feedback nicht laden ('+r.status+').'); return; }
+    var rows=await r.json(); setSync('ok'); renderFeedbackOverlay(rows);
+  }catch(e){ setSync('offline'); alert('Offline — Feedback nicht geladen.'); }
+}
+function renderFeedbackOverlay(rows){
+  var old=document.getElementById('fbOverlay'); if(old)old.remove();
+  var n=rows.length; var sum=0; rows.forEach(function(x){ sum+=(+x.rating||0); }); var avg=n?(sum/n):0;
+  var h='<div id="fbOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto">';
+  h+='<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.35)">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0;color:#1f7554">Feedback per Link ('+n+')</h3><button id="fbClose" class="btn ghost sm">Schließen</button></div>';
+  if(!n){ h+='<div class="status" style="color:#5f6f65">Noch kein Feedback eingegangen. Teile den Feedback-Link nach dem Event.</div>'; }
+  else {
+    h+='<div style="font-size:15px;margin-bottom:12px"><b style="font-size:22px;color:#1f7554">'+avg.toFixed(1)+'</b> / 5 &nbsp; <span style="color:#f9c74f;font-size:20px">'+fbStars(avg)+'</span> &nbsp; <span style="color:#5f6f65">('+n+' Bewertungen)</span></div>';
+    h+=rows.map(function(x){
+      var nm=esc(x.name||'Anonym');
+      var dt=x.created_at?new Date(x.created_at).toLocaleDateString('de-DE'):'';
+      var tx=x.text?('<div style="margin-top:3px;color:#22322a">'+esc(x.text)+'</div>'):'';
+      return '<div style="border-top:1px solid #eee;padding:9px 0"><div style="display:flex;justify-content:space-between"><b>'+nm+'</b><span style="color:#f9c74f">'+fbStars(x.rating)+'</span></div><div style="font-size:11px;color:#8a978f">'+dt+'</div>'+tx+'</div>';
+    }).join('');
+  }
+  h+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+  var ov=document.getElementById('fbOverlay'); var cb=document.getElementById('fbClose');
+  if(cb)cb.onclick=function(){ ov.remove(); };
+  if(ov)ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
 }
 </script>
 </body>
