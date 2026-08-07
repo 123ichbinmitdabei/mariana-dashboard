@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Veranstaltung – Info &amp; Anmeldung</title>
+<style>
+  :root{--green:#1f7554;--dark:#08160d;--yellow:#f9c74f;--accent:#1c6b3f;--ink:#22322a;--muted:#5f6f65;--line:#dfe7e1;--bg:#eef2ef;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',Arial,Helvetica,sans-serif;line-height:1.5;}
+  .wrap{max-width:640px;margin:0 auto;padding:0 0 40px;}
+  .hero{background:var(--dark);color:#fff;padding:30px 26px 26px;border-top:6px solid var(--yellow);}
+  .kick{color:var(--yellow);font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;}
+  .hero h1{margin:8px 0 4px;font-size:27px;line-height:1.2;}
+  .hero .meta{color:#9fc7b1;font-size:15px;margin-top:8px;}
+  .body{padding:22px 26px;}
+  .cd{display:flex;gap:10px;margin:6px 0 20px;}
+  .cd .box{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 6px;text-align:center;}
+  .cd .n{font-size:28px;font-weight:800;color:var(--green);line-height:1;}
+  .cd .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0;}
+  .card h3{margin:0 0 8px;color:var(--green);font-size:15px;}
+  .row{display:flex;justify-content:space-between;gap:10px;margin:5px 0;font-size:15px;}
+  .row b{color:var(--dark);}
+  .bar{height:14px;background:#e6ede8;border-radius:8px;overflow:hidden;margin:8px 0 4px;}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,#1f7554,#30a46c);}
+  .cap-txt{font-size:13px;color:var(--muted);}
+  .btns{display:flex;flex-direction:column;gap:10px;margin-top:18px;}
+  .btn{display:block;text-align:center;text-decoration:none;padding:15px;border-radius:10px;font-weight:700;font-size:16px;}
+  .btn.primary{background:var(--green);color:#fff;}
+  .btn.wa{background:#25d366;color:#fff;}
+  .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--accent);}
+  .load,.err{padding:60px 26px;text-align:center;color:var(--muted);font-size:16px;}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:20px;padding:0 26px;}
+  .full{color:#c0504d;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap"><div id="app"><div class="load">Lade Veranstaltungs-Infos…</div></div></div>
+<script>
+var CLOUD={url:'https://gvzayggvtlychyjbnsgv.supabase.co',key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf'};
+var q=new URLSearchParams(location.search); var T=q.get('t')||''; var E=q.get('e')||'';
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function eur(n){return ((+n||0)).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+function fmtDate(s){ if(!s)return ''; var d=new Date(s); if(isNaN(d))return esc(s); return d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}); }
+var _cdTarget=null;
+function tick(){
+  if(!_cdTarget)return;
+  var diff=_cdTarget-Date.now();
+  var el=document.getElementById('cd'); if(!el)return;
+  if(diff<=0){ el.innerHTML='<div class="box" style="flex:none;width:100%"><div class="n" style="font-size:20px">Es geht los! 🎉</div></div>'; return; }
+  var s=Math.floor(diff/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60), sec=s%60;
+  function box(n,l){return '<div class="box"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';}
+  el.innerHTML=box(d,'Tage')+box(h,'Std')+box(m,'Min')+box(sec,'Sek');
+}
+async function load(){
+  var app=document.getElementById('app');
+  if(!T||!E){ app.innerHTML='<div class="err">Ungültiger Link.</div>'; return; }
+  var eid=T+'|'+E;
+  try{
+    var r=await fetch(CLOUD.url+'/rest/v1/event_dashboard?event_id=eq.'+encodeURIComponent(eid)+'&k=eq.pubinfo&select=v',{headers:{apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key,'x-team-code':T}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var rows=await r.json();
+    if(!rows.length||!rows[0].v){ app.innerHTML='<div class="err">Für diese Veranstaltung sind noch keine Infos veröffentlicht.<br><br>Bitte im Dashboard auf „🔗 Info-Seite teilen" tippen.</div>'; return; }
+    render(rows[0].v);
+  }catch(e){ app.innerHTML='<div class="err">Konnte die Infos nicht laden. Bitte den Link prüfen.</div>'; }
+}
+function render(d){
+  var app=document.getElementById('app');
+  var cap=+d.capacity||0, persons=+d.persons||0, free=(cap? Math.max(0,cap-persons):null), pct=cap? Math.min(100,Math.round(persons/cap*100)):0;
+  var full = cap>0 && free<=0;
+  var h='';
+  h+='<div class="hero"><div class="kick">CSC Marburg · Mariana Cannabis</div>';
+  h+='<h1>'+esc(d.name||'Veranstaltung')+'</h1>';
+  var meta=[]; if(d.eventDate)meta.push('📅 '+fmtDate(d.eventDate)); if(d.place)meta.push('📍 '+esc(d.place));
+  if(meta.length)h+='<div class="meta">'+meta.join(' &nbsp;·&nbsp; ')+'</div>';
+  h+='</div><div class="body">';
+  if(d.eventDate){ var dt=new Date(d.eventDate); if(!isNaN(dt)){ h+='<div class="cd" id="cd"></div>'; } }
+  h+='<div class="card"><h3>Auf einen Blick</h3>';
+  if(d.price)h+='<div class="row"><span>Beitrag pro Person</span><b>'+eur(d.price)+'</b></div>';
+  if(d.eventDate)h+='<div class="row"><span>Wann</span><b>'+fmtDate(d.eventDate)+'</b></div>';
+  if(d.place)h+='<div class="row"><span>Wo</span><b>'+esc(d.place)+'</b></div>';
+  h+='</div>';
+  if(cap>0){
+    h+='<div class="card"><h3>Plätze</h3>';
+    h+='<div class="bar"><i style="width:'+pct+'%"></i></div>';
+    if(full){ h+='<div class="cap-txt full">Ausgebucht — bitte im Orga-Team nach der Warteliste fragen.</div>'; }
+    else { h+='<div class="cap-txt"><b>'+free+'</b> von '+cap+' Plätzen noch frei ('+persons+' belegt)</div>'; }
+    h+='</div>';
+  }
+  h+='<div class="btns">';
+  if(d.form && !full)h+='<a class="btn primary" href="'+esc(d.form)+'" target="_blank" rel="noopener">✅ Jetzt anmelden</a>';
+  if(d.whatsapp)h+='<a class="btn wa" href="'+esc(d.whatsapp)+'" target="_blank" rel="noopener">💬 WhatsApp-Gruppe beitreten</a>';
+  h+='</div>';
+  h+='<div class="foot">Bei Fragen einfach im Orga-Team melden. 🌿</div>';
+  h+='</div>';
+  app.innerHTML=h;
+  var dt2=d.eventDate?new Date(d.eventDate):null;
+  if(dt2&&!isNaN(dt2)){ _cdTarget=dt2.getTime(); tick(); setInterval(tick,1000); }
+}
+load();
+</script>
+</body>
+</html>
