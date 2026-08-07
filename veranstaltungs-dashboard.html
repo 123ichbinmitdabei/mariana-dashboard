@@ -389,6 +389,7 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
       </div>
       <div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:12px;background:#fff">
         <div class="row-flex" style="justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:13px">🧰 Handkasse (Bar-Kasse)</b><span>Stand: <b class="money" id="expCashBal">—</b></span></div>
+        <div style="margin:6px 0"><button class="btn sm" onclick="kassenschluss()">&#129534; Kassenschluss (Soll/Ist)</button></div>
         <div class="hint" style="margin:0 0 8px">Bareinnahmen positiv (z.B. „Spende +20"), Bar-Ausgaben negativ. Jede Buchung ist ein eigener Kassen-Posten.</div>
         <div id="expCashList" style="margin-bottom:8px"></div>
         <div class="row-flex">
@@ -1012,7 +1013,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.58.0';
+const APP_VERSION='2.59.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1021,6 +1022,7 @@ if(!events.find(e=>e.id===currentId)) currentId=events[0].id;
 
 const ev = ()=>events.find(e=>e.id===currentId);
 const kCash =()=>'evtdash_cash_'+currentId;
+const kCashClose =()=>'evtdash_cashclose_'+currentId;
 const kTasks=()=>'evtdash_tasks_'+currentId;
 const kNotes=()=>'evtdash_notes_'+currentId;
 const kMan  =()=>'evtdash_manual_'+currentId;
@@ -3065,6 +3067,8 @@ function beep(ok){ try{ if(navigator.vibrate) navigator.vibrate(ok?60:[40,40,40]
   }catch(e){}
 }
 const EXP_CATS=['Location','Essen/Trinken','Material','Deko','Technik','Sonstiges'];
+function cashSoll(){ var e=ev(); var bal=+e.cashStart||0; (LS.get(kCash(),[])||[]).forEach(function(c){ bal+=+c.amount||0; }); return bal; }
+function kassenschluss(){ var soll=cashSoll(); var s=prompt('Kassenschluss — gezähltes Bargeld (Ist) in €:', soll.toFixed(2)); if(s===null) return; var ist=parseFloat(String(s).replace(',','.')); if(isNaN(ist)){ alert('Bitte einen gültigen Betrag eingeben.'); return; } var diff=ist-soll; var arr=LS.get(kCashClose(),[]); arr.push({ts:Date.now(),soll:soll,ist:ist,diff:diff}); LS.set(kCashClose(),arr); var tag=Math.abs(diff)<0.005?'Kasse stimmt.':(diff>0?'Überschuss.':'Fehlbetrag.'); alert('Kassenschluss\n\nSoll (erwartet): '+eur(soll)+'\nIst (gezählt): '+eur(ist)+'\nDifferenz: '+(diff>=0?'+':'')+eur(diff)+'\n\n'+tag); }
 function renderCash(){
   const e=ev();
   const sel=document.getElementById('cashCat');
