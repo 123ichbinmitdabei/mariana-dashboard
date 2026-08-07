@@ -746,6 +746,7 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
     </div>
     <div class="field"><label>Maximale Plätze (0 = unbegrenzt)</label><input id="sCapacity" type="number" value="0"></div>
     <div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="sIdCheck" style="width:18px;height:18px"> 🪪 Ausweis-/Alters-Check beim Check-in aktivieren</label></div>
+    <div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="sMemCheck" style="width:18px;height:18px"> &#127915; Mitglieds-Check beim Check-in aktivieren</label></div>
     <div class="field"><label>Team-Code (Cloud-Zugang — nur wer denselben Code hat, teilt die Daten)</label><input id="sTeam" placeholder="z.B. marburg2026"></div>
     <div class="hint">Tipp: Die Tabelle muss auf „Jeder mit dem Link" freigegeben (oder veröffentlicht) sein, damit der automatische Abruf funktioniert. Der Team-Code trennt eure Cloud-Daten von anderen — gib denselben Code an alle Orga-Leute.</div>
     <div class="row-flex" style="justify-content:space-between;margin-top:10px;">
@@ -1011,7 +1012,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.57.0';
+const APP_VERSION='2.58.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -2905,7 +2906,7 @@ function renderCheckin(){
         ${guestCtl}
       </div>
       <div class="sp"></div>
-      <button class="bigbtn" style="background:${extraOf(mail).idChecked?'#1c8a4e':'#3a5044'}" title="Ausweis / Alter (18+) geprüft" onclick="ciIdCheck('${esc(mail)}')">🪪${extraOf(mail).idChecked?' ✓':''}</button>
+      ${memBtn(mail)}<button class="bigbtn" style="background:${extraOf(mail).idChecked?'#1c8a4e':'#3a5044'}" title="Ausweis / Alter (18+) geprüft" onclick="ciIdCheck('${esc(mail)}')">🪪${extraOf(mail).idChecked?' ✓':''}</button>
       <button class="bigbtn" style="background:#3a5044" title="Namensschild drucken" onclick="printOneBadge('${esc(mail)}')">🏷️</button>
       ${st!=='paid'?`<button class="bigbtn pay" title="Kassen-Assistent (Rückgeld/Spende/Personen)" onclick="openKasse('${esc(mail)}')">💶 ${eur(np*ev().price)} kassieren</button>`:''}
       <button class="bigbtn ${inn?'undo':''}" onclick="ciToggle('${esc(mail)}')">${inn?'↩ rückgängig':'Einchecken'}</button>
@@ -2915,6 +2916,9 @@ function renderCheckin(){
 function ciToggle(mail){ toggleCheckin(mail); renderCheckin(); }
 function toggleBig(){ const ov=document.getElementById('ciov'); const on=ov.classList.toggle('big'); const b=document.getElementById('bigBtn'); if(b){b.style.background=on?'#c9922b':'';b.style.color=on?'#08160d':'';} }
 function ciIdCheck(mail){ const ex=LS.get(kExtra(),{}); ex[mail]={...(ex[mail]||{})}; if(ex[mail].idChecked)delete ex[mail].idChecked; else ex[mail].idChecked=Date.now(); if(!Object.keys(ex[mail]).length)delete ex[mail]; LS.set(kExtra(),ex); renderCheckin(); }
+function memCheckOn(){ try{ return !!(ev()&&ev().memcheck); }catch(e){ return false; } }
+function memBtn(mail){ if(!memCheckOn()) return ''; var x=extraOf(mail); return '<button class="bigbtn" data-m="'+esc(mail)+'" style="background:'+(x.memChecked?'#1c8a4e':'#3a5044')+'" title="Mitglied gepr&uuml;ft'+(x.memNo?(' &#183; Nr. '+x.memNo):'')+'" onclick="ciMemCheck(this.dataset.m)">&#127915;'+(x.memChecked?' &#10003;':'')+'</button>'; }
+function ciMemCheck(mail){ const ex=LS.get(kExtra(),{}); ex[mail]={...(ex[mail]||{})}; if(ex[mail].memChecked){ delete ex[mail].memChecked; delete ex[mail].memNo; } else { const no=prompt('Mitgliedsnummer (optional):', ex[mail].memNo||''); if(no===null) return; ex[mail].memChecked=Date.now(); if(no&&no.trim()) ex[mail].memNo=no.trim(); } if(!Object.keys(ex[mail]).length)delete ex[mail]; LS.set(kExtra(),ex); renderCheckin(); }
 function ciGuest(mail,d){ const row=DATA.find(r=>mailOf(r)===mail); if(!row)return; const max=personsOf(row)-1; const ex=LS.get(kExtra(),{}); ex[mail]={...(ex[mail]||{})}; const cur=Math.max(0,Math.min(max,(+ex[mail].guestsPresent||0)+d)); ex[mail].guestsPresent=cur; if(!cur)delete ex[mail].guestsPresent; if(!Object.keys(ex[mail]).length)delete ex[mail]; LS.set(kExtra(),ex); if(d>0&&!isChecked(row)){ const s=LS.get(kChk(),{}); s[mail]=Date.now(); LS.set(kChk(),s); rebuildData(); } renderCheckin(); }
 let selfPayMode=false;
 function toggleSelfPay(){
@@ -3749,12 +3753,12 @@ function toggleView(){cardView=!cardView;
   document.getElementById('viewLbl').textContent=cardView?'Als Tabelle':'Als Karten';
 }
 function openSettings(){const e=ev();
-  sName.value=e.name;sSheet.value=e.sheet;sTab.value=e.tab;sPaypal.value=e.paypal;sBottle.value=e.bottle;sWhatsapp.value=e.whatsapp||'';sForm.value=e.form||'';sPrice.value=e.price;sCashStart.value=e.cashStart;sBadgeW.value=e.badgeW||90;sBadgeH.value=e.badgeH||54;sCapacity.value=e.capacity||0;var _ic=document.getElementById('sIdCheck');if(_ic)_ic.checked=!!e.idcheck;sTeam.value=teamCode();
+  sName.value=e.name;sSheet.value=e.sheet;sTab.value=e.tab;sPaypal.value=e.paypal;sBottle.value=e.bottle;sWhatsapp.value=e.whatsapp||'';sForm.value=e.form||'';sPrice.value=e.price;sCashStart.value=e.cashStart;sBadgeW.value=e.badgeW||90;sBadgeH.value=e.badgeH||54;sCapacity.value=e.capacity||0;var _ic=document.getElementById('sIdCheck');if(_ic)_ic.checked=!!e.idcheck;var _mc=document.getElementById('sMemCheck');if(_mc)_mc.checked=!!e.memcheck;sTeam.value=teamCode();
   document.getElementById('settingsModal').classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function saveSettings(){const e=ev();
   e.name=sName.value.trim()||e.name;e.sheet=sSheet.value.trim();e.tab=sTab.value.trim()||'Form Responses 1';
-  e.paypal=sPaypal.value.trim();e.bottle=sBottle.value.trim();e.whatsapp=sWhatsapp.value.trim();e.form=sForm.value.trim();e.price=parseFloat(sPrice.value)||0;e.cashStart=parseFloat(sCashStart.value)||0;try{var _sic=document.getElementById('sIdCheck');if(_sic)e.idcheck=_sic.checked;}catch(_e){}e.badgeW=parseFloat(sBadgeW.value)||90;e.badgeH=parseFloat(sBadgeH.value)||54;e.capacity=parseInt(sCapacity.value)||0;
+  e.paypal=sPaypal.value.trim();e.bottle=sBottle.value.trim();e.whatsapp=sWhatsapp.value.trim();e.form=sForm.value.trim();e.price=parseFloat(sPrice.value)||0;e.cashStart=parseFloat(sCashStart.value)||0;try{var _sic=document.getElementById('sIdCheck');if(_sic)e.idcheck=_sic.checked;}catch(_e){}try{var _smc=document.getElementById('sMemCheck');if(_smc)e.memcheck=_smc.checked;}catch(_e){}e.badgeW=parseFloat(sBadgeW.value)||90;e.badgeH=parseFloat(sBadgeH.value)||54;e.capacity=parseInt(sCapacity.value)||0;
   const oldTeam=teamCode(); localStorage.setItem('evtdash_teamcode', JSON.stringify(sTeam.value.trim()));
   LS.set('evtdash_events',events);closeModal('settingsModal');
   if(sTeam.value.trim()!==oldTeam){ refreshCloud().finally(()=>reloadData()); } else { reloadData(); }
