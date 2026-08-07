@@ -446,6 +446,7 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
       <table class="grid" style="max-width:560px">
         <tr><td>🏷️ Namensschilder (90×54 mm)</td><td style="text-align:right"><button class="btn sm" onclick="printBadges()">Drucken</button></td></tr>
         <tr><td>📱 Self-Check-in QR-Codes (alle Gäste)</td><td style="text-align:right"><button class="btn sm" onclick="printSelfQRSheet()">Drucken</button></td></tr>
+        <tr><td>📄 Event-Report (Überblick, Anwesenheit, Finanzen)</td><td style="text-align:right"><button class="btn sm" onclick="openEventReport()">PDF</button></td></tr>
         <tr><td>🔔 Push aktivieren (dieses Gerät)</td><td style="text-align:right"><button class="btn sm" onclick="enablePush()">Aktivieren</button></td></tr>
         <tr><td>📣 Push-Ansage senden</td><td style="text-align:right"><button class="btn sm" onclick="sendPushAnnounce()">Senden</button></td></tr>
         <tr><td>📧 E-Mail an Teilnehmer</td><td style="text-align:right"><button class="btn sm" onclick="openEmailModal()">Senden</button></td></tr>
@@ -1009,7 +1010,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.55.0';
+const APP_VERSION='2.56.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1347,6 +1348,34 @@ function loadFeedback(){ var res=document.getElementById('fbResults'); if(!res) 
 function prefillThankYou(){ var s=document.getElementById('remSubject'); if(s) s.value='Danke f\u00FCrs Dabeisein! / Thanks for coming!'; var m=document.getElementById('remMsg'); if(m) m.value='Hallo,\n\ndanke, dass du dabei warst \u2013 sch\u00F6n, dass du da warst! Wir hoffen, es hat dir gefallen.\n\nViele Gr\u00FC\u00DFe vom Orga-Team\n\n\u2014\u2014\u2014\n\nHello,\n\nthank you for joining us \u2013 it was great to have you there! We hope you enjoyed it.\n\nBest wishes, the orga team'; var ch=document.getElementById('remChannel'); if(ch) ch.value='email'; var tg=document.getElementById('remTarget'); if(tg) tg.value='checkedin'; }
 function unstaffedShifts(){ try{ var l=LS.get(kShifts(),[])||[]; var out=[]; l.forEach(function(s,i){ var have=(s.people||[]).length, need=s.need||1; if(have<need) out.push({name:(s.task||('Schicht '+(i+1))), need:need, have:have}); }); return out; }catch(e){ return []; } }
 function pushOpenShifts(){ var u=unstaffedShifts(); if(!u.length){ alert('Alle Schichten sind besetzt. 👍'); return; } var lines=u.map(function(s){ return '• '+s.name+' ('+s.have+'/'+s.need+')'; }).join('\n'); if(!confirm('Push an das Orga-Team (alle mit aktiviertem Push) senden?\n\nOffene Schichten:\n'+lines)) return; try{ fetch(CLOUD.url+'/functions/v1/send-push',{method:'POST',headers:{'apikey':CLOUD.key,'Authorization':'Bearer '+CLOUD.key,'Content-Type':'application/json'},body:JSON.stringify({event_id:currentId,team_code:teamCode(),title:'🧑‍🍳 Offene Schichten',message:'Bitte eintragen: '+u.map(function(s){return s.name+' ('+s.have+'/'+s.need+')';}).join(', '),url:'/veranstaltungs-dashboard.html'})}).then(function(r){ alert(r.ok?'Push an das Orga-Team gesendet.':'Fehler '+r.status); }).catch(function(){ alert('Konnte Push nicht senden (keine Verbindung?).'); }); }catch(e){ alert('Fehler beim Senden.'); } }
+function openEventReport(){ try{
+  var src=(typeof DATA!=='undefined'?DATA:[]); var e=(typeof ev==='function'?(ev()||{}):{});
+  var reg=0,present=0,paid=0,cancelled=0; var presentNames=[],absentNames=[];
+  src.forEach(function(r){ var m=mailOf(r); if(!m)return; if(isCancelledP(m)){ cancelled++; return; } reg++; if(payState(r)==='paid')paid++; if(isChecked(r)){ present++; presentNames.push(displayName(r)); } else { absentNames.push(displayName(r)); } });
+  var wl=[]; try{ var ws=waitlistSet(); if(ws&&ws.forEach) ws.forEach(function(m){ var r=src.filter(function(x){return mailOf(x)===m;})[0]; wl.push(r?displayName(r):m); }); }catch(e2){}
+  var price=+((e.price)||0); var cap=+((e.capacity)||0);
+  presentNames.sort(); absentNames.sort(); wl.sort();
+  function list(arr){ return arr.length? '<ul style="columns:2;margin:6px 0;padding-left:18px">'+arr.map(function(n){return '<li>'+esc(n)+'</li>';}).join('')+'</ul>' : '<div class="muted">–</div>'; }
+  var now=new Date().toLocaleString('de-DE');
+  var html='<!doctype html><html><head><meta charset="utf-8"><title>Event-Report</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,Arial,sans-serif;color:#22322a}h1{font-size:20px;margin:0 0 2px}h2{font-size:15px;border-bottom:2px solid #1f7554;color:#1f7554;margin:18px 0 6px;padding-bottom:2px}.muted{color:#777;font-size:12px}.kpis{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.kpi{border:1px solid #dfe7e1;border-radius:8px;padding:8px 12px;min-width:120px;font-size:12px}.kpi b{font-size:20px;display:block}ul{font-size:13px}li{margin:1px 0}</style></head><body>'
+   +'<h1>Event-Report'+(e.name?(' – '+esc(e.name)):'')+'</h1><div class="muted">Erstellt am '+now+'</div>'
+   +'<h2>Überblick</h2><div class="kpis">'
+     +'<div class="kpi"><b>'+reg+'</b>Anmeldungen (aktiv)</div>'
+     +'<div class="kpi"><b>'+present+'</b>Anwesend</div>'
+     +'<div class="kpi"><b>'+(reg-present)+'</b>Nicht erschienen</div>'
+     +'<div class="kpi"><b>'+cancelled+'</b>Abgesagt</div>'
+     +'<div class="kpi"><b>'+paid+'</b>Bezahlt</div>'
+     +'<div class="kpi"><b>'+(reg-paid)+'</b>Zahlung offen</div>'
+     +(cap>0?'<div class="kpi"><b>'+reg+'/'+cap+'</b>Kapazität</div>':'')
+     +(wl.length?'<div class="kpi"><b>'+wl.length+'</b>Warteliste</div>':'')
+   +'</div>'
+   +'<h2>Finanzen</h2><div style="font-size:13px">Preis pro Person: '+(price?('€ '+price.toFixed(2)):'–')+' &nbsp;·&nbsp; Bezahlt: '+paid+' &nbsp;·&nbsp; Offen: '+(reg-paid)+'</div>'
+   +'<h2>Anwesend ('+present+')</h2>'+list(presentNames)
+   +'<h2>Nicht erschienen ('+absentNames.length+')</h2>'+list(absentNames)
+   +(wl.length?('<h2>Warteliste ('+wl.length+')</h2>'+list(wl)):'')
+   +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400);}</scr'+'ipt></body></html>';
+  var w=window.open('','_blank'); if(!w){ alert('Bitte Pop-ups im Browser erlauben, dann erneut versuchen.'); return; } w.document.open(); w.document.write(html); w.document.close();
+}catch(e){ alert('Report-Fehler: '+(e&&e.message||e)); } }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
