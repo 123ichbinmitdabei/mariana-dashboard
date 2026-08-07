@@ -216,7 +216,7 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
     <button class="btn sm" style="background:#c9922b;color:#08160d" onclick="toggleScan()" id="scanBtn">📷 QR scannen</button>
     <button class="btn sm" style="background:#1c8a4e" onclick="openKasse('')" title="Barzahler/Gast ohne Anmeldung kassieren">💶 Kasse</button>
     <label class="cnt" style="cursor:pointer;"><input type="checkbox" id="ciOnlyMissing" onchange="renderCheckin()"> nur fehlende</label>
-    <button class="btn ghost sm" id="roleBtn" onclick="cycleRole()">&#128065; Ansicht: Voll (alles)</button><button class="btn ghost sm" id="kioskBtn" onclick="toggleKiosk()">🧍 Kiosk-Modus</button>
+    <button class="btn ghost sm" id="roleBtn" onclick="cycleViewRole()">&#128065; Ansicht: Voll (alles)</button><button class="btn ghost sm" id="roleCfgBtn" onclick="openRoleCfg()" title="Bereiche dieser Ansicht wählen">&#9881;</button><button class="btn ghost sm" id="kioskBtn" onclick="toggleKiosk()">🧍 Kiosk-Modus</button>
     <button class="btn ghost sm" id="selfPayBtn" onclick="toggleSelfPay()" title="Selbstbedienungs-Kasse: Gäste zahlen selbst und checken sich ein">💰 Selbstzahler-Kasse</button>
     <button class="btn ghost sm" id="bigBtn" onclick="toggleBig()" title="Große Schrift/Knöpfe fürs Tablet">🔎 Groß</button>
     <button class="close" onclick="closeCheckin()">✕ Schließen</button>
@@ -860,6 +860,7 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
 <div class="modal" id="rdyModal"><div style="background:var(--card,#fff);color:inherit;max-width:560px;width:94%;margin:auto;border-radius:14px;padding:16px;max-height:90vh;overflow:auto"><div id="rdyBody"></div></div></div>
 <div class="modal" id="infoModal"><div style="background:var(--card,#fff);color:inherit;max-width:600px;width:94%;margin:auto;border-radius:14px;padding:16px;max-height:90vh;overflow:auto"><div id="infoBody"></div></div></div>
 <div class="modal" id="fbModal"><div style="background:var(--card,#fff);color:inherit;max-width:560px;width:94%;margin:auto;border-radius:14px;padding:16px;max-height:90vh;overflow:auto"><div id="fbBody"></div></div></div>
+<div class="modal" id="roleCfgModal"><div><h3 style="margin-top:0">Bereiche für diese Ansicht</h3><div class="hint" style="margin:0 0 8px">Wähle, welche Bereiche in der aktuellen Ansicht sichtbar sind.</div><div id="roleCfgList" style="max-height:55vh;overflow:auto"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn ghost" onclick="closeAnyModal()">Abbrechen</button><button class="btn" onclick="saveRoleCfg()">Speichern</button></div></div></div>
 <div class="modal" id="addModal">
   <div class="box">
     <h3>+ Teilnehmer hinzufügen</h3>
@@ -1021,7 +1022,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.62.0';
+const APP_VERSION='2.63.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -2873,8 +2874,13 @@ function ciCounts(){ const total=DATA.length; const inn=DATA.filter(r=>isChecked
 let kioskMode=false;
 var _roles=['voll','einlass','kasse'];
 var _roleLabel={voll:'Voll (alles)',einlass:'Einlass',kasse:'Kasse'};
-function applyRole(r){ try{ var secs=document.querySelectorAll('.section'); secs.forEach(function(s){ s.style.display=''; }); var b=document.getElementById('roleBtn'); if(b) b.textContent='Ansicht: '+(_roleLabel[r]||'Voll (alles)'); if(r==='voll'||!r) return; var keepId=r==='einlass'?'ciSearch':(r==='kasse'?'cashList':null); if(!keepId) return; var kn=document.getElementById(keepId); var keep=kn?kn.closest('.section'):null; if(!keep) return; secs.forEach(function(s){ if(s!==keep) s.style.display='none'; }); }catch(e){} }
-function cycleRole(){ var cur=localStorage.getItem('evtdash_role')||'voll'; var i=(_roles.indexOf(cur)+1)%_roles.length; var r=_roles[i]; try{localStorage.setItem('evtdash_role',r);}catch(e){} applyRole(r); }
+function roleCfgGet(){ try{ return JSON.parse(localStorage.getItem('evtdash_rolecfg')||'{}'); }catch(e){ return {}; } }
+function roleCfgSet(o){ try{ localStorage.setItem('evtdash_rolecfg', JSON.stringify(o)); }catch(e){} }
+function _curRole(){ try{ return localStorage.getItem('evtdash_role')||'voll'; }catch(e){ return 'voll'; } }
+function openRoleCfg(){ var r=_curRole(); if(r==='voll'){ alert('Bitte zuerst oben eine Ansicht wählen (Einlass oder Kasse), dann die Bereiche festlegen.'); return; } var cfg=roleCfgGet(); var sel=cfg[r]; var secs=document.querySelectorAll('.section'); var html=''; secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; if(!t) return; var on = sel ? (sel.indexOf(t)>=0) : (s.style.display!=='none'); html+='<label style="display:flex;gap:8px;align-items:center;padding:4px 0"><input type="checkbox" data-t="'+encodeURIComponent(t)+'"'+(on?' checked':'')+'> '+esc(t)+'</label>'; }); document.getElementById('roleCfgList').innerHTML=html; document.getElementById('roleCfgModal').classList.add('open'); }
+function saveRoleCfg(){ var r=_curRole(); var arr=[]; document.querySelectorAll('#roleCfgList input[type=checkbox]').forEach(function(b){ if(b.checked) arr.push(decodeURIComponent(b.getAttribute('data-t'))); }); var cfg=roleCfgGet(); cfg[r]=arr; roleCfgSet(cfg); closeAnyModal(); applyRole(r); }
+function applyRole(r){ try{ var secs=document.querySelectorAll('.section'); secs.forEach(function(s){ s.style.display=''; }); var b=document.getElementById('roleBtn'); if(b) b.textContent='Ansicht: '+(_roleLabel[r]||'Voll (alles)'); if(r==='voll'||!r) return; var _rc=roleCfgGet(); var _al=_rc[r]; if(_al&&_al.length){ secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; s.style.display=(_al.indexOf(t)>=0)?'':'none'; }); return; } var keepId=r==='einlass'?'ciSearch':(r==='kasse'?'cashList':null); if(!keepId) return; var kn=document.getElementById(keepId); var keep=kn?kn.closest('.section'):null; if(!keep) return; secs.forEach(function(s){ if(s!==keep) s.style.display='none'; }); }catch(e){} }
+function cycleViewRole(){ var cur=localStorage.getItem('evtdash_role')||'voll'; var i=(_roles.indexOf(cur)+1)%_roles.length; var r=_roles[i]; try{localStorage.setItem('evtdash_role',r);}catch(e){} applyRole(r); }
 window.addEventListener('load',function(){ setTimeout(function(){ try{ applyRole(localStorage.getItem('evtdash_role')||'voll'); }catch(e){} }, 400); });
 function toggleKiosk(){
   kioskMode=!kioskMode;
