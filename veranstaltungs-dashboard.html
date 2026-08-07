@@ -437,6 +437,7 @@
         <tr><td>📧 E-Mail an Teilnehmer</td><td style="text-align:right"><button class="btn sm" onclick="openEmailModal()">Senden</button></td></tr>
         <tr><td>💶 PayPal-CSV abgleichen</td><td style="text-align:right"><button class="btn sm" onclick="openPaypalImport()">Abgleichen</button></td></tr>
         <tr><td>🔄 Selbst-Check-ins abrufen (self.html)</td><td style="text-align:right"><button class="btn sm" onclick="pullSelfCheckins()">Abrufen</button></td></tr>
+        <tr><td>🛟 Backup & Wiederherstellung</td><td style="text-align:right"><button class="btn sm" onclick="openBackups()">Öffnen</button></td></tr>
         <tr><td>📲 WhatsApp-Ansage (Vorlage)</td><td style="text-align:right"><button class="btn sm" onclick="sendWhatsAppAnnounce()">Senden</button></td></tr>
         <tr><td>🛡️ Orga &amp; Gäste sind auf den normalen Schildern dabei (Orga mit Funktion, Gäste mit QR + Nr.)</td><td></td></tr>
         <tr><td>📋 Teilnehmer-/Check-in-Liste</td><td style="text-align:right"><button class="btn sm" onclick="printList()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfList()">⬇ PDF</button></td></tr>
@@ -819,6 +820,13 @@
   <textarea id="ppText" rows="8" style="width:100%" placeholder="CSV-Inhalt hier einfügen…"></textarea>
   <div style="margin-top:10px;text-align:right"><button class="btn ghost sm" onclick="closeModal('ppModal')">Abbrechen</button> <button class="btn sm" onclick="paypalMatch()">Abgleichen</button></div>
 </div></div>
+<div class="modal" id="bkModal"><div class="box" style="max-width:520px">
+  <h3>🛟 Backups & Wiederherstellung</h3>
+  <div class="hint" style="background:#eaf4ee;border-color:var(--mgreen);margin-bottom:8px">Sicherungen dieses Events (in der Cloud). Automatisch 1×/Tag; du kannst jederzeit selbst sichern und einen früheren Stand zurückholen.</div>
+  <div style="margin-bottom:8px"><button class="btn sm" onclick="makeBackup(false)">💾 Jetzt sichern</button></div>
+  <div id="bkBody"></div>
+  <div style="margin-top:10px;text-align:right"><button class="btn sm" onclick="closeModal('bkModal')">Schließen</button></div>
+</div></div>
 <div class="modal" id="addModal">
   <div class="box">
     <h3>+ Teilnehmer hinzufügen</h3>
@@ -980,7 +988,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.29.0';
+const APP_VERSION='2.30.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1193,6 +1201,10 @@ function selfToken(mail){ var s=(currentId+'|'+(mail||'')).toLowerCase(); var h1
 function personSelfLink(mail){ var r=DATA.find(function(x){return mailOf(x)===mail;}); var nm=r?displayName(r):''; return location.origin+'/self.html?e='+encodeURIComponent(currentId)+'&t='+selfToken(mail)+'&n='+encodeURIComponent(nm); }
 function copySelfLink(mail){ var l=personSelfLink(mail); try{ if(navigator.clipboard) navigator.clipboard.writeText(l); }catch(e){} prompt('Persönlicher Self-Check-in-Link (kopieren und der Person geben):', l); }
 async function pullSelfCheckins(){ try{ var res=await fetch(CLOUD.url+'/rest/v1/self_checkins?event_id=eq.'+encodeURIComponent(currentId)+'&select=token',{ headers:{ 'apikey':CLOUD.key, 'Authorization':'Bearer '+CLOUD.key } }); var rows=await res.json(); if(!Array.isArray(rows)){ alert('Konnte nicht abrufen: '+(rows&&rows.message||res.status)); return; } var toks={}; rows.forEach(function(x){ toks[x.token]=1; }); var chk=LS.get(kChk(),{}); var n=0; DATA.forEach(function(r){ var m=mailOf(r); if(!m)return; if(toks[selfToken(m)] && !chk[m]){ chk[m]=Date.now(); n++; } }); LS.set(kChk(),chk); try{renderKPIs();}catch(e){} try{renderParticipants();}catch(e){} if(typeof pushAllLocal==='function')pushAllLocal(); alert(n+' Selbst-Check-in(s) übernommen. ('+rows.length+' online insgesamt.)'); }catch(e){ alert('Fehler: '+((e&&e.message)||e)); } }
+async function makeBackup(silent){ try{ if(!(typeof cloudOn==='function'&&cloudOn())){ if(!silent)alert('Cloud-Sync ist aus – Backups brauchen die Cloud (oben „☁ Sync").'); return false; } var snap={}; SYNC_SUFFIXES.forEach(function(suf){ snap[suf]=LS.get('evtdash_'+suf+'_'+currentId,null); }); var label=(silent?'Auto ':'')+new Date().toLocaleString('de-DE'); var res=await fetch(CLOUD.url+'/rest/v1/event_backups',{ method:'POST', headers:Object.assign({'Content-Type':'application/json','Prefer':'return=minimal'}, cloudHeaders()), body: JSON.stringify({ns:cloudNS(), label:label, data:snap}) }); if(res.ok){ LS.set('evtdash_lastbackup_'+currentId, Date.now()); if(!silent)alert('✅ Backup gespeichert: '+label); return true; } if(!silent)alert('Backup-Fehler: '+res.status+' '+(await res.text()).slice(0,120)); return false; }catch(e){ if(!silent)alert('Backup-Fehler: '+((e&&e.message)||e)); return false; } }
+function autoBackup(){ try{ if(!(typeof cloudOn==='function'&&cloudOn()))return; var last=+LS.get('evtdash_lastbackup_'+currentId,0)||0; if(Date.now()-last > 72000000) makeBackup(true); }catch(e){} }
+async function openBackups(){ var mo=document.getElementById('bkModal'); if(mo)mo.classList.add('open'); var el=document.getElementById('bkBody'); if(el)el.innerHTML='Lade…'; try{ var res=await fetch(CLOUD.url+'/rest/v1/event_backups?ns=eq.'+encodeURIComponent(cloudNS())+'&select=id,label,created_at&order=created_at.desc&limit=30',{headers:cloudHeaders()}); var rows=await res.json(); if(!Array.isArray(rows)){ if(el)el.innerHTML='Fehler beim Laden.'; return; } var h=rows.length?rows.map(function(x){ return "<div style='display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)'><span style='font-size:14px'>"+esc(x.label||x.created_at)+"</span><button class='btn sm' onclick='restoreBackup("+x.id+")'>Wiederherstellen</button></div>"; }).join(''):"<div class='status'>Noch keine Backups.</div>"; if(el)el.innerHTML=h; }catch(e){ if(el)el.innerHTML='Fehler: '+((e&&e.message)||e); } }
+async function restoreBackup(id){ if(!confirm('Diesen Stand wiederherstellen? Der aktuelle Stand wird überschrieben (vorher wird automatisch gesichert).')) return; try{ await makeBackup(true); var res=await fetch(CLOUD.url+'/rest/v1/event_backups?id=eq.'+id+'&select=data',{headers:cloudHeaders()}); var rows=await res.json(); var d=rows&&rows[0]&&rows[0].data; if(!d){ alert('Backup nicht gefunden.'); return; } Object.keys(d).forEach(function(suf){ if(d[suf]!==null&&d[suf]!==undefined) LS.set('evtdash_'+suf+'_'+currentId, d[suf]); }); if(typeof pushAllLocal==='function')pushAllLocal(); try{rebuildData();}catch(e){} try{if(typeof renderAll==='function')renderAll();}catch(e){} try{closeModal('bkModal');}catch(e){} alert('✅ Stand wiederhergestellt.'); }catch(e){ alert('Fehler: '+((e&&e.message)||e)); } }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
@@ -3684,7 +3696,7 @@ if(_joinCode){ liveJoinInit(_joinCode); }
 else { initDashboard(); }
 function initDashboard(){
 try{ const fv=document.getElementById('footVer'); if(fv)fv.textContent='v'+APP_VERSION; }catch(e){}
-initCollapsibles(); applyHidden(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){}
+initCollapsibles(); applyHidden(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){} setTimeout(function(){try{autoBackup();}catch(e){}},6000);
 checkVersion(); setInterval(checkVersion, 120000);
 updateSyncBtn();
 updateModeBtn();
