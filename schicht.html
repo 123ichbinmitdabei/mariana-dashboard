@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Schichtplan – Eintragen</title>
+<style>
+  :root{--green:#1f7554;--dark:#08160d;--yellow:#f9c74f;--accent:#1c6b3f;--ink:#22322a;--muted:#5f6f65;--line:#dfe7e1;--bg:#eef2ef;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',Arial,Helvetica,sans-serif;line-height:1.5;}
+  .wrap{max-width:640px;margin:0 auto;padding:0 0 40px;}
+  .hero{background:var(--dark);color:#fff;padding:26px 24px;border-top:6px solid var(--yellow);}
+  .kick{color:var(--yellow);font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;}
+  .hero h1{margin:8px 0 2px;font-size:23px;line-height:1.2;}
+  .body{padding:20px 24px;}
+  .namebar{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px;position:sticky;top:8px;z-index:5;}
+  .namebar label{font-size:13px;color:var(--muted);display:block;margin-bottom:4px;}
+  .namebar input{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;}
+  .shift{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0;}
+  .shift .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+  .shift .task{font-weight:700;color:var(--dark);font-size:16px;}
+  .shift .time{color:var(--muted);font-size:13px;}
+  .shift .cnt{font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;}
+  .cnt.ok{background:#eaf4ee;color:var(--accent);}
+  .cnt.full{background:#f7eaea;color:#c0504d;}
+  .chips{margin:8px 0 4px;}
+  .chip{display:inline-flex;align-items:center;gap:5px;background:#eaf4ee;border-radius:12px;padding:3px 9px;font-size:13px;margin:2px 3px 2px 0;}
+  .chip button{border:0;background:none;cursor:pointer;color:#a33;font-weight:700;font-size:14px;}
+  .signup{background:var(--green);color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:700;font-size:15px;cursor:pointer;margin-top:8px;}
+  .signup:disabled{background:#b9c8c0;cursor:not-allowed;}
+  .load,.err{padding:60px 24px;text-align:center;color:var(--muted);font-size:16px;}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:18px;}
+  .msg{font-size:13px;margin-top:6px;min-height:16px;}
+</style>
+</head>
+<body>
+<div class="wrap"><div id="app"><div class="load">Lade Schichtplan…</div></div></div>
+<script>
+var CLOUD={url:'https://gvzayggvtlychyjbnsgv.supabase.co',key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf'};
+var q=new URLSearchParams(location.search); var T=q.get('t')||''; var E=q.get('e')||''; var EID=T+'|'+E;
+var TITLE='Schichtplan';
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function H(){return {apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key,'x-team-code':T,'Content-Type':'application/json'};}
+function sig(s){return (s.task||'')+'||'+(s.time||'');}
+async function fetchAll(){
+  var r=await fetch(CLOUD.url+'/rest/v1/event_dashboard?event_id=eq.'+encodeURIComponent(EID)+'&k=in.(shifts,pubinfo)&select=k,v',{headers:H()});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  var rows=await r.json(); var out={shifts:[],pubinfo:null};
+  rows.forEach(function(row){ if(row.k==='shifts')out.shifts=row.v||[]; if(row.k==='pubinfo')out.pubinfo=row.v; });
+  return out;
+}
+async function saveShifts(arr){
+  var r=await fetch(CLOUD.url+'/rest/v1/event_dashboard',{method:'POST',headers:Object.assign(H(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({event_id:EID,k:'shifts',v:arr,updated_at:new Date().toISOString()})});
+  return r.ok;
+}
+var _shifts=[];
+async function load(){
+  var app=document.getElementById('app');
+  if(!T||!E){ app.innerHTML='<div class="err">Ungültiger Link.</div>'; return; }
+  try{
+    var d=await fetchAll();
+    _shifts=d.shifts||[];
+    if(d.pubinfo&&d.pubinfo.name)TITLE=d.pubinfo.name;
+    render();
+  }catch(e){ app.innerHTML='<div class="err">Konnte den Schichtplan nicht laden. Bitte den Link prüfen.</div>'; }
+}
+function myName(){ var el=document.getElementById('myname'); return el?el.value.trim():''; }
+function render(){
+  var app=document.getElementById('app');
+  var h='<div class="hero"><div class="kick">CSC Marburg · Schichtplan</div><h1>'+esc(TITLE)+'</h1></div><div class="body">';
+  h+='<div class="namebar"><label>Dein Name</label><input id="myname" placeholder="Vorname Nachname" autocomplete="name"></div>';
+  if(!_shifts.length){ h+='<div class="err">Es sind noch keine Schichten eingetragen.</div>'; }
+  _shifts.forEach(function(s,i){
+    var ppl=s.people||[]; var need=+s.need||0; var full=need>0 && ppl.length>=need;
+    h+='<div class="shift"><div class="top"><div><div class="task">'+esc(s.task||('Schicht '+(i+1)))+'</div>'+(s.time?'<div class="time">'+esc(s.time)+'</div>':'')+'</div>';
+    h+='<span class="cnt '+(full?'full':'ok')+'">'+ppl.length+(need?'/'+need:'')+'</span></div>';
+    h+='<div class="chips">'+(ppl.length?ppl.map(function(p,pi){return '<span class="chip">'+esc(p)+'<button title="Austragen" onclick="leave('+i+','+pi+')">×</button></span>';}).join(''):'<span class="time">Noch niemand eingetragen</span>')+'</div>';
+    h+='<button class="signup" '+(full?'disabled':'')+' onclick="join('+i+')">'+(full?'Voll belegt':'✅ Hier eintragen')+'</button>';
+    h+='<div class="msg" id="msg'+i+'"></div></div>';
+  });
+  h+='<div class="foot">Deine Eintragung ist sofort für das Orga-Team sichtbar. 🌿</div></div>';
+  app.innerHTML=h;
+}
+function setMsg(i,t,err){ var el=document.getElementById('msg'+i); if(el){ el.textContent=t; el.style.color=err?'#c0504d':'var(--accent)'; } }
+async function join(i){
+  var nm=myName();
+  if(!nm){ setMsg(i,'Bitte zuerst oben deinen Namen eingeben.',true); return; }
+  var s0=_shifts[i]; if(!s0)return; var key=sig(s0);
+  setMsg(i,'Speichere…',false);
+  try{
+    var d=await fetchAll(); var arr=d.shifts||[];
+    var s=arr.filter(function(x){return sig(x)===key;})[0]; if(!s)s=arr[i];
+    if(!s){ setMsg(i,'Schicht nicht gefunden — bitte neu laden.',true); return; }
+    s.people=s.people||[];
+    if(s.people.indexOf(nm)>=0){ _shifts=arr; render(); return; }
+    var need=+s.need||0; if(need>0 && s.people.length>=need){ _shifts=arr; render(); setMsg(i,'Diese Schicht ist inzwischen voll.',true); return; }
+    s.people.push(nm);
+    var ok=await saveShifts(arr);
+    if(ok){ _shifts=arr; render(); } else { setMsg(i,'Speichern fehlgeschlagen. Bitte nochmal.',true); }
+  }catch(e){ setMsg(i,'Fehler beim Speichern. Bitte nochmal.',true); }
+}
+async function leave(i,pi){
+  var s0=_shifts[i]; if(!s0)return; var name=(s0.people||[])[pi]; if(!name)return;
+  if(!confirm('„'+name+'" aus dieser Schicht austragen?'))return;
+  var key=sig(s0);
+  try{
+    var d=await fetchAll(); var arr=d.shifts||[];
+    var s=arr.filter(function(x){return sig(x)===key;})[0]; if(!s)s=arr[i];
+    if(!s)return; s.people=(s.people||[]).filter(function(p){return p!==name;});
+    var ok=await saveShifts(arr);
+    if(ok){ _shifts=arr; render(); } else { setMsg(i,'Konnte nicht speichern.',true); }
+  }catch(e){ setMsg(i,'Fehler.',true); }
+}
+load();
+</script>
+</body>
+</html>
