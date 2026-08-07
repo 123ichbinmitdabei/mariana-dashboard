@@ -625,7 +625,7 @@
       <div class="row-flex" style="margin-bottom:10px;">
         <button class="btn sm" onclick="openAdd()">+ Teilnehmer hinzufügen</button>
         <button class="btn ghost sm" style="color:var(--accent);border-color:var(--line)" onclick="toggleView()"><span id="viewLbl">Als Tabelle</span></button>
-        <span class="status" style="color:var(--muted)" id="pCount"></span>
+        <span class="status" style="color:var(--muted)" id="pCount"></span><span class="status" style="color:var(--muted)" id="capSummary"></span>
       </div>
       <div class="row-flex" style="margin-bottom:12px;gap:8px;">
         <input id="fltSearch" placeholder="🔍 Name oder E-Mail suchen…" oninput="renderParticipants()" style="flex:1;min-width:150px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
@@ -900,7 +900,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.13.4';
+const APP_VERSION='2.13.5';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1067,6 +1067,7 @@ function toggleCancelP(mail){ const c=LS.get(kCancel(),{}); if(c[mail])delete c[
 function isPromoted(mail){ return !!(LS.get(kProm(),{})[mail]); }
 function ackPromoted(mail){ const p=LS.get(kProm(),{}); if(mail){ delete p[mail]; } else { Object.keys(p).forEach(function(k){ delete p[k]; }); } LS.set(kProm(),p); renderParticipants(); if(typeof pushAllLocal==='function')pushAllLocal(); }
 function updateWaitlistPromotions(){ const cap=+ev().capacity||0; const cur=waitlistSet(); const prev=LS.get(kWlSnap(),null); if(prev&&cap){ const prom=LS.get(kProm(),{}); prev.forEach(function(m){ if(!cur.has(m)&&!isCancelledP(m)&&DATA.some(function(r){return mailOf(r)===m;})&&!prom[m]) prom[m]=Date.now(); }); LS.set(kProm(),prom); } LS.set(kWlSnap(),Array.from(cur)); }
+function renderCapSummary(wl){ const el=document.getElementById('capSummary'); if(!el)return; const cap=+ev().capacity||0; let belegt=0,canc=0,prom=0; DATA.forEach(function(r){ var m=mailOf(r); if(isCancelledP(m)){canc++;return;} belegt+=personsOf(r); if(isPromoted(m))prom++; }); var parts=[]; if(cap){ var frei=Math.max(0,cap-belegt); parts.push('Kapazität '+cap+': '+Math.min(cap,belegt)+' belegt'+(frei>0?' · '+frei+' frei':' · voll')); if(wl&&wl.size)parts.push(wl.size+' Warteliste'); } if(canc)parts.push(canc+' abgesagt'); if(prom)parts.push(prom+' nachgerückt'); el.textContent = parts.length? ' · '+parts.join(' · ') : ''; }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
@@ -1548,7 +1549,7 @@ function renderParticipants(){renderPromoBanner();
         cBring=findCol('bringst du etwas','hilft'),cNote=findCol('mitteilen'),cTs=findCol('timestamp','zeitstempel');
   const mailCounts={}; DATA.forEach(r=>{const m=mailOf(r).toLowerCase(); if(m)mailCounts[m]=(mailCounts[m]||0)+1;});
   const dupes=Object.values(mailCounts).filter(n=>n>1).length;
-  const wl=waitlistSet();
+  const wl=waitlistSet(); renderCapSummary(wl);
   // --- Tag-Filter-Dropdown befüllen ---
   const tagStore=LS.get(kTags(),{}); const allTags=new Set(PRESET_TAGS);
   Object.values(tagStore).forEach(arr=>arr.forEach(t=>allTags.add(t)));
