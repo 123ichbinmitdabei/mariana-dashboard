@@ -693,7 +693,7 @@
     <div class="hint">Tipp: Die Tabelle muss auf „Jeder mit dem Link" freigegeben (oder veröffentlicht) sein, damit der automatische Abruf funktioniert. Der Team-Code trennt eure Cloud-Daten von anderen — gib denselben Code an alle Orga-Leute.</div>
     <div class="row-flex" style="justify-content:space-between;margin-top:10px;">
       <div class="row-flex" style="gap:6px">
-        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button><button class="btn sm" style="background:#2f9e6c" onclick="cloudBackupNow()">☁⬆ Cloud-Backup</button><button class="btn sm" style="background:#6c7a9e" onclick="cloudRestore()">☁⬇ Wiederherstellen</button>
+        <button class="btn sm" style="background:#2f7ec6" onclick="cloneEvent()">📋 Klonen</button><button class="btn sm" style="background:#2f9e6c" onclick="cloudBackupNow()">☁⬆ Cloud-Backup</button><button class="btn sm" style="background:#6c7a9e" onclick="cloudRestore()">☁⬇ Wiederherstellen</button><button class="btn sm" style="background:#8a5cc6" onclick="sharePublicInfo()">🔗 Info-Seite teilen</button>
         <button class="btn sm" style="background:#c9922b" onclick="cancelEvent()">Absagen</button>
         <button class="btn danger sm" onclick="deleteEvent()">Löschen</button>
       </div>
@@ -899,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.9.3';
+const APP_VERSION='2.10.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3666,6 +3666,17 @@ function regPersons(){ try{ return DATA.reduce(function(s,r){ return s+(isOrgaRo
 function regGuests(){ try{ return DATA.reduce(function(s,r){ return s+(isOrgaRow(r)?0:Math.max(0,personsOf(r)-1)); },0); }catch(e){ return 0; } }
 function orgaPersonsTotal(){ try{ var inData=DATA.reduce(function(s,r){ return s+(isOrgaRow(r)?personsOf(r):0); },0); var mails={}; DATA.forEach(function(r){ var m=(mailOf(r)||'').toString().toLowerCase(); if(m) mails[m]=1; }); var pool=LS.get(kOrga(),[]); var extra=pool.filter(function(o){ var nm=((o&&o.name)||'').toString().toLowerCase(); return nm && !mails[nm]; }).length; return inData+extra; }catch(e){ return 0; } }
 function totalPersons(){ return regPersons()+orgaPersonsTotal(); }
+
+function sharePublicInfo(){
+  if(!teamCode()){ alert('Bitte zuerst einen Team-Code in den Einstellungen setzen — der oeffentliche Link nutzt ihn als Zugang.'); return; }
+  var e=ev(); var cap=+e.capacity||0; var tot=totalPersons();
+  var info={ name:e.name, eventDate:e.eventDate||'', place:e.place||'', price:+e.price||0, capacity:cap, form:e.form||'', whatsapp:e.whatsapp||'', anm:anmForm(), persons:tot, free:(cap?Math.max(0,cap-tot):null), ts:Date.now() };
+  setSync('teile...');
+  fetch(CLOUD.url+'/rest/v1/event_dashboard',{method:'POST',headers:cloudHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({event_id:cloudNS(),k:'pubinfo',v:info,updated_at:new Date().toISOString()})})
+   .then(function(r){ setSync(r.ok?'ok':'Fehler '+r.status); if(r.ok){ var link=location.origin+'/info.html?t='+encodeURIComponent(teamCode())+'&e='+encodeURIComponent(currentId); showPublicLink(link); } else { alert('Konnte die Info nicht veroeffentlichen ('+r.status+').'); } })
+   .catch(function(){ setSync('offline'); alert('Offline — Info nicht veroeffentlicht.'); });
+}
+function showPublicLink(link){ try{ if(navigator.clipboard) navigator.clipboard.writeText(link); }catch(e){} window.prompt('Oeffentlicher Info-Link (kopiert) — zum Teilen:', link); }
 </script>
 </body>
 </html>
