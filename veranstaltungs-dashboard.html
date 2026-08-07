@@ -899,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.13.1';
+const APP_VERSION='2.13.2';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1106,6 +1106,7 @@ function reloadData(){
   document.body.appendChild(s);
 }
 let SHEETROWS=[], SHEETHEADERS=[], lastSheetLoad=0;
+let _editMail=null;
 function finishLoad(headers, rows){
   if(headers.length) SHEETHEADERS=headers;
   SHEETROWS=rows;
@@ -1587,7 +1588,7 @@ function renderParticipants(){
         <div><b>${esc(displayName(r))}</b>
           <button class="btn ghost sm" title="Anzeigename ändern" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="editName('${esc(mail)}')">✎</button>
           <button class="btn sm" title="Rolle wechseln (Mitglied/Orga/Gast)" style="padding:1px 7px;font-size:11px;background:${ROLE_COLORS[roleOf(r)]};color:#08160d;border:0" onclick="cycleRole('${esc(mail)}')">${roleOf(r)}</button>
-          <button class="btn ghost sm" title="Daten ergänzen (Telefon, Orga-Funktion, Notiz)" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="openExtra('${esc(mail)}')">✏️</button>
+          <button class="btn ghost sm" title="Daten ergänzen (Telefon, Orga-Funktion, Notiz)" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="${r.__manual?'editManual':'openExtra'}('${esc(mail)}')">✏️</button>
           <div style="font-size:11px;color:var(--muted);word-break:break-all;">${esc(mail)}</div></div>
         <span style="text-align:right;">${mailCounts[mail.toLowerCase()]>1?'<span class="pill off">doppelt</span> ':''}${wl.has(mail)?'<span class="pill" style="background:#fde2c0;color:#8a5a12">Warteliste</span> ':''}${r.__manual?'<span class="pill man">manuell</span> ':''}${payPill(st)}
           <label style="display:block;font-size:11px;color:var(--muted);margin-top:4px;cursor:pointer;"><input type="checkbox" class="ci" ${isChecked(r)?'checked':''} onchange="toggleCheckin('${esc(mail)}')"> da</label></span></div>
@@ -1619,6 +1620,27 @@ function clearFilters(){
   ['fltSearch','fltPay','fltRole','fltNight','fltCheck','fltTag'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const so=document.getElementById('fltSort'); if(so)so.value='name';
   renderParticipants();
+}
+function _setV(id,v){var el=document.getElementById(id);if(el)el.value=(v==null?'':v);}
+function editManual(mail){
+ var man=LS.get(kMan(),[]);
+ var idx=man.findIndex(function(m){return (m.mail||'')===mail;});
+ if(idx<0){openExtra(mail);return;}
+ var m=man[idx];
+ openAdd();
+ var h=document.querySelector('#addModal h3');if(h)h.textContent='Teilnehmer bearbeiten';
+ _setV('aMail',m.mail);_setV('aVerein',m.verein);_setV('aPers',m.pers||1);
+ _setV('aWann',m.wann);_setV('aAnreise',m.anreise);_setV('aUeber',m.ueber);
+ _setV('aFahr',m.fahr);_setV('aAuf',m.auf);_setV('aBring',m.bring);_setV('aQuiz',m.quiz);
+ var z=document.getElementById('aZahl');if(z&&m.zahl)z.value=m.zahl;
+ _setV('aNote',m.note);
+ var rr=LS.get(kRole(),{});var rEl=document.getElementById('aRole');if(rEl&&rr[mail])rEl.value=rr[mail];
+ var ex=(typeof extraOf==='function'?extraOf(mail):(LS.get(kExtra(),{})[mail]||{}))||{};
+ _setV('aPhone',ex.phone);_setV('aOrgaRole',ex.orgaRole);
+ var fe=document.getElementById('aFee');if(fe)fe.value=ex.noFee?'nein':'ja';
+ _setV('aOrgaPaid','');
+ syncOrgaPaidField();
+ _editMail=mail;
 }
 function delManual(idx){
   const item=DATA[idx]; if(!item||!item.__manual)return;
@@ -3450,13 +3472,13 @@ function addParticipant(){
     fahr:gv('aFahr'),auf:gv('aAuf'),bring:gv('aBring'),quiz:gv('aQuiz'),
     zahl:aZahl.value,note:aNote.value.trim()};
   if(!m.mail){alert('Bitte Mail/Name angeben.');return;}
-  const man=LS.get(kMan(),[]);man.push(m);LS.set(kMan(),man);
+  var _em=_editMail;_editMail=null;var man=LS.get(kMan(),[]);if(_em){var _i=man.findIndex(function(x){return (x.mail||'')===_em;});if(_i>=0)man[_i]=m;else man.push(m);if(_em!==m.mail){[kRole(),kExtra(),kNames()].forEach(function(k){var mp=LS.get(k,{});if(mp&&mp[_em]!==undefined){delete mp[_em];LS.set(k,mp);}});}}else{man.push(m);}LS.set(kMan(),man);
   const rEl=document.getElementById('aRole'); if(rEl&&rEl.value){ const rr=LS.get(kRole(),{}); rr[m.mail]=rEl.value; LS.set(kRole(),rr); }
   const ph=gv('aPhone'), orl=gv('aOrgaRole');
   if(ph||orl){ const ex=LS.get(kExtra(),{}); ex[m.mail]={...(ex[m.mail]||{})}; if(ph)ex[m.mail].phone=ph; if(orl)ex[m.mail].orgaRole=orl; LS.set(kExtra(),ex); }
   { var _fee=gv('aFee'); var _ex=LS.get(kExtra(),{}); _ex[m.mail]=Object.assign({},_ex[m.mail]||{}); _ex[m.mail].noFee=(_fee==='nein'); LS.set(kExtra(),_ex); }
   const orgaPaid=parseFloat(gv('aOrgaPaid'))||0;
-  if(rEl&&rEl.value==='Orga'&&orgaPaid>0){ const ol=LS.get(kOrga(),[]); ol.push({name:m.verein?m.mail:(m.mail),paid:orgaPaid,note:'Orga'+(orl?' · '+orl:'')}); LS.set(kOrga(),ol); }
+  if(!_em&&rEl&&rEl.value==='Orga'&&orgaPaid>0){ const ol=LS.get(kOrga(),[]); ol.push({name:m.verein?m.mail:(m.mail),paid:orgaPaid,note:'Orga'+(orl?' · '+orl:'')}); LS.set(kOrga(),ol); }
   ['aMail','aVerein','aWann','aAnreise','aUeber','aFahr','aAuf','aBring','aQuiz','aNote','aPhone','aOrgaRole','aOrgaPaid'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});aPers.value=1;
   closeModal('addModal');reloadData();
 }
@@ -3598,8 +3620,8 @@ try{buildNav();}catch(e){}
 function distinctVals(col){if(!col)return [];const set=new Set();DATA.forEach(r=>{const v=(val(r,col)||'').trim();if(v)set.add(v);});return [...set].sort((a,b)=>a.localeCompare(b,'de'));}
 function attachDatalist(inputId,col){const inp=document.getElementById(inputId);if(!inp)return;const vals=distinctVals(col);const dlId='dl_'+inputId;let dl=document.getElementById(dlId);if(!dl){dl=document.createElement('datalist');dl.id=dlId;document.body.appendChild(dl);}dl.innerHTML=vals.map(v=>'<option value="'+esc(v)+'">').join('');inp.setAttribute('list',dlId);}
 function fillAddDatalists(){attachDatalist('aVerein',findCol('verein'));attachDatalist('aWann',findCol('wann kommst','wann'));attachDatalist('aAnreise',findCol('reist Du an','anreise'));attachDatalist('aUeber',findCol('übernacht','ubernacht'));attachDatalist('aFahr',findCol('fahrdienst'));attachDatalist('aAuf',findCol('aufräumen','aufraumen','sonntag'));attachDatalist('aQuiz',findCol('quiz'));attachDatalist('aBring',findCol('bringst du etwas','hilft'));}
-function openAdd(){const h=document.querySelector('#addModal h3');if(h)h.textContent='+ Teilnehmer hinzufügen';const rEl=document.getElementById('aRole');if(rEl)rEl.value='Mitglied';syncOrgaPaidField();fillAddDatalists();document.getElementById('addModal').classList.add('open');}
-function openOrgaAssistant(){document.getElementById('addModal').classList.add('open');const h=document.querySelector('#addModal h3');if(h)h.textContent='➕ Orga-Mitglied anlegen';const rEl=document.getElementById('aRole');if(rEl)rEl.value='Orga';syncOrgaPaidField();fillAddDatalists();}
+function openAdd(){_editMail=null;const h=document.querySelector('#addModal h3');if(h)h.textContent='+ Teilnehmer hinzufügen';const rEl=document.getElementById('aRole');if(rEl)rEl.value='Mitglied';syncOrgaPaidField();fillAddDatalists();document.getElementById('addModal').classList.add('open');}
+function openOrgaAssistant(){_editMail=null;document.getElementById('addModal').classList.add('open');const h=document.querySelector('#addModal h3');if(h)h.textContent='➕ Orga-Mitglied anlegen';const rEl=document.getElementById('aRole');if(rEl)rEl.value='Orga';syncOrgaPaidField();fillAddDatalists();}
 function cloneEvent(){const e=ev();const name=prompt('Name der neuen (geklonten) Veranstaltung:',e.name+' (Kopie)');if(!name)return;const id='evt-'+Date.now();const copy=Object.assign({},e,{id:id,name:name.trim(),eventDate:'',lat:null,lon:null,cancelled:undefined,cancelReason:undefined});events.push(copy);LS.set('evtdash_events',events);currentId=id;LS.set('evtdash_current',currentId);closeModal('settingsModal');switchEvent(id,true);openWizard();}
 
 
