@@ -991,7 +991,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.33.0';
+const APP_VERSION='2.34.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1229,6 +1229,8 @@ function anonymizePerson(){
   [kExtra,kTags].forEach(function(kf){ try{ var o=LS.get(kf(),{}); if(o&&typeof o==='object'&&o[mail]!==undefined){ delete o[mail]; LS.set(kf(),o); } }catch(e){} });
   try{ closeModal('extraModal'); }catch(e){} try{ rebuildData(); }catch(e){} alert('Person anonymisiert (lokal).');
 }
+function _offPill(){ var el=document.getElementById('offlinePill'); if(!el){ el=document.createElement('div'); el.id='offlinePill'; el.style.cssText='position:fixed;top:8px;right:8px;z-index:99998;color:#fff;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.3);display:none'; document.body.appendChild(el); } return el; }
+function updateOffline(){ try{ var el=_offPill(); var off=(typeof navigator!=='undefined' && navigator.onLine===false); if(off){ el.style.background='#c62828'; el.textContent='\uD83D\uDD34 Offline \u2013 wird lokal gespeichert'; el.style.display='block'; el._wasOff=true; } else { if(el._wasOff){ el.style.background='#2e7d32'; el.textContent='\u2705 Wieder online \u2013 synchronisiert'; el.style.display='block'; setTimeout(function(){ try{ if(navigator.onLine!==false) el.style.display='none'; }catch(e){} }, 3000); } else { el.style.display='none'; } el._wasOff=false; } }catch(e){} }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
@@ -3720,7 +3722,7 @@ if(_joinCode){ liveJoinInit(_joinCode); }
 else { initDashboard(); }
 function initDashboard(){
 try{ const fv=document.getElementById('footVer'); if(fv)fv.textContent='v'+APP_VERSION; }catch(e){}
-initCollapsibles(); applyHidden(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){} setTimeout(function(){try{autoBackup();}catch(e){}},6000); try{applyFinLock();}catch(e){} try{_wrapUndo();}catch(e){}
+initCollapsibles(); applyHidden(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){} setTimeout(function(){try{autoBackup();}catch(e){}},6000); try{applyFinLock();}catch(e){} try{_wrapUndo();}catch(e){} try{updateOffline(); window.addEventListener('online',updateOffline); window.addEventListener('offline',updateOffline);}catch(e){}
 checkVersion(); setInterval(checkVersion, 120000);
 updateSyncBtn();
 updateModeBtn();
