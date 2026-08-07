@@ -899,7 +899,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.12.0';
+const APP_VERSION='2.13.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3722,6 +3722,51 @@ function renderFeedbackOverlay(rows){
   var ov=document.getElementById('fbOverlay'); var cb=document.getElementById('fbClose');
   if(cb)cb.onclick=function(){ ov.remove(); };
   if(ov)ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+}
+
+var _fbRows=[];
+function renderFeedbackOverlay(rows){
+  _fbRows=rows||[];
+  var old=document.getElementById('fbOverlay'); if(old)old.remove();
+  var n=rows.length; var sum=0; var dist=[0,0,0,0,0];
+  rows.forEach(function(x){ var v=+x.rating||0; sum+=v; if(v>=1&&v<=5)dist[v-1]++; });
+  var avg=n?(sum/n):0; var pos=dist[3]+dist[4]; var neg=dist[0]+dist[1];
+  var posPct=n?Math.round(pos/n*100):0; var negPct=n?Math.round(neg/n*100):0;
+  var h='<div id="fbOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto">';
+  h+='<div style="background:#fff;border-radius:14px;max-width:600px;width:100%;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.35)">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0;color:#1f7554">Feedback-Auswertung ('+n+')</h3><button id="fbClose" class="btn ghost sm">Schließen</button></div>';
+  if(!n){ h+='<div class="status" style="color:#5f6f65">Noch kein Feedback eingegangen. Teile den Feedback-Link nach dem Event.</div>'; }
+  else {
+    h+='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">';
+    h+='<div style="text-align:center;min-width:90px"><div style="font-size:34px;font-weight:800;color:#1f7554;line-height:1">'+avg.toFixed(1)+'</div><div style="color:#f9c74f;font-size:18px">'+fbStars(avg)+'</div><div style="font-size:11px;color:#5f6f65">'+n+' Bewertungen</div></div>';
+    h+='<div style="flex:1;min-width:200px">';
+    for(var st=5; st>=1; st--){ var cnt=dist[st-1]; var pct=n?Math.round(cnt/n*100):0; h+='<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px"><span style="width:26px;color:#5f6f65">'+st+'★</span><span style="flex:1;height:10px;background:#eef2ef;border-radius:6px;overflow:hidden"><span style="display:block;height:100%;width:'+pct+'%;background:#1f7554"></span></span><span style="width:60px;text-align:right;color:#5f6f65">'+cnt+' ('+pct+'%)</span></div>'; }
+    h+='</div></div>';
+    h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span style="background:#eaf4ee;color:#1c6b3f;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600">👍 '+posPct+'% zufrieden (4–5★)</span>'+(negPct?'<span style="background:#f7eaea;color:#c0504d;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600">👎 '+negPct+'% unzufrieden (1–2★)</span>':'')+'</div>';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0"><b style="color:#1f7554">Kommentare</b><button id="fbCsv" class="btn ghost sm">⬇ CSV</button></div>';
+    var withText=rows.filter(function(x){return x.text&&(''+x.text).trim();});
+    if(!withText.length){ h+='<div class="status" style="color:#8a978f">Keine Kommentare abgegeben.</div>'; }
+    h+=rows.map(function(x){
+      if(!(x.text&&(''+x.text).trim()))return '';
+      var nm=esc(x.name||'Anonym'); var dt=x.created_at?new Date(x.created_at).toLocaleDateString('de-DE'):'';
+      return '<div style="border-top:1px solid #eee;padding:9px 0"><div style="display:flex;justify-content:space-between"><b>'+nm+'</b><span style="color:#f9c74f">'+fbStars(x.rating)+'</span></div><div style="font-size:11px;color:#8a978f">'+dt+'</div><div style="margin-top:3px;color:#22322a">'+esc(x.text)+'</div></div>';
+    }).join('');
+  }
+  h+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+  var ov=document.getElementById('fbOverlay'); var cb=document.getElementById('fbClose'); var cs=document.getElementById('fbCsv');
+  if(cb)cb.onclick=function(){ ov.remove(); };
+  if(ov)ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  if(cs)cs.onclick=function(){ fbExportCSV(); };
+}
+function fbExportCSV(){
+  var rows=_fbRows||[]; var NL=String.fromCharCode(10); var Q=String.fromCharCode(34);
+  function cell(v){ v=(v==null?'':String(v)); return Q+v.split(Q).join(Q+Q)+Q; }
+  var out=[[cell('Datum'),cell('Name'),cell('Sterne'),cell('Kommentar')].join(';')];
+  rows.forEach(function(x){ var dt=x.created_at?new Date(x.created_at).toLocaleString('de-DE'):''; out.push([cell(dt),cell(x.name||''),cell(x.rating||''),cell(x.text||'')].join(';')); });
+  var csv=out.join(NL);
+  var blob=new Blob([String.fromCharCode(0xFEFF)+csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='feedback-auswertung.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){ try{URL.revokeObjectURL(url); a.remove();}catch(e){} },1500);
 }
 </script>
 </body>
