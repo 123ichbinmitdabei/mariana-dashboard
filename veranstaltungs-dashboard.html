@@ -189,6 +189,7 @@
 
 <div class="wrap">
   <div id="cancelBanner"></div>
+  <div id="promoBanner"></div>
   <div id="verBanner"></div>
   <div class="status" id="loadStatus"></div>
   <div id="staleWarn"></div>
@@ -899,7 +900,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.13.3';
+const APP_VERSION='2.13.4';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -925,6 +926,9 @@ const kRole =()=>'evtdash_role_'+currentId;
 const kTags =()=>'evtdash_tags_'+currentId;
 const kShifts=()=>'evtdash_shifts_'+currentId;
 const kSleep=()=>'evtdash_sleep_'+currentId;
+const kCancel=()=>'evtdash_cancel_'+currentId;
+const kProm=()=>'evtdash_promoted_'+currentId;
+const kWlSnap=()=>'evtdash_wlsnap_'+currentId;
 const kExtra=()=>'evtdash_extra_'+currentId;   // pro Person: {mail:{phone,orgaRole,note}}
 const kExp  =()=>'evtdash_exp_'+currentId;      // Ausgaben mit Beleg/Quelle
 const kQuiz =()=>'evtdash_quiz_'+currentId;     // Quizze/Spiele/Vorträge
@@ -1058,12 +1062,18 @@ function deletePersonData(){
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function parseTs(s){ const p=(s||'').split(' ')[0]; if(!p)return 0; const m=p.split('/'); if(m.length===3){const d=new Date(+m[2],+m[0]-1,+m[1]); return d.getTime()||0;} return new Date(s).getTime()||0; }
+function isCancelledP(mail){ return !!(LS.get(kCancel(),{})[mail]); }
+function toggleCancelP(mail){ const c=LS.get(kCancel(),{}); if(c[mail])delete c[mail]; else c[mail]=Date.now(); LS.set(kCancel(),c); rebuildData(); if(typeof pushAllLocal==='function')pushAllLocal(); }
+function isPromoted(mail){ return !!(LS.get(kProm(),{})[mail]); }
+function ackPromoted(mail){ const p=LS.get(kProm(),{}); if(mail){ delete p[mail]; } else { Object.keys(p).forEach(function(k){ delete p[k]; }); } LS.set(kProm(),p); renderParticipants(); if(typeof pushAllLocal==='function')pushAllLocal(); }
+function updateWaitlistPromotions(){ const cap=+ev().capacity||0; const cur=waitlistSet(); const prev=LS.get(kWlSnap(),null); if(prev&&cap){ const prom=LS.get(kProm(),{}); prev.forEach(function(m){ if(!cur.has(m)&&!isCancelledP(m)&&DATA.some(function(r){return mailOf(r)===m;})&&!prom[m]) prom[m]=Date.now(); }); LS.set(kProm(),prom); } LS.set(kWlSnap(),Array.from(cur)); }
+function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
   const cTs=findCol('timestamp','zeitstempel');
   const sorted=[...DATA].sort((a,b)=>parseTs(val(a,cTs))-parseTs(val(b,cTs)));
   let cum=0;
-  sorted.forEach(r=>{ const before=cum; cum+=personsOf(r); if(before>=cap) s.add(mailOf(r)); });
+  sorted.forEach(r=>{ if(isCancelledP(mailOf(r))) return; const before=cum; cum+=personsOf(r); if(before>=cap) s.add(mailOf(r)); });
   return s;
 }
 
@@ -1116,6 +1126,7 @@ function rebuildData(){
   HEADERS = SHEETHEADERS.length?SHEETHEADERS:HEADERS;
   const manual = LS.get(kMan(),[]).map(m=>({__manual:true, ...m}));
   DATA = SHEETROWS.concat(manual.map(mapManual));
+  updateWaitlistPromotions();
   renderAll();
 }
 function mapManual(m){
@@ -1529,7 +1540,7 @@ function payPill(st){
     :st==='onsite'?'<span class="pill warn">vor Ort</span>'
     :st==='open'?'<span class="pill off">offen</span>':'<span class="pill">–</span>';
 }
-function renderParticipants(){
+function renderParticipants(){renderPromoBanner();
   const cMail=findCol('mail'),cVer=findCol('verein'),cWann=findCol('wann kommst','wann'),
         cBeg=findCol('mitbringen','begleit'),cUeb=findCol('übernacht','ubernacht'),
         cAnr=findCol('reist Du an','anreise'),cFahr=findCol('fahrdienst'),
@@ -1583,14 +1594,15 @@ function renderParticipants(){
     const mail=mailOf(r);
     const line=(k,v)=>v?`<div class="r"><span class="k">${k}</span><span>${v}</span></div>`:'';
     const allRows=HEADERS.filter(h=>val(r,h)).map(h=>`<div class="r"><span class="k">${h.length>28?h.slice(0,26)+'…':h}</span><span>${val(r,h)}</span></div>`).join('');
-    return `<div class="pcard" style="${isChecked(r)?'border-color:#30a46c;box-shadow:0 0 0 1px #30a46c inset;':''}">
+    return `<div class="pcard" style="${isCancelledP(mail)?'opacity:.55;':''}${isChecked(r)?'border-color:#30a46c;box-shadow:0 0 0 1px #30a46c inset;':''}">
       <div class="h">
         <div><b>${esc(displayName(r))}</b>
           <button class="btn ghost sm" title="Anzeigename ändern" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="editName('${esc(mail)}')">✎</button>
           <button class="btn sm" title="Rolle wechseln (Mitglied/Orga/Gast)" style="padding:1px 7px;font-size:11px;background:${ROLE_COLORS[roleOf(r)]};color:#08160d;border:0" onclick="cycleRole('${esc(mail)}')">${roleOf(r)}</button>
           <button class="btn ghost sm" title="Daten ergänzen (Telefon, Orga-Funktion, Notiz)" style="padding:0 5px;color:var(--accent);border-color:var(--line)" onclick="${r.__manual?'editManual':'openExtra'}('${esc(mail)}')">✏️</button>
+          <button class="btn ghost sm" title="Absagen / Absage aufheben (gibt Platz für Warteliste frei)" style="padding:0 5px;border-color:var(--line);color:${isCancelledP(mail)?'#a33':'var(--muted)'}" onclick="toggleCancelP('${esc(mail)}')">${isCancelledP(mail)?'↩ Absage aus':'✖ Absage'}</button>
           <div style="font-size:11px;color:var(--muted);word-break:break-all;">${esc(mail)}</div></div>
-        <span style="text-align:right;">${mailCounts[mail.toLowerCase()]>1?'<span class="pill off">doppelt</span> ':''}${wl.has(mail)?'<span class="pill" style="background:#fde2c0;color:#8a5a12">Warteliste</span> ':''}${r.__manual?'<span class="pill man">manuell</span> ':''}${payPill(st)}
+        <span style="text-align:right;">${mailCounts[mail.toLowerCase()]>1?'<span class="pill off">doppelt</span> ':''}${wl.has(mail)?'<span class="pill" style="background:#fde2c0;color:#8a5a12">Warteliste</span> ':''}${isPromoted(mail)?'<span class="pill" style="background:#d3f0dd;color:#166534">Nachgerückt</span> ':''}${isCancelledP(mail)?'<span class="pill off" style="background:#f7d9d9;color:#a33">Abgesagt</span> ':''}${r.__manual?'<span class="pill man">manuell</span> ':''}${payPill(st)}
           <label style="display:block;font-size:11px;color:var(--muted);margin-top:4px;cursor:pointer;"><input type="checkbox" class="ci" ${isChecked(r)?'checked':''} onchange="toggleCheckin('${esc(mail)}')"> da</label></span></div>
       <div class="rows">
         ${line('Verein',val(r,cVer))}
