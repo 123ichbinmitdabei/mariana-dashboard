@@ -191,6 +191,7 @@
 <div class="wrap">
   <div id="cancelBanner"></div>
   <div id="promoBanner"></div>
+  <div id="remindBanner"></div>
   <div id="verBanner"></div>
   <div class="status" id="loadStatus"></div>
   <div id="staleWarn"></div>
@@ -922,7 +923,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.17.0';
+const APP_VERSION='2.18.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1108,6 +1109,8 @@ const kHidden=()=>'evtdash_hidden_'+currentId;
 function applyHidden(){ try{ var hid=LS.get(kHidden(),[]); document.querySelectorAll('.section').forEach(function(s){ var k=sectionKey(s); s.style.display=(hid.indexOf(k)>=0)?'none':''; }); }catch(e){} }
 function openSections(){ var hid=LS.get(kHidden(),[]); window.__secKeys=[]; var rows=""; var idx=0; document.querySelectorAll('.section').forEach(function(s){ var k=sectionKey(s); if(!k)return; window.__secKeys.push(k); var on=hid.indexOf(k)<0; rows+="<label style='display:flex;gap:8px;align-items:center;padding:5px 0;cursor:pointer'><input type='checkbox' "+(on?"checked":"")+" onchange='toggleSecVis(this)' data-i='"+idx+"'><span>"+esc(k)+"</span></label>"; idx++; }); var b=document.getElementById('secBody'); if(b)b.innerHTML=rows||"<div class='status'>Keine Bereiche gefunden.</div>"; var el=document.getElementById('secModal'); if(el)el.classList.add('open'); }
 function toggleSecVis(cb){ var k=(window.__secKeys||[])[+cb.getAttribute('data-i')]; if(k==null)return; var hid=LS.get(kHidden(),[]); var i=hid.indexOf(k); if(cb.checked){ if(i>=0)hid.splice(i,1); } else { if(i<0)hid.push(k); } LS.set(kHidden(),hid); applyHidden(); }
+function renderRemind(){ var el=document.getElementById('remindBanner'); if(!el)return; var last=+LS.get('evtdash_remind_'+currentId,0)||0; if(Date.now()-last < 72000000){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#fff6e5;border-color:#e0a94a;margin-bottom:12px'><span>🔔 <b>Erinnerung:</b> PayPal-Zahlungen und WhatsApp-Nachrichten abgleichen – Zahlungen eintragen, neue Anmeldungen prüfen. <button class='btn sm' style='margin-left:8px' onclick='dismissRemind()'>Erledigt für heute</button></span></div>"; }
+function dismissRemind(){ LS.set('evtdash_remind_'+currentId, Date.now()); renderRemind(); }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
@@ -1581,7 +1584,7 @@ function payPill(st){
     :st==='onsite'?'<span class="pill warn">vor Ort</span>'
     :st==='open'?'<span class="pill off">offen</span>':'<span class="pill">–</span>';
 }
-function renderParticipants(){renderPromoBanner();
+function renderParticipants(){renderPromoBanner();renderRemind();
   const cMail=findCol('mail'),cVer=findCol('verein'),cWann=findCol('wann kommst','wann'),
         cBeg=findCol('mitbringen','begleit'),cUeb=findCol('übernacht','ubernacht'),
         cAnr=findCol('reist Du an','anreise'),cFahr=findCol('fahrdienst'),
