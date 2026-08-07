@@ -191,6 +191,7 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
   <button class="btn ghost sm" id="infoBtn" onclick="openInfoEditor()" title="Öffentliche Info-Seite für Gäste bearbeiten">ℹ️ Info-Seite</button>
   <button class="btn ghost sm" id="fbBtn" onclick="openFeedback()" title="Feedback-Seite teilen & Ergebnisse ansehen">💬 Feedback</button>
   <button class="btn ghost sm" id="themeBtn" onclick="toggleTheme()" title="Hell/Dunkel umschalten">🌙 Dunkel</button>
+  <button class="btn ghost sm" id="fontBtn" onclick="cycleFontScale()" title="Schriftgröße umschalten (Normal / Groß / Sehr groß)">🔠 Schrift</button>
   <button class="btn ghost sm" onclick="openInfoScreen()" title="Öffentlicher Info-Screen fürs Foyer (Vollbild)">📺 Info-Screen</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <button class="btn ghost sm" onclick="openHelp()">❓ Hilfe</button>
@@ -1010,7 +1011,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.56.0';
+const APP_VERSION='2.57.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1376,6 +1377,8 @@ function openEventReport(){ try{
    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400);}</scr'+'ipt></body></html>';
   var w=window.open('','_blank'); if(!w){ alert('Bitte Pop-ups im Browser erlauben, dann erneut versuchen.'); return; } w.document.open(); w.document.write(html); w.document.close();
 }catch(e){ alert('Report-Fehler: '+(e&&e.message||e)); } }
+function _applyFontScale(){ try{ var sc=parseFloat(LS.get('evtdash_fontscale','1'))||1; document.body.style.zoom=sc; var b=document.getElementById('fontBtn'); if(b) b.textContent = sc>=1.4?'🔠 Sehr groß':(sc>=1.2?'🔠 Groß':'🔠 Schrift'); }catch(e){} }
+function cycleFontScale(){ try{ var sc=parseFloat(LS.get('evtdash_fontscale','1'))||1; var next=(sc<1.2)?1.2:((sc<1.4)?1.4:1); LS.set('evtdash_fontscale', String(next)); _applyFontScale(); }catch(e){} }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
@@ -3868,7 +3871,7 @@ if(_joinCode){ liveJoinInit(_joinCode); }
 else { initDashboard(); }
 function initDashboard(){
 try{ const fv=document.getElementById('footVer'); if(fv)fv.textContent='v'+APP_VERSION; }catch(e){}
-initCollapsibles(); applyHidden(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){} setTimeout(function(){try{autoBackup();}catch(e){}},6000); try{applyFinLock();}catch(e){} try{_wrapUndo();}catch(e){} try{updateOffline(); window.addEventListener('online',updateOffline); window.addEventListener('offline',updateOffline);}catch(e){} try{ setTimeout(checkReminders,8000); setInterval(checkReminders,60000); }catch(e){} try{applyTheme();}catch(e){} try{ i18nInit(); applyLang(); }catch(e){}
+initCollapsibles(); applyHidden(); try{ if(!LS.get('evtdash_selfrole','')) setTimeout(openHelp,900); }catch(e){} setTimeout(function(){try{autoBackup();}catch(e){}},6000); try{applyFinLock();}catch(e){} try{_wrapUndo();}catch(e){} try{updateOffline(); window.addEventListener('online',updateOffline); window.addEventListener('offline',updateOffline);}catch(e){} try{ setTimeout(checkReminders,8000); setInterval(checkReminders,60000); }catch(e){} try{applyTheme();}catch(e){} try{ i18nInit(); applyLang(); }catch(e){} try{ _applyFontScale(); }catch(e){}
 checkVersion(); setInterval(checkVersion, 120000);
 updateSyncBtn();
 updateModeBtn();
