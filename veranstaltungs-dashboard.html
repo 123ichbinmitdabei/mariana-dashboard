@@ -180,6 +180,7 @@
   <button class="btn ghost sm" onclick="openDay()" title="Tagesübersicht: wer ist da / fehlt">📋 Tagesübersicht</button>
   <button class="btn ghost sm" id="finLockBtn" onclick="toggleFinLock()" title="Finanzen sperren/entsperren (PIN)">🔒 Finanzen</button>
   <button class="btn ghost sm" id="trashBtn" onclick="openTrash()" title="Papierkorb / Rückgängig">🗑 Papierkorb</button>
+  <button class="btn ghost sm" id="gciBtn" onclick="openGroupCheckin()" title="Mehrere Personen auf einmal einchecken">👥 Gruppen-Check-in</button>
   <button class="btn ghost sm" onclick="openInfoScreen()" title="Öffentlicher Info-Screen fürs Foyer (Vollbild)">📺 Info-Screen</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <button class="btn ghost sm" onclick="openHelp()">❓ Hilfe</button>
@@ -830,6 +831,7 @@
   <div style="margin-top:10px;text-align:right"><button class="btn sm" onclick="closeModal('bkModal')">Schließen</button></div>
 </div></div>
 <div class="modal" id="trashModal"><div style="background:var(--card,#fff);color:inherit;max-width:640px;width:92%;margin:auto;border-radius:14px;padding:18px;max-height:85vh;overflow:auto"><div id="trashBody"></div></div></div>
+<div class="modal" id="gciModal"><div style="background:var(--card,#fff);color:inherit;max-width:520px;width:94%;margin:auto;border-radius:14px;padding:16px;max-height:88vh;display:flex;flex-direction:column"><h3 style="margin:0 0 8px">👥 Gruppen-Check-in</h3><p style="opacity:.75;font-size:13px;margin:0 0 8px">Mehrere Personen auf einmal einchecken – z. B. eine Fahrgemeinschaft oder Familie.</p><input id="gciSearch" oninput="renderGci()" placeholder="Suchen…" style="padding:10px;font-size:16px;border:1px solid #ccc;border-radius:8px;margin-bottom:6px"><div style="display:flex;gap:8px;margin-bottom:6px"><button class="btn ghost sm" onclick="gciSelectAll(true)">Alle</button><button class="btn ghost sm" onclick="gciSelectAll(false)">Keine</button></div><div id="gciList" style="flex:1;overflow:auto;border:1px solid rgba(128,128,128,.2);border-radius:8px;min-height:120px"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn ghost" onclick="closeModal()">Schließen</button><button class="btn" id="gciDoBtn" onclick="doGroupCheckin()" disabled>Ausgewählte einchecken</button></div></div></div>
 <div class="modal" id="addModal">
   <div class="box">
     <h3>+ Teilnehmer hinzufügen</h3>
@@ -991,7 +993,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.34.0';
+const APP_VERSION='2.35.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1231,6 +1233,11 @@ function anonymizePerson(){
 }
 function _offPill(){ var el=document.getElementById('offlinePill'); if(!el){ el=document.createElement('div'); el.id='offlinePill'; el.style.cssText='position:fixed;top:8px;right:8px;z-index:99998;color:#fff;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.3);display:none'; document.body.appendChild(el); } return el; }
 function updateOffline(){ try{ var el=_offPill(); var off=(typeof navigator!=='undefined' && navigator.onLine===false); if(off){ el.style.background='#c62828'; el.textContent='\uD83D\uDD34 Offline \u2013 wird lokal gespeichert'; el.style.display='block'; el._wasOff=true; } else { if(el._wasOff){ el.style.background='#2e7d32'; el.textContent='\u2705 Wieder online \u2013 synchronisiert'; el.style.display='block'; setTimeout(function(){ try{ if(navigator.onLine!==false) el.style.display='none'; }catch(e){} }, 3000); } else { el.style.display='none'; } el._wasOff=false; } }catch(e){} }
+function openGroupCheckin(){ var m=document.getElementById('gciModal'); if(!m) return; var srch=document.getElementById('gciSearch'); if(srch)srch.value=''; renderGci(); m.classList.add('open'); }
+function renderGci(){ var srch=document.getElementById('gciSearch'); var q=((srch&&srch.value)||'').toLowerCase().trim(); var box=document.getElementById('gciList'); if(!box)return; var src=(typeof DATA!=='undefined'?DATA:[]); var list=src.filter(function(r){ var mail=mailOf(r); if(!mail) return false; if(isCancelledP(mail)) return false; if(isChecked(r)) return false; var nm=(displayName(r)||'')+' '+mail; return !q || nm.toLowerCase().indexOf(q)!==-1; }); if(!list.length){ box.innerHTML='<div style=\'opacity:.6;padding:10px\'>Niemand offen (alle eingecheckt oder kein Treffer).</div>'; updateGciCount(); return; } box.innerHTML=list.map(function(r){ var mail=mailOf(r); return '<label style=\'display:flex;gap:10px;align-items:center;padding:9px 6px;border-bottom:1px solid rgba(128,128,128,.2);font-size:16px\'><input type=\'checkbox\' class=\'gciChk\' value=\''+esc(mail)+'\' onchange=\'updateGciCount()\' style=\'width:20px;height:20px\'> <span>'+esc(displayName(r))+'</span></label>'; }).join(''); updateGciCount(); }
+function updateGciCount(){ var n=document.querySelectorAll('.gciChk:checked').length; var b=document.getElementById('gciDoBtn'); if(b){ b.textContent=n?('\u2705 '+n+' einchecken'):'Ausgewählte einchecken'; b.disabled=!n; } }
+function gciSelectAll(v){ document.querySelectorAll('.gciChk').forEach(function(c){ c.checked=v; }); updateGciCount(); }
+function doGroupCheckin(){ var mails=[].slice.call(document.querySelectorAll('.gciChk:checked')).map(function(c){return c.value;}); if(!mails.length) return; try{ pushUndo('Gruppen-Check-in ('+mails.length+')'); }catch(e){} var s=LS.get(kChk(),{}); mails.forEach(function(m){ if(!s[m]) s[m]=Date.now(); }); LS.set(kChk(),s); try{beep(true);}catch(e){} try{ renderKPIs(); renderParticipants(); }catch(e){} renderGci(); alert(mails.length+' Personen eingecheckt.'); }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
