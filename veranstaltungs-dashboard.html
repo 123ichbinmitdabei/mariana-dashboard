@@ -741,6 +741,7 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
       <div class="field" style="flex:1"><label>Namensschild Höhe (mm)</label><input id="sBadgeH" type="number" value="54"></div>
     </div>
     <div class="field"><label>Maximale Plätze (0 = unbegrenzt)</label><input id="sCapacity" type="number" value="0"></div>
+    <div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="sIdCheck" style="width:18px;height:18px"> 🪪 Ausweis-/Alters-Check beim Check-in aktivieren</label></div>
     <div class="field"><label>Team-Code (Cloud-Zugang — nur wer denselben Code hat, teilt die Daten)</label><input id="sTeam" placeholder="z.B. marburg2026"></div>
     <div class="hint">Tipp: Die Tabelle muss auf „Jeder mit dem Link" freigegeben (oder veröffentlicht) sein, damit der automatische Abruf funktioniert. Der Team-Code trennt eure Cloud-Daten von anderen — gib denselben Code an alle Orga-Leute.</div>
     <div class="row-flex" style="justify-content:space-between;margin-top:10px;">
@@ -1004,7 +1005,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.48.0';
+const APP_VERSION='2.49.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1133,7 +1134,7 @@ function openExtra(mail){
   document.getElementById('exPhone').value=ex.phone||(r&&cPhone?val(r,cPhone):'')||'';
   document.getElementById('exOrga').value=ex.orgaRole||'';
   document.getElementById('exNote').value=ex.note||'';
-  document.getElementById('extraModal').classList.add('open');
+  try{renderIdCheckRow(mail,r,ex);}catch(_e){} document.getElementById('extraModal').classList.add('open');
 }
 function saveExtra(){
   const mail=document.getElementById('exMail').value;
@@ -1321,6 +1322,10 @@ function translateDOM(map){ try{ if(!document.body) return; var w=document.creat
 function applyLang(l){ var lang=l||LS.get('evtdash_lang','de'); LS.set('evtdash_lang',lang); window._lang=lang; try{ document.documentElement.lang=lang; }catch(e){} if(lang==='en'){ translateDOM(I18N_DE_EN); } else { translateDOM(_i18nRev()); } var b=document.getElementById('langBtn'); if(b) b.textContent = lang==='en'?'🇬🇧 EN':'🇩🇪 DE'; }
 function toggleLang(){ applyLang(LS.get('evtdash_lang','de')==='en'?'de':'en'); }
 function i18nInit(){ if(window._i18nReady) return; window._i18nReady=true; try{ var _al=window.alert,_cf=window.confirm,_pr=window.prompt; function T(s){ if((window._lang||'de')!=='en'||typeof s!=='string') return s; return (I18N_DE_EN[s]!==undefined?I18N_DE_EN[s]:s); } window.alert=function(s){ return _al(T(s)); }; window.confirm=function(s){ return _cf(T(s)); }; window.prompt=function(s,d){ return _pr(T(s),d); }; }catch(e){} try{ var mo=new MutationObserver(function(){ if((window._lang||'de')!=='en') return; clearTimeout(window._i18nT); window._i18nT=setTimeout(function(){ translateDOM(I18N_DE_EN); },160); }); mo.observe(document.body,{childList:true,subtree:true}); }catch(e){} }
+function _ageFrom(r){ try{ if(!r) return null; var c=(typeof findCol==='function')?findCol('geburtsdatum','geburt','geboren','birth'):''; if(!c) return null; var v=val(r,c); if(!v) return null; var parts=(''+v).split(/[^0-9]+/).filter(Boolean); if(parts.length<3) return null; var day,mon,yr; if(parts[0].length===4){ yr=+parts[0]; mon=+parts[1]; day=+parts[2]; } else { day=+parts[0]; mon=+parts[1]; yr=+parts[2]; } if(yr<100) yr+=(yr>30?1900:2000); var d=new Date(yr,(mon||1)-1,(day||1)); if(isNaN(d)) return null; var age=Math.floor((Date.now()-d.getTime())/(365.25*24*3600*1000)); if(age<0||age>120) return null; return age; }catch(e){ return null; } }
+function idCheckOn(){ try{ return !!(ev()&&ev().idcheck); }catch(e){ return false; } }
+function setIdOk(mail,v){ try{ var ex=LS.get(kExtra(),{}); var o=Object.assign({},(ex[mail]||{})); if(v) o.idok=Date.now(); else delete o.idok; ex[mail]=o; LS.set(kExtra(),ex); }catch(e){} }
+function renderIdCheckRow(mail,r,ex){ try{ var modal=document.getElementById('extraModal'); if(!modal) return; var row=document.getElementById('exIdRow'); if(!idCheckOn()){ if(row) row.style.display='none'; return; } if(!row){ row=document.createElement('div'); row.id='exIdRow'; row.style.cssText='margin:10px 0;padding:10px;border:1px solid rgba(128,128,128,.3);border-radius:8px;background:rgba(28,138,78,.06)'; var anchor=document.getElementById('exNote'); var host=anchor?(anchor.closest('label')||anchor.parentNode):null; if(host&&host.parentNode){ host.parentNode.insertBefore(row, host.nextSibling); } else { modal.appendChild(row); } } var age=_ageFrom(r); var warn=(age!=null&&age<18)?('<div style="color:#c62828;font-weight:600;font-size:13px;margin-top:6px">⚠️ Laut Formular ca. '+age+' Jahre – bitte Ausweis genau prüfen!</div>'):((age!=null)?('<div style="color:#5f6f65;font-size:12px;margin-top:6px">Laut Formular ca. '+age+' Jahre</div>'):''); row.innerHTML='<label style="display:flex;gap:10px;align-items:center;font-size:15px;cursor:pointer"><input type="checkbox" id="exIdOk" style="width:20px;height:20px"> 🪪 Ausweis geprüft / 18+ bestätigt</label>'+warn; var cb=row.querySelector('#exIdOk'); if(cb){ cb.checked=!!(ex&&ex.idok); cb.onchange=function(){ setIdOk(mail, cb.checked); }; } row.style.display=''; }catch(e){} }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
@@ -3691,12 +3696,12 @@ function toggleView(){cardView=!cardView;
   document.getElementById('viewLbl').textContent=cardView?'Als Tabelle':'Als Karten';
 }
 function openSettings(){const e=ev();
-  sName.value=e.name;sSheet.value=e.sheet;sTab.value=e.tab;sPaypal.value=e.paypal;sBottle.value=e.bottle;sWhatsapp.value=e.whatsapp||'';sForm.value=e.form||'';sPrice.value=e.price;sCashStart.value=e.cashStart;sBadgeW.value=e.badgeW||90;sBadgeH.value=e.badgeH||54;sCapacity.value=e.capacity||0;sTeam.value=teamCode();
+  sName.value=e.name;sSheet.value=e.sheet;sTab.value=e.tab;sPaypal.value=e.paypal;sBottle.value=e.bottle;sWhatsapp.value=e.whatsapp||'';sForm.value=e.form||'';sPrice.value=e.price;sCashStart.value=e.cashStart;sBadgeW.value=e.badgeW||90;sBadgeH.value=e.badgeH||54;sCapacity.value=e.capacity||0;var _ic=document.getElementById('sIdCheck');if(_ic)_ic.checked=!!e.idcheck;sTeam.value=teamCode();
   document.getElementById('settingsModal').classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function saveSettings(){const e=ev();
   e.name=sName.value.trim()||e.name;e.sheet=sSheet.value.trim();e.tab=sTab.value.trim()||'Form Responses 1';
-  e.paypal=sPaypal.value.trim();e.bottle=sBottle.value.trim();e.whatsapp=sWhatsapp.value.trim();e.form=sForm.value.trim();e.price=parseFloat(sPrice.value)||0;e.cashStart=parseFloat(sCashStart.value)||0;e.badgeW=parseFloat(sBadgeW.value)||90;e.badgeH=parseFloat(sBadgeH.value)||54;e.capacity=parseInt(sCapacity.value)||0;
+  e.paypal=sPaypal.value.trim();e.bottle=sBottle.value.trim();e.whatsapp=sWhatsapp.value.trim();e.form=sForm.value.trim();e.price=parseFloat(sPrice.value)||0;e.cashStart=parseFloat(sCashStart.value)||0;try{var _sic=document.getElementById('sIdCheck');if(_sic)e.idcheck=_sic.checked;}catch(_e){}e.badgeW=parseFloat(sBadgeW.value)||90;e.badgeH=parseFloat(sBadgeH.value)||54;e.capacity=parseInt(sCapacity.value)||0;
   const oldTeam=teamCode(); localStorage.setItem('evtdash_teamcode', JSON.stringify(sTeam.value.trim()));
   LS.set('evtdash_events',events);closeModal('settingsModal');
   if(sTeam.value.trim()!==oldTeam){ refreshCloud().finally(()=>reloadData()); } else { reloadData(); }
