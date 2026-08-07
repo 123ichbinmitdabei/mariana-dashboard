@@ -189,7 +189,6 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
   <button class="btn ghost sm" id="remBtn" onclick="openReminders()" title="Terminierte automatische Erinnerungen">⏰ Erinnerungen</button>
   <button class="btn ghost sm" id="rdyBtn" onclick="openReadiness()" title="Startklar-Check vor dem Event">✅ Bereit?</button>
   <button class="btn ghost sm" id="themeBtn" onclick="toggleTheme()" title="Hell/Dunkel umschalten">🌙 Dunkel</button>
-  <button class="btn ghost sm" id="langBtn" onclick="toggleLang()" title="Sprache umschalten / switch language">🇩🇪 DE</button>
   <button class="btn ghost sm" onclick="openInfoScreen()" title="Öffentlicher Info-Screen fürs Foyer (Vollbild)">📺 Info-Screen</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
   <button class="btn ghost sm" onclick="openHelp()">❓ Hilfe</button>
@@ -1005,7 +1004,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.47.0';
+const APP_VERSION='2.48.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1459,6 +1458,7 @@ function applyLang(){
     if(en) Object.keys(HDR_EN).forEach(de=>{ html=html.split(de).join(HDR_EN[de]); });
     h.innerHTML=html;
   });
+  try{ window._lang=en?'en':'de'; if(en){ translateDOM(I18N_DE_EN); } else { translateDOM(_i18nRev()); } }catch(e){}
 }
 
 /* ===== Nutzerrollen: Ansehen vs. Bearbeiten ===== */
