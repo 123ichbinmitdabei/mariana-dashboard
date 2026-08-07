@@ -431,7 +431,7 @@
         <tr><td>🏷️ Namensschilder (90×54 mm)</td><td style="text-align:right"><button class="btn sm" onclick="printBadges()">Drucken</button></td></tr>
         <tr><td>🔔 Push aktivieren (dieses Gerät)</td><td style="text-align:right"><button class="btn sm" onclick="enablePush()">Aktivieren</button></td></tr>
         <tr><td>📣 Push-Ansage senden</td><td style="text-align:right"><button class="btn sm" onclick="sendPushAnnounce()">Senden</button></td></tr>
-        <tr><td>📧 E-Mail an Teilnehmer</td><td style="text-align:right"><button class="btn sm" onclick="sendEmailAnnounce()">Senden</button></td></tr>
+        <tr><td>📧 E-Mail an Teilnehmer</td><td style="text-align:right"><button class="btn sm" onclick="openEmailModal()">Senden</button></td></tr>
         <tr><td>📲 WhatsApp-Ansage (Vorlage)</td><td style="text-align:right"><button class="btn sm" onclick="sendWhatsAppAnnounce()">Senden</button></td></tr>
         <tr><td>🛡️ Orga &amp; Gäste sind auf den normalen Schildern dabei (Orga mit Funktion, Gäste mit QR + Nr.)</td><td></td></tr>
         <tr><td>📋 Teilnehmer-/Check-in-Liste</td><td style="text-align:right"><button class="btn sm" onclick="printList()">Drucken</button> <button class="btn sm" style="background:#2f7ec6" onclick="pdfList()">⬇ PDF</button></td></tr>
@@ -795,6 +795,14 @@
   <div id="dayBody"></div>
   <div style="margin-top:12px;text-align:right"><button class="btn sm" onclick="closeModal('dayModal')">Schließen</button></div>
 </div></div>
+<div class="modal" id="emailModal"><div class="box" style="max-width:560px">
+  <h3>📧 E-Mail an Teilnehmer</h3>
+  <div class="field"><label>Empfänger</label><select id="emTarget"><option value="all">Alle mit E-Mail</option><option value="unpaid">Nur Unbezahlte</option><option value="wait">Nur Warteliste</option><option value="nocheck">Nur nicht Eingecheckte</option></select></div>
+  <div class="field"><label>Vorlage</label><select id="emTpl" onchange="emApplyTpl()"><option value="">— eigene Nachricht —</option></select></div>
+  <div class="field"><label>Betreff</label><input id="emSubject"></div>
+  <div class="field"><label>Nachricht</label><textarea id="emMsg" rows="6" style="width:100%"></textarea></div>
+  <div style="display:flex;gap:8px;justify-content:space-between;margin-top:10px;flex-wrap:wrap"><button class="btn ghost sm" onclick="emSaveTpl()">💾 Als Vorlage speichern</button><div><button class="btn ghost sm" onclick="closeModal('emailModal')">Abbrechen</button> <button class="btn sm" onclick="emSend()">Senden</button></div></div>
+</div></div>
 <div class="modal" id="addModal">
   <div class="box">
     <h3>+ Teilnehmer hinzufügen</h3>
@@ -956,7 +964,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.23.0';
+const APP_VERSION='2.24.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1156,6 +1164,11 @@ function openDay(){ try{ var wl=(typeof waitlistSet==='function')?waitlistSet():
   body+="<h4 style='margin:8px 0 4px'>Fehlt noch ("+missing.length+")</h4><div style='font-size:14px;max-height:34vh;overflow:auto'>"+(missing.length?missing.map(esc).join(' · '):"<span style='color:var(--muted)'>alle da 🎉</span>")+"</div>";
   body+="<h4 style='margin:10px 0 4px'>Anwesend ("+present.length+")</h4><div style='font-size:13px;color:var(--muted);max-height:20vh;overflow:auto'>"+(present.length?present.map(esc).join(' · '):"—")+"</div>";
   var el=document.getElementById('dayBody'); if(el)el.innerHTML=body; var mo=document.getElementById('dayModal'); if(mo)mo.classList.add('open'); }catch(e){ alert('Fehler: '+((e&&e.message)||e)); } }
+const kMailTpl=()=>'evtdash_mailtpl';
+function openEmailModal(){ var sel=document.getElementById('emTpl'); if(sel){ var tpls=LS.get(kMailTpl(),[]); sel.innerHTML="<option value=''>— eigene Nachricht —</option>"+tpls.map(function(t,i){return "<option value='"+i+"'>"+esc(t.name)+"</option>";}).join(''); } var mo=document.getElementById('emailModal'); if(mo)mo.classList.add('open'); }
+function emApplyTpl(){ var sel=document.getElementById('emTpl'); if(!sel||sel.value==='')return; var t=LS.get(kMailTpl(),[])[+sel.value]; if(!t)return; var su=document.getElementById('emSubject'); var ms=document.getElementById('emMsg'); if(su)su.value=t.subject||''; if(ms)ms.value=t.msg||''; }
+function emSaveTpl(){ var su=(document.getElementById('emSubject')||{}).value||''; var ms=(document.getElementById('emMsg')||{}).value||''; if(!su&&!ms){ alert('Erst Betreff/Nachricht ausfüllen.'); return; } var name=prompt('Vorlagen-Name:'); if(!name)return; var tpls=LS.get(kMailTpl(),[]); tpls.push({name:name,subject:su,msg:ms}); LS.set(kMailTpl(),tpls); openEmailModal(); alert('Vorlage gespeichert.'); }
+async function emSend(){ var target=(document.getElementById('emTarget')||{}).value||'all'; var subject=((document.getElementById('emSubject')||{}).value||'').trim(); var message=((document.getElementById('emMsg')||{}).value||'').trim(); if(!subject||!message){ alert('Betreff und Nachricht nötig.'); return; } var wl=(typeof waitlistSet==='function')?waitlistSet():{has:function(){return false;}}; var seen={},recips=[]; DATA.forEach(function(r){ var m=mailOf(r); if(!m||isCancelledP(m))return; if(target==='unpaid'&&payState(r)==='paid')return; if(target==='wait'&&!(wl.has&&wl.has(m)))return; if(target==='nocheck'&&isChecked(r))return; var em=(''+m).trim(); if(/@/.test(em)&&!seen[em.toLowerCase()]){ seen[em.toLowerCase()]=1; recips.push({email:em,name:displayName(r)}); } }); if(!recips.length){ alert('Keine passenden E-Mail-Adressen.'); return; } if(!confirm('E-Mail an '+recips.length+' Empfänger senden?')) return; try{ var res=await fetch(CLOUD.url+'/functions/v1/send-email',{ method:'POST', headers:{ 'apikey':CLOUD.key,'Authorization':'Bearer '+CLOUD.key,'Content-Type':'application/json' }, body: JSON.stringify({ event_id: currentId, team_code: teamCode(), subject:subject, message:message, recipients:recips }) }); var d=await res.json().catch(function(){return {};}); if(res.ok&&d.ok){ alert('E-Mail: '+d.sent+' von '+d.total+' gesendet'+(d.failed?(', '+d.failed+' fehlgeschlagen'):'')+'.'); closeModal('emailModal'); } else { alert('Fehler: '+(d.error||res.status)); } }catch(e){ alert('Sende-Fehler: '+((e&&e.message)||e)); } }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
