@@ -159,7 +159,7 @@
 #mBar{ display:none; }
 @media (max-width:760px){ #mBar{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:60; background:#08160d; gap:4px; padding:6px; box-shadow:0 -2px 8px rgba(0,0,0,.3); } #mBar button{ flex:1; min-height:50px; font-size:13px; } body{ padding-bottom:66px; } }
 </style>
-<div id="mBar"><button class="btn" onclick="openCheckin()">✅ Check-in</button><button class="btn ghost" onclick="openDay()">📋 Übersicht</button><button class="btn ghost" onclick="document.querySelector('.topbar').classList.toggle('open')">☰ Menü</button></div>
+<div id="mBar"><button class="btn" onclick="openCheckin()">✅ Check-in</button><button class="btn ghost" onclick="openDay()">📋 Übersicht</button><button class="btn ghost" onclick="openJump()">🧭 Springen</button><button class="btn ghost" onclick="document.querySelector('.topbar').classList.toggle('open')">☰ Menü</button></div>
 <div class="topbar">
   <div class="brandlogo"><img src="https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png" alt="Mariana"></div>
   <div>
@@ -806,6 +806,11 @@
   <div class="field"><label>Nachricht</label><textarea id="emMsg" rows="6" style="width:100%"></textarea></div>
   <div style="display:flex;gap:8px;justify-content:space-between;margin-top:10px;flex-wrap:wrap"><button class="btn ghost sm" onclick="emSaveTpl()">💾 Als Vorlage speichern</button><div><button class="btn ghost sm" onclick="closeModal('emailModal')">Abbrechen</button> <button class="btn sm" onclick="emSend()">Senden</button></div></div>
 </div></div>
+<div class="modal" id="jumpModal"><div class="box" style="max-width:460px">
+  <h3>🧭 Springe zu Bereich</h3>
+  <div id="jumpBody" style="max-height:66vh;overflow:auto"></div>
+  <div style="margin-top:10px;text-align:right"><button class="btn sm" onclick="closeModal('jumpModal')">Schließen</button></div>
+</div></div>
 <div class="modal" id="addModal">
   <div class="box">
     <h3>+ Teilnehmer hinzufügen</h3>
@@ -967,7 +972,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.26.0';
+const APP_VERSION='2.27.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1172,6 +1177,8 @@ function openEmailModal(){ var sel=document.getElementById('emTpl'); if(sel){ va
 function emApplyTpl(){ var sel=document.getElementById('emTpl'); if(!sel||sel.value==='')return; var t=LS.get(kMailTpl(),[])[+sel.value]; if(!t)return; var su=document.getElementById('emSubject'); var ms=document.getElementById('emMsg'); if(su)su.value=t.subject||''; if(ms)ms.value=t.msg||''; }
 function emSaveTpl(){ var su=(document.getElementById('emSubject')||{}).value||''; var ms=(document.getElementById('emMsg')||{}).value||''; if(!su&&!ms){ alert('Erst Betreff/Nachricht ausfüllen.'); return; } var name=prompt('Vorlagen-Name:'); if(!name)return; var tpls=LS.get(kMailTpl(),[]); tpls.push({name:name,subject:su,msg:ms}); LS.set(kMailTpl(),tpls); openEmailModal(); alert('Vorlage gespeichert.'); }
 async function emSend(){ var target=(document.getElementById('emTarget')||{}).value||'all'; var subject=((document.getElementById('emSubject')||{}).value||'').trim(); var message=((document.getElementById('emMsg')||{}).value||'').trim(); if(!subject||!message){ alert('Betreff und Nachricht nötig.'); return; } var wl=(typeof waitlistSet==='function')?waitlistSet():{has:function(){return false;}}; var seen={},recips=[]; DATA.forEach(function(r){ var m=mailOf(r); if(!m||isCancelledP(m))return; if(target==='unpaid'&&payState(r)==='paid')return; if(target==='wait'&&!(wl.has&&wl.has(m)))return; if(target==='nocheck'&&isChecked(r))return; var em=(''+m).trim(); if(/@/.test(em)&&!seen[em.toLowerCase()]){ seen[em.toLowerCase()]=1; recips.push({email:em,name:displayName(r)}); } }); if(!recips.length){ alert('Keine passenden E-Mail-Adressen.'); return; } if(!confirm('E-Mail an '+recips.length+' Empfänger senden?')) return; try{ var res=await fetch(CLOUD.url+'/functions/v1/send-email',{ method:'POST', headers:{ 'apikey':CLOUD.key,'Authorization':'Bearer '+CLOUD.key,'Content-Type':'application/json' }, body: JSON.stringify({ event_id: currentId, team_code: teamCode(), subject:subject, message:message, recipients:recips }) }); var d=await res.json().catch(function(){return {};}); if(res.ok&&d.ok){ alert('E-Mail: '+d.sent+' von '+d.total+' gesendet'+(d.failed?(', '+d.failed+' fehlgeschlagen'):'')+'.'); closeModal('emailModal'); } else { alert('Fehler: '+(d.error||res.status)); } }catch(e){ alert('Sende-Fehler: '+((e&&e.message)||e)); } }
+function openJump(){ window.__jumpS=[]; var rows=""; var idx=0; document.querySelectorAll('.section').forEach(function(s){ if(s.style.display==='none')return; var k=sectionKey(s); if(!k)return; window.__jumpS.push(s); rows+="<button class='btn ghost' style='display:block;width:100%;text-align:left;margin:3px 0' onclick='jumpTo("+idx+")'>"+esc(k)+"</button>"; idx++; }); var b=document.getElementById('jumpBody'); if(b)b.innerHTML=rows||"<div class='status'>Keine Bereiche.</div>"; var mo=document.getElementById('jumpModal'); if(mo)mo.classList.add('open'); }
+function jumpTo(i){ var s=(window.__jumpS||[])[i]; if(!s)return; closeModal('jumpModal'); try{ s.classList.remove('collapsed'); }catch(e){} try{ s.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){ s.scrollIntoView(); } }
 function renderPromoBanner(){ const el=document.getElementById('promoBanner'); if(!el)return; const prom=LS.get(kProm(),{}); const names=Object.keys(prom).filter(function(m){return DATA.some(function(r){return mailOf(r)===m;});}).map(function(m){return esc(displayName(DATA.find(function(x){return mailOf(x)===m;})));}); if(!names.length){ el.innerHTML=''; return; } el.innerHTML="<div class='banner' style='background:#d3f0dd;border-color:#166534;margin-bottom:12px'><span>&#11014;&#65039; <b>"+names.length+" von der Warteliste nachger&uuml;ckt</b> &mdash; bitte benachrichtigen: "+names.join(', ')+" <button class='btn sm' onclick='mailPromotion()'>📧 Per Mail einladen</button> <button class='btn sm' style='margin-left:8px' onclick='ackPromoted()'>Alle erledigt</button></span></div>"; }
 function waitlistSet(){
   const cap=+ev().capacity||0; const s=new Set(); if(!cap) return s;
