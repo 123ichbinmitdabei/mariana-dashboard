@@ -1043,7 +1043,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.80.0';
+const APP_VERSION='2.81.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -4317,6 +4317,87 @@ document.addEventListener('click',function(e){
   if(sm){var cur=sm.parentElement; document.querySelectorAll('details.tbgroup[open]').forEach(function(x){if(x!==cur)x.open=false;}); return;}
   if(!e.target.closest('details.tbgroup')){document.querySelectorAll('details.tbgroup[open]').forEach(function(x){x.open=false;});}
 },true);
+})();
+</script>
+
+<script>
+/* v2.81 Orga-Auth (Magic-Link, additiv; Team-Code laeuft parallel) */
+(function(){
+  if(typeof CLOUD==='undefined') return;
+  var _fetch=window.fetch.bind(window);
+  var SKEY='evt_sb_session';
+  function load(){ try{return JSON.parse(localStorage.getItem(SKEY)||'null');}catch(e){return null;} }
+  function save(s){ try{ if(s) localStorage.setItem(SKEY,JSON.stringify(s)); else localStorage.removeItem(SKEY);}catch(e){} }
+  function valid(s){ return !!(s && s.access_token && s.expires_at && (s.expires_at*1000 - Date.now() > 60000)); }
+  var session=load();
+  var refreshing=null;
+  async function refresh(){
+    var s=load(); if(!s||!s.refresh_token){ session=null; return null; }
+    if(refreshing) return refreshing;
+    refreshing=(async function(){
+      try{
+        var r=await _fetch(CLOUD.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':CLOUD.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+        if(r.ok){ var d=await r.json(); session={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:d.expires_at,email:(d.user&&d.user.email)||s.email}; save(session); return session; }
+      }catch(e){}
+      session=null; save(null); return null;
+    })();
+    var out=await refreshing; refreshing=null; return out;
+  }
+  window.fetch=async function(input,init){
+    try{
+      var url=(typeof input==='string')?input:(input&&input.url)||'';
+      if(session && url.indexOf(CLOUD.url+'/rest/v1/')===0){
+        if(!valid(session)) await refresh();
+        if(session && session.access_token){
+          init=init?Object.assign({},init):{};
+          var h=Object.assign({}, init.headers||{});
+          h['Authorization']='Bearer '+session.access_token;
+          if(!h['apikey']) h['apikey']=CLOUD.key;
+          init.headers=h;
+        }
+      }
+    }catch(e){}
+    return _fetch(input,init);
+  };
+  function handleHash(){
+    if(location.hash && location.hash.indexOf('access_token=')>=0){
+      var p=new URLSearchParams(location.hash.slice(1));
+      var at=p.get('access_token'), rt=p.get('refresh_token'), ei=p.get('expires_in');
+      if(at){
+        session={access_token:at, refresh_token:rt, expires_at: Math.floor(Date.now()/1000)+(parseInt(ei||'3600',10)), email:null};
+        save(session);
+        _fetch(CLOUD.url+'/auth/v1/user',{headers:{'apikey':CLOUD.key,'Authorization':'Bearer '+at}}).then(function(r){return r.ok?r.json():null;}).then(function(u){ if(u){session.email=u.email; save(session);} updateBtn(); }).catch(function(){});
+        history.replaceState(null,'',location.pathname+location.search);
+      }
+    }
+  }
+  async function sendLink(email){
+    var redirect=location.origin+location.pathname;
+    try{
+      var r=await _fetch(CLOUD.url+'/auth/v1/otp?redirect_to='+encodeURIComponent(redirect),{method:'POST',headers:{'apikey':CLOUD.key,'Content-Type':'application/json'},body:JSON.stringify({email:email,create_user:false})});
+      return r.ok;
+    }catch(e){ return false; }
+  }
+  function openLogin(){
+    var em=prompt('Orga-Login: E-Mail fuer Magic-Link'); if(!em) return;
+    sendLink(em.trim()).then(function(ok){ alert(ok?('Magic-Link gesendet an '+em+' - Mail oeffnen und Link anklicken.'):'Fehler. E-Mail korrekt / als Nutzer angelegt?'); });
+  }
+  function logout(){ session=null; save(null); updateBtn(); }
+  function updateBtn(){
+    var b=document.getElementById('orgaLoginBtn'); if(!b) return;
+    if(session && session.access_token){ b.textContent='\u{1F464} '+(session.email||'Orga'); b.title='Angemeldet - Klick zum Abmelden'; b.onclick=function(){ if(confirm('Abmelden?')) logout(); }; }
+    else { b.textContent='\u{1F511} Orga-Login'; b.title='Als Orga anmelden (Magic-Link)'; b.onclick=openLogin; }
+  }
+  function injectBtn(){
+    if(document.getElementById('orgaLoginBtn')) return;
+    var sys=[].slice.call(document.querySelectorAll('.topbar details.tbgroup')).filter(function(d){return /System/.test(d.textContent);})[0];
+    var host=sys?sys.querySelector('.tbgroup-menu'):document.querySelector('.topbar');
+    if(!host) return;
+    var b=document.createElement('button'); b.id='orgaLoginBtn'; b.className='btn ghost sm';
+    host.appendChild(b); updateBtn();
+  }
+  function init(){ injectBtn(); handleHash(); if(valid(session)) updateBtn(); else if(session) refresh().then(updateBtn); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
 </body>
