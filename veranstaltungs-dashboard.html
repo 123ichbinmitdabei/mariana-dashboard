@@ -21,9 +21,9 @@
   .topbar details.tbgroup>summary{list-style:none;cursor:pointer;user-select:none}
   .topbar details.tbgroup>summary::-webkit-details-marker{display:none}
   .topbar details.tbgroup[open]>summary{outline:2px solid var(--yellow)}
-  .topbar .tbgroup-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:200;display:flex;flex-direction:column;gap:4px;min-width:190px;padding:6px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.35)}
+  .topbar .tbgroup-menu{position:absolute;top:calc(100% + 6px);right:0;left:auto;z-index:200;max-width:calc(100vw - 24px);display:flex;flex-direction:column;gap:4px;min-width:190px;padding:6px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.35)}
   .topbar .tbgroup-menu .btn{width:100%;text-align:left;background:transparent;color:var(--ink)}
-  .topbar .tbgroup-menu .btn:hover{background:var(--green-l)}
+  .topbar .tbgroup-menu .btn:hover{background:var(--green);color:#fff}
 
   html.dark{--bg:#0f1620;--card:#1a232e;--ink:#e6edf3;--muted:#c2ccd6;--line:#3c4c5d;--green-l:#15271d;color-scheme:dark;}
 html.dark body{background:var(--bg);color:var(--ink);}
@@ -1043,7 +1043,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.79.0';
+const APP_VERSION='2.80.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -4305,6 +4305,19 @@ function fbExportCSV(){
   var blob=new Blob([String.fromCharCode(0xFEFF)+csv],{type:'text/csv;charset=utf-8'});
   var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='feedback-auswertung.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){ try{URL.revokeObjectURL(url); a.remove();}catch(e){} },1500);
 }
+</script>
+
+<script>
+/* v2.80 dropdown auto-close */
+(function(){
+document.addEventListener('click',function(e){
+  var mi=e.target.closest('.tbgroup-menu button');
+  if(mi){var d=mi.closest('details.tbgroup'); if(d) d.open=false; return;}
+  var sm=e.target.closest('details.tbgroup>summary');
+  if(sm){var cur=sm.parentElement; document.querySelectorAll('details.tbgroup[open]').forEach(function(x){if(x!==cur)x.open=false;}); return;}
+  if(!e.target.closest('details.tbgroup')){document.querySelectorAll('details.tbgroup[open]').forEach(function(x){x.open=false;});}
+},true);
+})();
 </script>
 </body>
 </html>
