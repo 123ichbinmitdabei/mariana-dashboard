@@ -1024,7 +1024,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.69.0';
+const APP_VERSION='2.70.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3356,6 +3356,94 @@ function pdfScores(id){
   openPrint(html);
 }
 const QUIZ_DB=[
+  {type:"quiz",title:"Allgemeinwissen XL",questions:[
+    {q:"Wie heißt die Hauptstadt von Australien?",opts:["Sydney","Canberra","Melbourne","Perth"],correct:1},
+    {q:"Wie viele Kontinente gibt es?",opts:["5","6","7","8"],correct:2},
+    {q:"Was ist das chemische Symbol für Gold?",opts:["Go","Au","Ag","Gd"],correct:1},
+    {q:"Welcher ist der größte Planet unseres Sonnensystems?",opts:["Saturn","Jupiter","Neptun","Erde"],correct:1},
+    {q:"Wie viele Beine hat eine Spinne?",opts:["6","8","10","12"],correct:1},
+    {q:"In welchem Jahr fiel die Berliner Mauer?",opts:["1987","1989","1990","1991"],correct:1},
+    {q:"Wie viele Farben hat ein klassischer Regenbogen?",opts:["5","6","7","8"],correct:2},
+    {q:"Welches ist das kleinste Bundesland Deutschlands?",opts:["Saarland","Bremen","Hamburg","Berlin"],correct:1}
+  ]},
+  {type:"quiz",title:"Geografie Deutschland",questions:[
+    {q:"Wie heißt der höchste Berg Deutschlands?",opts:["Brocken","Zugspitze","Feldberg","Watzmann"],correct:1},
+    {q:"Durch welche Stadt fließt der Rhein?",opts:["Hamburg","Köln","München","Leipzig"],correct:1},
+    {q:"Welches Bundesland hat die meisten Einwohner?",opts:["Bayern","Nordrhein-Westfalen","Baden-Württemberg","Niedersachsen"],correct:1},
+    {q:"Wo steht das Brandenburger Tor?",opts:["München","Berlin","Frankfurt","Köln"],correct:1},
+    {q:"An welchem Meer liegt Rostock?",opts:["Nordsee","Ostsee","Mittelmeer","Atlantik"],correct:1},
+    {q:"Wie viele Bundesländer hat Deutschland?",opts:["14","15","16","17"],correct:2},
+    {q:"Welche Stadt ist die Hauptstadt von Bayern?",opts:["Nürnberg","München","Augsburg","Regensburg"],correct:1}
+  ]},
+  {type:"quiz",title:"Musik quer durch",questions:[
+    {q:"Welche Band sang Bohemian Rhapsody?",opts:["Beatles","Queen","ABBA","Oasis"],correct:1},
+    {q:"Welches Instrument hat 88 Tasten?",opts:["Orgel","Klavier","Akkordeon","Cembalo"],correct:1},
+    {q:"Aus welchem Land kommt ABBA?",opts:["Norwegen","Schweden","Dänemark","Finnland"],correct:1},
+    {q:"Wie viele Schläge hat ein Walzer-Takt?",opts:["2","3","4","6"],correct:1},
+    {q:"Welche Künstlerin sang 99 Luftballons?",opts:["Nena","Kim Wilde","Madonna","Cher"],correct:0},
+    {q:"Wie nennt man vier Musiker, die zusammen spielen?",opts:["Trio","Quartett","Duo","Quintett"],correct:1}
+  ]},
+  {type:"quiz",title:"Film & Serien",questions:[
+    {q:"Wer spielte Jack in Titanic?",opts:["Brad Pitt","Leonardo DiCaprio","Tom Cruise","Johnny Depp"],correct:1},
+    {q:"Welche Farbe hat Yodas Lichtschwert?",opts:["Blau","Grün","Rot","Lila"],correct:1},
+    {q:"Welches Tier ist Simba im König der Löwen?",opts:["Tiger","Löwe","Leopard","Gepard"],correct:1},
+    {q:"Wie heißt der grüne, wütende Marvel-Held?",opts:["Thor","Hulk","Iron Man","Loki"],correct:1},
+    {q:"Aus welchem Material ist ein Zauberstab bei Harry Potter meist?",opts:["Metall","Holz","Glas","Stein"],correct:1},
+    {q:"Wie viele Teile hat die Original-Star-Wars-Trilogie?",opts:["2","3","4","5"],correct:1}
+  ]},
+  {type:"quiz",title:"Natur & Tiere",questions:[
+    {q:"Welches ist das größte Tier der Welt?",opts:["Elefant","Blauwal","Giraffe","Nashorn"],correct:1},
+    {q:"Wie viele Herzen hat ein Oktopus?",opts:["1","2","3","4"],correct:2},
+    {q:"Was fressen Pandas hauptsächlich?",opts:["Fisch","Bambus","Fleisch","Gras"],correct:1},
+    {q:"Wie nennt man ein Baby-Schaf?",opts:["Kalb","Lamm","Ferkel","Fohlen"],correct:1},
+    {q:"Welches Insekt produziert Honig?",opts:["Wespe","Biene","Hummel","Ameise"],correct:1},
+    {q:"Wie viele Beine hat ein Insekt?",opts:["4","6","8","10"],correct:1},
+    {q:"Welcher Vogel kann nicht fliegen?",opts:["Adler","Pinguin","Spatz","Taube"],correct:1}
+  ]},
+  {type:"quiz",title:"Sport",questions:[
+    {q:"Wie viele Spieler stehen beim Fußball pro Team auf dem Feld?",opts:["9","10","11","12"],correct:2},
+    {q:"Wie viele Ringe hat das Olympische Symbol?",opts:["4","5","6","7"],correct:1},
+    {q:"Alle wie viele Jahre finden die Olympischen Sommerspiele statt?",opts:["2","3","4","5"],correct:2},
+    {q:"Auf welchem Untergrund spielt man Golf?",opts:["Eis","Rasen","Sand","Beton"],correct:1},
+    {q:"Womit spielt man Basketball?",opts:["Puck","Ball","Federball","Frisbee"],correct:1},
+    {q:"Wie viele Punkte gibt ein Treffer beim Fußball?",opts:["1","2","3","5"],correct:0}
+  ]},
+  {type:"quiz",title:"Wissenschaft & Technik",questions:[
+    {q:"Was misst man in Volt?",opts:["Temperatur","Spannung","Gewicht","Zeit"],correct:1},
+    {q:"Welches Gas brauchen Menschen zum Atmen?",opts:["Stickstoff","Sauerstoff","Helium","Kohlendioxid"],correct:1},
+    {q:"Wer entwickelte die Relativitätstheorie?",opts:["Newton","Einstein","Darwin","Tesla"],correct:1},
+    {q:"Was bedeutet die Formel H2O?",opts:["Salz","Wasser","Zucker","Sauerstoff"],correct:1},
+    {q:"Wie viele Planeten hat unser Sonnensystem?",opts:["7","8","9","10"],correct:1},
+    {q:"Was speichert Daten in einem Computer dauerhaft?",opts:["Arbeitsspeicher","Festplatte","Monitor","Maus"],correct:1}
+  ]},
+  {type:"quiz",title:"Essen & Trinken",questions:[
+    {q:"Aus welcher Frucht wird Wein vor allem gemacht?",opts:["Apfel","Traube","Birne","Kirsche"],correct:1},
+    {q:"Welches Land ist berühmt für Pizza und Pasta?",opts:["Spanien","Italien","Griechenland","Portugal"],correct:1},
+    {q:"Woraus wird Kaffee gemacht?",opts:["Kakaobohne","Kaffeebohne","Sojabohne","Kidneybohne"],correct:1},
+    {q:"Was ist die Hauptzutat von Guacamole?",opts:["Tomate","Avocado","Paprika","Gurke"],correct:1},
+    {q:"Wie nennt man japanische Reisröllchen mit Fisch?",opts:["Sushi","Tapas","Döner","Wrap"],correct:0},
+    {q:"Welches Getränk enthält von Natur aus Koffein?",opts:["Milch","Kaffee","Wasser","Apfelsaft"],correct:1}
+  ]},
+  {type:"quiz",title:"CanG & CSC — Vertiefung",questions:[
+    {q:"Ab welchem Alter darf man Mitglied in einem Anbauverein sein?",opts:["16","18","21","25"],correct:1},
+    {q:"Wie viele Mitglieder darf ein Anbauverein höchstens haben?",opts:["200","500","1000","2000"],correct:1},
+    {q:"Wie viel Gramm dürfen pro Tag maximal abgegeben werden?",opts:["10","25","50","100"],correct:1},
+    {q:"Wie viel Gramm pro Monat maximal an ein Mitglied?",opts:["25","50","100","150"],correct:1},
+    {q:"Welche Monatsgrenze gilt für unter 21-Jährige?",opts:["20 g","30 g","50 g","25 g"],correct:1},
+    {q:"Welcher Mindestabstand gilt zu Schulen und Spielplätzen?",opts:["50 m","100 m","200 m","500 m"],correct:2},
+    {q:"Ist der Konsum direkt im Vereinsheim erlaubt?",opts:["Ja","Nein","Nur abends","Nur für Vorstand"],correct:1}
+  ]},
+  {type:"quiz",title:"Erste Hilfe & Safer Use — Vertiefung",questions:[
+    {q:"Welche Nummer ist der europäische Notruf?",opts:["110","112","911","116117"],correct:1},
+    {q:"Was hilft bei Kreislaufproblemen sofort?",opts:["Rennen","Hinlegen und Beine hoch","Kaffee","Kalt duschen"],correct:1},
+    {q:"Wofür ist die stabile Seitenlage gedacht?",opts:["Bewusstlose die atmen","Herzstillstand","Knochenbruch","Sonnenbrand"],correct:0},
+    {q:"Was hilft bei Überhitzung?",opts:["Mehr Sonne","Schatten und Wasser","Alkohol","Sport"],correct:1},
+    {q:"Was ist eine Grundregel für Safer Use?",opts:["Viel auf einmal","Niedrig dosieren und abwarten","Mischkonsum","Auf leeren Magen"],correct:1},
+    {q:"Wen ruft man im ernsten Notfall?",opts:["Niemand","Rettungsdienst 112","Nachbarn","Später"],correct:1}
+  ]},
+  {type:"game",title:"Scharade / Begriffe raten",questions:[]},
+  {type:"game",title:"Wahrheit oder Pflicht (Camp-Edition)",questions:[]},
+
   {type:'quiz',title:'Cannabis-Präventionsquiz',questions:[
     {q:'Ab welchem Alter ist der Konsum in einem CSC in Deutschland erlaubt?',opts:['16','18','21'],correct:1},
     {q:'Wie viel Gramm darf ein Mitglied laut CanG pro Tag maximal erhalten?',opts:['10 g','25 g','50 g'],correct:1},
