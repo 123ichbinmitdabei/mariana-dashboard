@@ -1024,7 +1024,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.71.0';
+const APP_VERSION='2.72.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -2885,7 +2885,38 @@ function _curRole(){ try{ return localStorage.getItem('evtdash_role')||'voll'; }
 function openRoleCfg(){ var r=_curRole(); if(r==='voll'){ alert('Bitte zuerst oben eine Ansicht wählen (Einlass oder Kasse), dann die Bereiche festlegen.'); return; } var cfg=roleCfgGet(); var sel=cfg[r]; var secs=document.querySelectorAll('.section'); var html=''; secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; if(!t) return; var on = sel ? (sel.indexOf(t)>=0) : (s.style.display!=='none'); html+='<label style="display:flex;gap:8px;align-items:center;padding:4px 0"><input type="checkbox" data-t="'+encodeURIComponent(t)+'"'+(on?' checked':'')+'> '+esc(t)+'</label>'; }); document.getElementById('roleCfgList').innerHTML=html; document.getElementById('roleCfgModal').classList.add('open'); }
 function saveRoleCfg(){ var r=_curRole(); var arr=[]; document.querySelectorAll('#roleCfgList input[type=checkbox]').forEach(function(b){ if(b.checked) arr.push(decodeURIComponent(b.getAttribute('data-t'))); }); var cfg=roleCfgGet(); cfg[r]=arr; roleCfgSet(cfg); closeAnyModal(); applyRole(r); }
 function featGet(){ try{ return JSON.parse(localStorage.getItem('evtdash_featoff')||'[]'); }catch(e){ return []; } }
-function openFeatures(){ var off=featGet(); var secs=document.querySelectorAll('.section'); var html=''; secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; if(!t) return; var on=off.indexOf(t)<0; html+='<label style="display:flex;gap:8px;align-items:center;padding:5px 0"><input type="checkbox" data-t="'+encodeURIComponent(t)+'"'+(on?' checked':'')+'> '+esc(t)+'</label>'; }); document.getElementById('featList').innerHTML=html||'<div class="hint">Keine Bereiche gefunden.</div>'; document.getElementById('featModal').classList.add('open'); }
+var FEAT_INFO=[
+{k:"Schnellnav",d:"Springt per Klick zu jedem Bereich - ohne langes Scrollen. Beispiel: direkt zur Kasse oder zu den Teilnehmern."},
+{k:"Community",d:"Sammelt wichtige Links und Schnellzugriffe an einem Ort. Beispiel: Anmeldeformular oder Vereins-Chat mit einem Tipp öffnen."},
+{k:"Grafische",d:"Zeigt Anmeldungen, Anwesenheit und Zahlungen als Diagramme. Nutzen: Lage auf einen Blick. Beispiel: sehen, wie viele schon bezahlt haben."},
+{k:"Wetter",d:"Wettervorhersage für den Veranstaltungsort. Nutzen: bessere Planung bei Outdoor-Events. Beispiel: Regen erkennen und Zelte einplanen."},
+{k:"Vergleich",d:"Vergleicht mehrere Veranstaltungen. Nutzen: Trends erkennen. Beispiel: Besucherzahl dieses Camps mit dem letzten vergleichen."},
+{k:"Finanzen",d:"Zentrale Übersicht über Einnahmen, Preise und Handkasse. Nutzen: Geld immer im Blick. Beispiel: Tageskasse mit Kassenschluss abrechnen."},
+{k:"Orga-Team",d:"Eigener Finanz-Pool und Vorfinanzierung fürs Orga-Team. Nutzen: klare Abrechnung im Team. Beispiel: Auslagen einzelner Helfer festhalten."},
+{k:"Gesamt-Auswertung",d:"Fasst alle Zahlen zum Event zusammen. Nutzen: Abschlussbericht auf Knopfdruck. Beispiel: Umsatz und Anwesenheit auswerten."},
+{k:"Ausgaben",d:"Ausgaben erfassen und Belege oder Fotos anhängen. Nutzen: saubere Buchhaltung. Beispiel: Getränke-Einkauf mit Kassenbon dokumentieren."},
+{k:"Ablaufplan",d:"Zeitplan des Events (Aufbau, Programm, Abbau). Nutzen: alle wissen, wann was passiert. Beispiel: Bühnenprogramm mit Uhrzeiten festlegen."},
+{k:"Schicht",d:"Schichten und Aufgaben planen und verteilen. Nutzen: keine unbesetzten Posten. Beispiel: Einlass-Schichten an Helfer vergeben."},
+{k:"Schlaf",d:"Übersicht über Zelt- und Schlafplätze. Nutzen: klare Belegung. Beispiel: festhalten, wer in welchem Zelt schläft."},
+{k:"Namensschild",d:"Namensschilder und Listen drucken. Nutzen: schneller Einlass. Beispiel: Badges für alle Teilnehmer erzeugen."},
+{k:"Mitfahr",d:"Mitfahrgelegenheiten und Fahrdienst organisieren. Nutzen: weniger Autos, mehr Miteinander. Beispiel: freie Plätze anbieten und suchen."},
+{k:"Kommunikation",d:"Vorgefertigte Text-Bausteine für Mails und Nachrichten. Nutzen: schnelle, einheitliche Kommunikation. Beispiel: Erinnerungs-Mail an alle."},
+{k:"Daten-Import",d:"Importiert Daten aus WhatsApp und PayPal. Nutzen: kein Abtippen. Beispiel: Zahlungseingänge automatisch übernehmen."},
+{k:"Notfall",d:"Notfall-Infos, Fundsachen und Lageplan an einem Ort. Nutzen: schnelle Hilfe im Ernstfall. Beispiel: Ersthelfer und Sani-Punkt anzeigen."},
+{k:"Sponsoren",d:"Sponsoren und Partner verwalten. Nutzen: Unterstützer im Blick. Beispiel: Logos und Leistungen der Partner festhalten."},
+{k:"Einladungen",d:"Einladungen erstellen und versenden. Nutzen: mehr Anmeldungen. Beispiel: Einladung mit Link und QR verschicken."},
+{k:"Quiz",d:"Quiz, Spiele und Vorträge anlegen und nutzen. Nutzen: Programm und Unterhaltung. Beispiel: fertiges Cannabis-Quiz aus der Bibliothek laden."},
+{k:"Material",d:"Material, Deko und Verbrauch verwalten. Nutzen: nichts vergessen. Beispiel: Pavillon, Kabeltrommel und Deko auf die Liste setzen."},
+{k:"Kalkulation",d:"Rechnet Verbrauch für Essen, Trinken und Strom hoch. Nutzen: richtig einkaufen. Beispiel: Getränkemenge für 80 Gäste berechnen."},
+{k:"Einkaufsliste",d:"Gemeinsame Einkaufsliste. Nutzen: keine Doppelkäufe. Beispiel: abhaken, was schon besorgt ist."},
+{k:"Zähler",d:"Zähler und Strichlisten für schnelles Zählen. Nutzen: einfacher Überblick. Beispiel: verkaufte Getränke mitzählen."},
+{k:"Mitbring",d:"Wer bringt was mit (Bottle-Liste). Nutzen: alles ist da. Beispiel: Grill, Kohle und Salate verteilen."},
+{k:"Teilnehmer",d:"Zentrale Teilnehmerliste mit Check-in und Status. Nutzen: Einlass im Griff. Beispiel: Gast beim Eintritt als anwesend markieren."},
+{k:"Feedback",d:"Rückmeldungen der Gäste einsammeln. Nutzen: besser werden. Beispiel: nach dem Event Bewertung per Link abfragen."},
+{k:"Fotos",d:"Fotos und Videos sammeln und teilen. Nutzen: Erinnerungen an einem Ort. Beispiel: Galerie-Link mit allen teilen."}
+];
+function featInfo(t){ for(var i=0;i<FEAT_INFO.length;i++){ if(t.indexOf(FEAT_INFO[i].k)>=0) return FEAT_INFO[i].d; } return ""; }
+function openFeatures(){ var off=featGet(); var secs=document.querySelectorAll('.section'); var html=''; secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; if(!t) return; var on=off.indexOf(t)<0; var _fi=featInfo(t); html+='<div style="padding:7px 0;border-bottom:1px solid var(--line)"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-t="'+encodeURIComponent(t)+'"'+(on?' checked':'')+'> <b>'+esc(t)+'</b></label>'+(_fi?('<div style="color:var(--muted);font-size:12px;margin:4px 0 0 26px">'+_fi+'</div>'):'')+'</div>'; }); document.getElementById('featList').innerHTML=html||'<div class="hint">Keine Bereiche gefunden.</div>'; document.getElementById('featModal').classList.add('open'); }
 function saveFeatures(){ var off=[]; document.querySelectorAll('#featList input[type=checkbox]').forEach(function(b){ if(!b.checked) off.push(decodeURIComponent(b.getAttribute('data-t'))); }); try{ localStorage.setItem('evtdash_featoff', JSON.stringify(off)); }catch(e){} closeAnyModal(); try{ applyRole(localStorage.getItem('evtdash_role')||'voll'); }catch(e){} }
 function applyRole(r){ try{ var secs=document.querySelectorAll('.section'); secs.forEach(function(s){ s.style.display=''; }); var _fo=featGet(); if(_fo&&_fo.length){ secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; if(_fo.indexOf(t)>=0) s.style.display='none'; }); } var b=document.getElementById('roleBtn'); if(b) b.textContent='Ansicht: '+(_roleLabel[r]||'Voll (alles)'); if(r==='voll'||!r) return; var _rc=roleCfgGet(); var _al=_rc[r]; if(_al&&_al.length){ secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; s.style.display=(_al.indexOf(t)>=0)?'':'none'; }); return; } var keepId=r==='einlass'?'ciSearch':(r==='kasse'?'cashList':null); if(!keepId) return; var kn=document.getElementById(keepId); var keep=kn?kn.closest('.section'):null; if(!keep) return; secs.forEach(function(s){ if(s!==keep) s.style.display='none'; }); }catch(e){} }
 function cycleViewRole(){ var cur=localStorage.getItem('evtdash_role')||'voll'; var i=(_roles.indexOf(cur)+1)%_roles.length; var r=_roles[i]; try{localStorage.setItem('evtdash_role',r);}catch(e){} applyRole(r); }
