@@ -1024,7 +1024,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.72.0';
+const APP_VERSION='2.73.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1375,7 +1375,11 @@ function openEventReport(){ try{
   var html='<!doctype html><html><head><meta charset="utf-8"><title>Event-Report</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,Arial,sans-serif;color:#22322a}h1{font-size:20px;margin:0 0 2px}h2{font-size:15px;border-bottom:2px solid #1f7554;color:#1f7554;margin:18px 0 6px;padding-bottom:2px}.muted{color:#777;font-size:12px}
 html.dark .muted{color:#c2ccd6}
 html.dark .hint{color:#aeb9c4}
-html.dark a{color:#7db4ff}.kpis{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.kpi{border:1px solid #dfe7e1;border-radius:8px;padding:8px 12px;min-width:120px;font-size:12px}.kpi b{font-size:20px;display:block}ul{font-size:13px}li{margin:1px 0}</style></head><body>'
+html.dark a{color:#7db4ff}
+*:focus-visible{outline:3px solid #1c8a4e !important;outline-offset:2px;border-radius:4px}
+html.dark *:focus-visible{outline-color:#7db4ff !important}
+.sr-only{position:absolute !important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;scroll-behavior:auto !important}}.kpis{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.kpi{border:1px solid #dfe7e1;border-radius:8px;padding:8px 12px;min-width:120px;font-size:12px}.kpi b{font-size:20px;display:block}ul{font-size:13px}li{margin:1px 0}</style></head><body>'
    +'<h1>Event-Report'+(e.name?(' – '+esc(e.name)):'')+'</h1><div class="muted">Erstellt am '+now+'</div>'
    +'<h2>Überblick</h2><div class="kpis">'
      +'<div class="kpi"><b>'+reg+'</b>Anmeldungen (aktiv)</div>'
@@ -2918,6 +2922,8 @@ var FEAT_INFO=[
 function featInfo(t){ for(var i=0;i<FEAT_INFO.length;i++){ if(t.indexOf(FEAT_INFO[i].k)>=0) return FEAT_INFO[i].d; } return ""; }
 function openFeatures(){ var off=featGet(); var secs=document.querySelectorAll('.section'); var html=''; secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; if(!t) return; var on=off.indexOf(t)<0; var _fi=featInfo(t); html+='<div style="padding:7px 0;border-bottom:1px solid var(--line)"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-t="'+encodeURIComponent(t)+'"'+(on?' checked':'')+'> <b>'+esc(t)+'</b></label>'+(_fi?('<div style="color:var(--muted);font-size:12px;margin:4px 0 0 26px">'+_fi+'</div>'):'')+'</div>'; }); document.getElementById('featList').innerHTML=html||'<div class="hint">Keine Bereiche gefunden.</div>'; document.getElementById('featModal').classList.add('open'); }
 function saveFeatures(){ var off=[]; document.querySelectorAll('#featList input[type=checkbox]').forEach(function(b){ if(!b.checked) off.push(decodeURIComponent(b.getAttribute('data-t'))); }); try{ localStorage.setItem('evtdash_featoff', JSON.stringify(off)); }catch(e){} closeAnyModal(); try{ applyRole(localStorage.getItem('evtdash_role')||'voll'); }catch(e){} }
+function a11yLabels(){ try{ document.querySelectorAll('button[title]:not([aria-label]),a[title]:not([aria-label])').forEach(function(b){ var t=(b.getAttribute('title')||'').trim(); if(t) b.setAttribute('aria-label',t); }); }catch(e){} }
+var _a11yT; window.addEventListener('load',function(){ setTimeout(function(){ a11yLabels(); try{ var mo=new MutationObserver(function(){ clearTimeout(_a11yT); _a11yT=setTimeout(a11yLabels,400); }); mo.observe(document.body,{childList:true,subtree:true}); }catch(e){} },600); });
 function applyRole(r){ try{ var secs=document.querySelectorAll('.section'); secs.forEach(function(s){ s.style.display=''; }); var _fo=featGet(); if(_fo&&_fo.length){ secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; if(_fo.indexOf(t)>=0) s.style.display='none'; }); } var b=document.getElementById('roleBtn'); if(b) b.textContent='Ansicht: '+(_roleLabel[r]||'Voll (alles)'); if(r==='voll'||!r) return; var _rc=roleCfgGet(); var _al=_rc[r]; if(_al&&_al.length){ secs.forEach(function(s){ var h=s.querySelector('h2'); var t=h?h.textContent.trim():''; s.style.display=(_al.indexOf(t)>=0)?'':'none'; }); return; } var keepId=r==='einlass'?'ciSearch':(r==='kasse'?'cashList':null); if(!keepId) return; var kn=document.getElementById(keepId); var keep=kn?kn.closest('.section'):null; if(!keep) return; secs.forEach(function(s){ if(s!==keep) s.style.display='none'; }); }catch(e){} }
 function cycleViewRole(){ var cur=localStorage.getItem('evtdash_role')||'voll'; var i=(_roles.indexOf(cur)+1)%_roles.length; var r=_roles[i]; try{localStorage.setItem('evtdash_role',r);}catch(e){} applyRole(r); }
 window.addEventListener('load',function(){ setTimeout(function(){ try{ applyRole(localStorage.getItem('evtdash_role')||'voll'); }catch(e){} }, 400); });
