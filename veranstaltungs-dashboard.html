@@ -16,7 +16,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
-  html.dark{--bg:#0f1620;--card:#1a232e;--ink:#e6edf3;--muted:#9aa9b4;--line:#2a3744;--green-l:#15271d;color-scheme:dark;}
+  html.dark{--bg:#0f1620;--card:#1a232e;--ink:#e6edf3;--muted:#c2ccd6;--line:#3c4c5d;--green-l:#15271d;color-scheme:dark;}
 html.dark body{background:var(--bg);color:var(--ink);}
 html.dark input,html.dark select,html.dark textarea{background:#0f1720;color:var(--ink);border-color:var(--line);}
 html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
@@ -1024,7 +1024,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.67.0';
+const APP_VERSION='2.68.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1372,7 +1372,10 @@ function openEventReport(){ try{
   presentNames.sort(); absentNames.sort(); wl.sort();
   function list(arr){ return arr.length? '<ul style="columns:2;margin:6px 0;padding-left:18px">'+arr.map(function(n){return '<li>'+esc(n)+'</li>';}).join('')+'</ul>' : '<div class="muted">–</div>'; }
   var now=new Date().toLocaleString('de-DE');
-  var html='<!doctype html><html><head><meta charset="utf-8"><title>Event-Report</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,Arial,sans-serif;color:#22322a}h1{font-size:20px;margin:0 0 2px}h2{font-size:15px;border-bottom:2px solid #1f7554;color:#1f7554;margin:18px 0 6px;padding-bottom:2px}.muted{color:#777;font-size:12px}.kpis{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.kpi{border:1px solid #dfe7e1;border-radius:8px;padding:8px 12px;min-width:120px;font-size:12px}.kpi b{font-size:20px;display:block}ul{font-size:13px}li{margin:1px 0}</style></head><body>'
+  var html='<!doctype html><html><head><meta charset="utf-8"><title>Event-Report</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,Arial,sans-serif;color:#22322a}h1{font-size:20px;margin:0 0 2px}h2{font-size:15px;border-bottom:2px solid #1f7554;color:#1f7554;margin:18px 0 6px;padding-bottom:2px}.muted{color:#777;font-size:12px}
+html.dark .muted{color:#c2ccd6}
+html.dark .hint{color:#aeb9c4}
+html.dark a{color:#7db4ff}.kpis{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.kpi{border:1px solid #dfe7e1;border-radius:8px;padding:8px 12px;min-width:120px;font-size:12px}.kpi b{font-size:20px;display:block}ul{font-size:13px}li{margin:1px 0}</style></head><body>'
    +'<h1>Event-Report'+(e.name?(' – '+esc(e.name)):'')+'</h1><div class="muted">Erstellt am '+now+'</div>'
    +'<h2>Überblick</h2><div class="kpis">'
      +'<div class="kpi"><b>'+reg+'</b>Anmeldungen (aktiv)</div>'
