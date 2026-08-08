@@ -16,6 +16,15 @@
 <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
+  /* v2.79 Menuegruppen (Ausklapplisten) */
+  .topbar details.tbgroup{position:relative;display:inline-block}
+  .topbar details.tbgroup>summary{list-style:none;cursor:pointer;user-select:none}
+  .topbar details.tbgroup>summary::-webkit-details-marker{display:none}
+  .topbar details.tbgroup[open]>summary{outline:2px solid var(--yellow)}
+  .topbar .tbgroup-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:200;display:flex;flex-direction:column;gap:4px;min-width:190px;padding:6px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.35)}
+  .topbar .tbgroup-menu .btn{width:100%;text-align:left;background:transparent;color:var(--ink)}
+  .topbar .tbgroup-menu .btn:hover{background:var(--green-l)}
+
   html.dark{--bg:#0f1620;--card:#1a232e;--ink:#e6edf3;--muted:#c2ccd6;--line:#3c4c5d;--green-l:#15271d;color-scheme:dark;}
 html.dark body{background:var(--bg);color:var(--ink);}
 html.dark input,html.dark select,html.dark textarea{background:#0f1720;color:var(--ink);border-color:var(--line);}
@@ -182,30 +191,40 @@ html.dark .modal>div{box-shadow:0 10px 40px rgba(0,0,0,.6);}
   <span class="status" id="syncStat" style="min-width:60px;"></span>
   <button class="btn ghost sm tbToggle" onclick="document.querySelector('.topbar').classList.toggle('open')" title="Menü">☰ Menü</button>
   <button class="btn ghost sm" id="cloudBtn" onclick="toggleCloud()" title="Cloud-Synchronisation an/aus">☁ Sync</button>
-  <button class="btn ghost sm" id="langBtn" onclick="toggleLang()" title="Sprache / Language">🌐 DE</button>
   <button class="btn ghost sm" id="modeBtn" onclick="toggleMode()" title="Ansehen / Bearbeiten">✏️ Bearbeiten</button>
-  <button class="btn ghost sm" onclick="manualSync()">↻ Daten</button>
+  <button class="btn sm" style="background:#c9922b;color:#08160d" onclick="openCheckin()">✅ Check-in-Modus</button>
+  <details class="tbgroup"><summary class="btn ghost sm">▾ Ansicht</summary><div class="tbgroup-menu">
   <button class="btn ghost sm" onclick="collapseAll()" title="Alle Bereiche ein-/ausklappen">🗂️ Bereiche</button>
   <button class="btn ghost sm" id="orgaViewBtn" onclick="orgaView()" title="Orga-Ansicht: blendet teilnehmer-/infolastige Bereiche aus">🛡️ Orga-Ansicht</button>
-  <button class="btn ghost sm" onclick="openSections()" title="Bereiche/Funktionen ein- oder ausblenden">🧩 Funktionen</button>
   <button class="btn ghost sm" onclick="openDay()" title="Tagesübersicht: wer ist da / fehlt">📋 Tagesübersicht</button>
-  <button class="btn ghost sm" id="finLockBtn" onclick="toggleFinLock()" title="Finanzen sperren/entsperren (PIN)">🔒 Finanzen</button>
-  <button class="btn ghost sm" id="trashBtn" onclick="openTrash()" title="Papierkorb / Rückgängig">🗑 Papierkorb</button>
-  <button class="btn ghost sm" id="gciBtn" onclick="openGroupCheckin()" title="Mehrere Personen auf einmal einchecken">👥 Gruppen-Check-in</button>
   <button class="btn ghost sm" id="foyerBtn" onclick="openFoyer()" title="Große Anwesenheitsanzeige für Eingang/Foyer (Vollbild)">📺 Foyer-Anzeige</button>
-  <button class="btn ghost sm" id="remBtn" onclick="openReminders()" title="Terminierte automatische Erinnerungen">⏰ Erinnerungen</button>
-  <button class="btn ghost sm" id="rdyBtn" onclick="openReadiness()" title="Startklar-Check vor dem Event">✅ Bereit?</button>
-  <button class="btn ghost sm" id="infoBtn" onclick="openInfoEditor()" title="Öffentliche Info-Seite für Gäste bearbeiten">ℹ️ Info-Seite</button>
-  <button class="btn ghost sm" id="fbBtn" onclick="openFeedback()" title="Feedback-Seite teilen & Ergebnisse ansehen">💬 Feedback</button>
   <button class="btn ghost sm" id="themeBtn" onclick="toggleTheme()" title="Hell/Dunkel umschalten">🌙 Dunkel</button>
   <button class="btn ghost sm" id="fontBtn" onclick="cycleFontScale()" title="Schriftgröße umschalten (Normal / Groß / Sehr groß)">🔠 Schrift</button>
   <button class="btn ghost sm" onclick="openInfoScreen()" title="Öffentlicher Info-Screen fürs Foyer (Vollbild)">📺 Info-Screen</button>
+  </div></details>
+  <details class="tbgroup"><summary class="btn ghost sm">▾ Daten</summary><div class="tbgroup-menu">
+  <button class="btn ghost sm" onclick="manualSync()">↻ Daten</button>
+  <button class="btn ghost sm" id="trashBtn" onclick="openTrash()" title="Papierkorb / Rückgängig">🗑 Papierkorb</button>
   <button class="btn ghost sm" onclick="hardReload()" title="Seite komplett neu laden">⟳ Neu laden</button>
+  <button class="btn sm" onclick="newEvent()">+ Veranstaltung</button>
+  </div></details>
+  <details class="tbgroup"><summary class="btn ghost sm">▾ Funktionen</summary><div class="tbgroup-menu">
+  <button class="btn ghost sm" onclick="openSections()" title="Bereiche/Funktionen ein- oder ausblenden">🧩 Funktionen</button>
+  <button class="btn ghost sm" id="finLockBtn" onclick="toggleFinLock()" title="Finanzen sperren/entsperren (PIN)">🔒 Finanzen</button>
+  <button class="btn ghost sm" id="gciBtn" onclick="openGroupCheckin()" title="Mehrere Personen auf einmal einchecken">👥 Gruppen-Check-in</button>
+  <button class="btn ghost sm" id="remBtn" onclick="openReminders()" title="Terminierte automatische Erinnerungen">⏰ Erinnerungen</button>
+  <button class="btn ghost sm" id="rdyBtn" onclick="openReadiness()" title="Startklar-Check vor dem Event">✅ Bereit?</button>
+  </div></details>
+  <details class="tbgroup"><summary class="btn ghost sm">▾ Gäste & Info</summary><div class="tbgroup-menu">
+  <button class="btn ghost sm" id="infoBtn" onclick="openInfoEditor()" title="Öffentliche Info-Seite für Gäste bearbeiten">ℹ️ Info-Seite</button>
+  <button class="btn ghost sm" id="fbBtn" onclick="openFeedback()" title="Feedback-Seite teilen & Ergebnisse ansehen">💬 Feedback</button>
+  <button class="btn ghost sm" id="langBtn" onclick="toggleLang()" title="Sprache / Language">🌐 DE</button>
+  </div></details>
+  <details class="tbgroup"><summary class="btn ghost sm">▾ System</summary><div class="tbgroup-menu">
   <button class="btn ghost sm" onclick="openHelp()">❓ Hilfe</button>
   <button class="btn ghost sm" onclick="openWizard()">🧭 Assistent</button>
   <button class="btn ghost sm" onclick="openSettings()">⚙ Einstellungen</button>
-  <button class="btn sm" onclick="newEvent()">+ Veranstaltung</button>
-  <button class="btn sm" style="background:#c9922b;color:#08160d" onclick="openCheckin()">✅ Check-in-Modus</button>
+  </div></details>
 </div>
 
 <!-- Check-in overlay -->
@@ -1024,7 +1043,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.78.0';
+const APP_VERSION='2.79.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
