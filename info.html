@@ -40,6 +40,7 @@
 <script>
 var CLOUD={url:'https://gvzayggvtlychyjbnsgv.supabase.co',key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf'};
 var q=new URLSearchParams(location.search); var T=q.get('t')||''; var E=q.get('e')||'';
+function safeUrl(u){ u=(u==null?'':String(u)).trim(); if(/^(https?:|mailto:|tel:|whatsapp:)/i.test(u)) return esc(u); return '#'; }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function eur(n){return ((+n||0)).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
 function fmtDate(s){ if(!s)return ''; var d=new Date(s); if(isNaN(d))return esc(s); return d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}); }
@@ -89,8 +90,8 @@ function render(d){
     h+='</div>';
   }
   h+='<div class="btns">';
-  if(d.form && !full)h+='<a class="btn primary" href="'+esc(d.form)+'" target="_blank" rel="noopener">✅ Jetzt anmelden</a>';
-  if(d.whatsapp)h+='<a class="btn wa" href="'+esc(d.whatsapp)+'" target="_blank" rel="noopener">💬 WhatsApp-Gruppe beitreten</a>';
+  if(d.form && !full)h+='<a class="btn primary" href="'+safeUrl(d.form)+'" target="_blank" rel="noopener">✅ Jetzt anmelden</a>';
+  if(d.whatsapp)h+='<a class="btn wa" href="'+safeUrl(d.whatsapp)+'" target="_blank" rel="noopener">💬 WhatsApp-Gruppe beitreten</a>';
   h+='</div>';
   h+='<div class="foot">Bei Fragen einfach im Orga-Team melden. 🌿</div>';
   h+='</div>';
