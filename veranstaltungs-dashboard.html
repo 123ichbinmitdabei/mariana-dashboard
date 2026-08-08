@@ -1024,7 +1024,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.68.0';
+const APP_VERSION='2.69.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3274,7 +3274,7 @@ function qzAddQuestion(q){
   document.getElementById('qzQuestions').appendChild(wrap);
 }
 function qzOptRow(qi,oi,v,correct){
-  return `<label style="display:flex;align-items:center;gap:6px;margin:3px 0"><input type="radio" name="qzc${qi}" ${oi===correct?'checked':''} title="richtige Antwort"><input class="qzO" placeholder="Antwort ${oi+1}" value="${esc(v||'')}" style="flex:1;padding:5px;border:1px solid var(--line);border-radius:6px"></label>`;
+  return `<div style="display:flex;align-items:center;gap:8px;margin:5px 0"><input type="radio" name="qzc${qi}" style="width:22px;height:22px;flex:none" ${oi===correct?'checked':''} title="richtige Antwort"><input class="qzO" placeholder="Antwort ${oi+1}" value="${esc(v||'')}" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:6px"></div>`;
 }
 function qzAddOpt(btn,qi){ const box=btn.parentElement.querySelector('.qzOpts'); box.insertAdjacentHTML('beforeend', qzOptRow(qi,box.children.length,'',-1)); }
 function qzFilePicked(input){
