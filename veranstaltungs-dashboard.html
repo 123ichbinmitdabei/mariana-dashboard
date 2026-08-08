@@ -1024,7 +1024,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.70.0';
+const APP_VERSION='2.71.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -3284,6 +3284,10 @@ function qzFilePicked(input){
   else { const rd=new FileReader(); rd.onload=()=>{_qzFile=rd.result;info.textContent=(f.name||'Datei')+' angehängt ✓';}; rd.readAsDataURL(f); }
   input.value='';
 }
+var _commQuiz=[];
+function publishQuiz(item){ try{ if(!item||!item.title) return; if(item.type==="quiz" && !(item.questions&&item.questions.length)) return; var pubd; try{ pubd=JSON.parse(localStorage.getItem("evtdash_qpub")||"[]"); }catch(e){ pubd=[]; } if(pubd.indexOf(item.id)>=0) return; var body=JSON.stringify({type:item.type,title:item.title,questions:item.questions||[],author:(typeof teamCode==="function"?teamCode():"")||""}); fetch(CLOUD.url+"/rest/v1/quiz_library",{method:"POST",headers:cloudHeaders({Prefer:"return=minimal"}),body:body}).then(function(r){ if(r.ok){ pubd.push(item.id); try{localStorage.setItem("evtdash_qpub",JSON.stringify(pubd));}catch(e){} } }).catch(function(){}); }catch(e){} }
+function loadCommunityQuizzes(){ var box=document.getElementById("quizList"); if(!box) return; var pre=document.getElementById("commQuizBox"); if(pre) pre.remove(); box.insertAdjacentHTML("afterbegin",'<div id="commQuizBox" class="hint" style="margin:0 0 10px">Lade Community-Quizze…</div>'); fetch(CLOUD.url+"/rest/v1/quiz_library?select=type,title,questions&order=created_at.desc&limit=100",{headers:cloudHeaders()}).then(function(r){return r.json();}).then(function(rows){ _commQuiz=Array.isArray(rows)?rows:[]; var el2=document.getElementById("commQuizBox"); if(!el2) return; if(!_commQuiz.length){ el2.textContent="Noch keine Community-Quizze vorhanden."; return; } var icon={quiz:"&#10067;",game:"&#127919;",talk:"&#127908;"}; el2.className=""; el2.style.cssText="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px"; el2.innerHTML="<b>&#127757; Community-Quizze</b>"+_commQuiz.map(function(t,i){ return '<div class="cashline"><span>'+(icon[t.type]||"&#10067;")+" "+esc(t.title)+' <span style="color:var(--muted);font-size:11px">'+((t.questions&&t.questions.length)||0)+' Fragen</span></span><button class="btn sm" data-i="'+i+'" onclick="useCommunityQuiz(+this.dataset.i)">&#220;bernehmen</button></div>'; }).join(""); }).catch(function(){ var el2=document.getElementById("commQuizBox"); if(el2) el2.textContent="Community-Quizze konnten nicht geladen werden."; }); }
+function useCommunityQuiz(i){ var t=_commQuiz[i]; if(!t) return; var list=LS.get(kQuiz(),[]); list.push({id:"q"+Date.now(),type:t.type||"quiz",title:t.title,questions:t.questions||[],scores:[]}); LS.set(kQuiz(),list); renderQuiz(); alert(t.title+" wurde in deine Liste übernommen."); }
 function saveQuiz(){
   const type=document.getElementById('qzType').value;
   const id=document.getElementById('qzId').value||('q'+Date.now());
@@ -3310,7 +3314,7 @@ function saveQuiz(){
     if(_qzFile){ const rc=LS.get(kReceipts(),{}); const fid='qf'+id; rc[fid]=_qzFile; LS.set(kReceipts(),rc); item.fileId=fid; }
   }
   if(isNew) list.push(item);
-  LS.set(kQuiz(),list);
+  LS.set(kQuiz(),list); try{ publishQuiz(item); }catch(e){}
   closeModal('quizModal'); renderQuiz();
 }
 function renderQuiz(){
@@ -3481,7 +3485,7 @@ function loadQuizTemplates(){
   const box=document.getElementById('quizList'); if(!box)return;
   const icon={quiz:'❓',game:'🎯',talk:'🎤'};
   box.innerHTML=`<div style="border:1px solid var(--mgreen);border-radius:8px;padding:12px;margin-bottom:12px;background:#f6f9f7">
-    <div class="row-flex" style="justify-content:space-between;align-items:center;margin-bottom:8px"><b>📚 Vorlagen-Datenbank — direkt nutzbar</b><button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="renderQuiz()">Schließen</button></div>
+    <div class="row-flex" style="justify-content:space-between;align-items:center;margin-bottom:8px"><b>📚 Vorlagen-Datenbank — direkt nutzbar</b> <button class="btn ghost sm" onclick="loadCommunityQuizzes()">&#127757; Community laden</button><button class="btn ghost sm" style="color:#333;border-color:#ccc" onclick="renderQuiz()">Schließen</button></div>
     ${QUIZ_DB.map((t,i)=>`<div class="cashline"><span>${icon[t.type]} <b>${esc(t.title)}</b> <span style="font-size:11px;color:var(--muted)">· ${t.type==='quiz'?(t.questions.length+' Fragen'):'Spiel'}</span></span><button class="btn sm" onclick="useTemplate(${i})">＋ Nutzen</button></div>`).join('')}
   </div>`+box.innerHTML;
 }
