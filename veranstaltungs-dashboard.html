@@ -1024,7 +1024,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.77.0';
+const APP_VERSION='2.78.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1656,9 +1656,9 @@ function renderShop(){
   const list=LS.get(kShop(),[]);
   const rows=list.map((s,i)=>`<tr class="${s.done?'':''}">
     <td style="width:34px"><input type="checkbox" ${s.done?'checked':''} onchange="toggleShop(${i})"></td>
-    <td style="${s.done?'text-decoration:line-through;color:var(--muted)':''}">${s.text||''}</td>
-    <td>${s.qty||''}</td>
-    <td>${s.who||''}</td>
+    <td style="${s.done?'text-decoration:line-through;color:var(--muted)':''}">${esc(s.text||'')}</td>
+    <td>${esc(s.qty||'')}</td>
+    <td>${esc(s.who||'')}</td>
     <td style="width:34px"><button class="btn danger sm" style="padding:1px 6px" onclick="delShop(${i})">×</button></td></tr>`).join('');
   document.getElementById('shopTable').innerHTML=
     `<thead><tr><th></th><th>Artikel</th><th>Menge</th><th>Besorgt wer?</th><th></th></tr></thead>`+
