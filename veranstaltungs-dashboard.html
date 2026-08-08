@@ -1024,7 +1024,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.75.0';
+const APP_VERSION='2.76.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -1086,7 +1086,7 @@ function resizeImage(file, maxW, cb){
   rd.onload=()=>{ const img=new Image(); img.onload=()=>{ let w=img.width,h=img.height; if(w>maxW){h=Math.round(h*maxW/w);w=maxW;} const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); try{cb(c.toDataURL('image/jpeg',0.6));}catch(e){cb(null);} }; img.onerror=()=>cb(null); img.src=rd.result; };
   rd.onerror=()=>cb(null); rd.readAsDataURL(file);
 }
-function showImg(src){ const o=document.createElement('div'); o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px'; o.innerHTML='<img src="'+src+'" style="max-width:95%;max-height:95%;border-radius:6px">'; o.onclick=()=>o.remove(); document.body.appendChild(o); }
+function showImg(src){ const o=document.createElement('div'); o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px'; o.innerHTML='<img src="'+esc(src)+'" style="max-width:95%;max-height:95%;border-radius:6px">'; o.onclick=()=>o.remove(); document.body.appendChild(o); }
 const LOGO='https://sawa-dev-2-storage-bucket.storage.googleapis.com/profiles/8e646da0-9efa-4498-aab2-8f950b91e391.png';
 
 let DATA = [];      // parsed sheet rows (array of {header:value})
@@ -1679,7 +1679,7 @@ function renderTop(){
   document.getElementById('evtName').textContent=(e.cancelled?'⛔ ':'')+e.name;
   document.getElementById('evtSub').textContent=anmForm()+' Anmeldungen · Preis '+eur(e.price);
   const sw=document.getElementById('evtSwitch');
-  sw.innerHTML=events.map(x=>`<option value="${x.id}" ${x.id===currentId?'selected':''}>${(x.cancelled?'⛔ ':'')+x.name}</option>`).join('');
+  sw.innerHTML=events.map(x=>`<option value="${x.id}" ${x.id===currentId?'selected':''}>${(x.cancelled?'⛔ ':'')+esc(x.name)}</option>`).join('');
   const cs=document.getElementById('compareSection'); if(cs) cs.style.display = events.length>1?'':'none';
   const cb=document.getElementById('cancelBanner');
   if(cb) cb.innerHTML = e.cancelled ? `<div class="banner warn" style="background:#f7eaea;border-color:#c0504d;margin-bottom:12px"><span>⛔ <b>Diese Veranstaltung ist abgesagt.</b>${e.cancelReason?' Grund: '+esc(e.cancelReason):''} Nutze die Absage-Vorlage unter „Kommunikation", um alle zu informieren.</span></div>` : '';
