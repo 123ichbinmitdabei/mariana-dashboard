@@ -1043,7 +1043,7 @@ const DEFAULT_EVENT = {
   place:'Marburg', eventDate:'2026-09-25', gallery:'', feedbackForm:'', feedbackSheet:'', feedbackTab:'Form Responses 1', lat:null, lon:null, budget:0, orgaMail:''
 };
 const CLOUD={ url:'https://gvzayggvtlychyjbnsgv.supabase.co', key:'sb_publishable_W_BRzMC0LFZp8r-WiGTIsg_QZfbZkaf' };
-const APP_VERSION='2.81.0';
+const APP_VERSION='2.82.0';
 const SYNC_SUFFIXES=['checkin','cash','agenda','shop','names','pp','tasks','notes','manual','paid','count','role','orga','comms','tags','shifts','sleep','extra','exp','quiz','waph','ui','inv','calc','invite','sponsor','psort','emerg','chartsel','galcloud','remind','stands','cashclose'];
 let events = LS.get('evtdash_events', null);
 if(!events){ events=[DEFAULT_EVENT]; LS.set('evtdash_events',events); }
@@ -4321,7 +4321,7 @@ document.addEventListener('click',function(e){
 </script>
 
 <script>
-/* v2.81 Orga-Auth (Magic-Link, additiv; Team-Code laeuft parallel) */
+/* v2.82 Orga-Auth (anonym + Orga-Code; Magic-Link vorbereitet) */
 (function(){
   if(typeof CLOUD==='undefined') return;
   var _fetch=window.fetch.bind(window);
@@ -4337,7 +4337,7 @@ document.addEventListener('click',function(e){
     refreshing=(async function(){
       try{
         var r=await _fetch(CLOUD.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':CLOUD.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
-        if(r.ok){ var d=await r.json(); session={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:d.expires_at,email:(d.user&&d.user.email)||s.email}; save(session); return session; }
+        if(r.ok){ var d=await r.json(); session={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:d.expires_at,email:(d.user&&d.user.email)||s.email,anon:s.anon,team:s.team}; save(session); return session; }
       }catch(e){}
       session=null; save(null); return null;
     })();
@@ -4359,34 +4359,32 @@ document.addEventListener('click',function(e){
     }catch(e){}
     return _fetch(input,init);
   };
-  function handleHash(){
-    if(location.hash && location.hash.indexOf('access_token=')>=0){
-      var p=new URLSearchParams(location.hash.slice(1));
-      var at=p.get('access_token'), rt=p.get('refresh_token'), ei=p.get('expires_in');
-      if(at){
-        session={access_token:at, refresh_token:rt, expires_at: Math.floor(Date.now()/1000)+(parseInt(ei||'3600',10)), email:null};
-        save(session);
-        _fetch(CLOUD.url+'/auth/v1/user',{headers:{'apikey':CLOUD.key,'Authorization':'Bearer '+at}}).then(function(r){return r.ok?r.json():null;}).then(function(u){ if(u){session.email=u.email; save(session);} updateBtn(); }).catch(function(){});
-        history.replaceState(null,'',location.pathname+location.search);
-      }
-    }
+  async function anonLogin(code){
+    try{
+      var r=await _fetch(CLOUD.url+'/auth/v1/signup',{method:'POST',headers:{'apikey':CLOUD.key,'Content-Type':'application/json'},body:'{}'});
+      if(!r.ok) return {ok:false,msg:'Anmeldung nicht moeglich.'};
+      var d=await r.json();
+      var rj=await _fetch(CLOUD.url+'/rest/v1/rpc/join_event_team',{method:'POST',headers:{'apikey':CLOUD.key,'Authorization':'Bearer '+d.access_token,'Content-Type':'application/json'},body:JSON.stringify({p_code:code})});
+      var joined=false; try{ joined=(await rj.text()).indexOf('true')>=0; }catch(e){}
+      if(!joined) return {ok:false,msg:'Orga-Code ungueltig.'};
+      session={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:d.expires_at,email:null,anon:true,team:code};
+      save(session);
+      return {ok:true};
+    }catch(e){ return {ok:false,msg:'Fehler beim Login.'}; }
   }
   async function sendLink(email){
     var redirect=location.origin+location.pathname;
-    try{
-      var r=await _fetch(CLOUD.url+'/auth/v1/otp?redirect_to='+encodeURIComponent(redirect),{method:'POST',headers:{'apikey':CLOUD.key,'Content-Type':'application/json'},body:JSON.stringify({email:email,create_user:false})});
-      return r.ok;
-    }catch(e){ return false; }
+    try{ var r=await _fetch(CLOUD.url+'/auth/v1/otp?redirect_to='+encodeURIComponent(redirect),{method:'POST',headers:{'apikey':CLOUD.key,'Content-Type':'application/json'},body:JSON.stringify({email:email,create_user:true})}); return r.ok; }catch(e){ return false; }
   }
   function openLogin(){
-    var em=prompt('Orga-Login: E-Mail fuer Magic-Link'); if(!em) return;
-    sendLink(em.trim()).then(function(ok){ alert(ok?('Magic-Link gesendet an '+em+' - Mail oeffnen und Link anklicken.'):'Fehler. E-Mail korrekt / als Nutzer angelegt?'); });
+    var code=prompt('Orga-Login\nBitte Orga-Code eingeben:'); if(!code) return;
+    anonLogin(code.trim()).then(function(res){ updateBtn(); alert(res.ok?('Angemeldet als Orga (Team '+((session&&session.team)||code)+').'):res.msg); });
   }
   function logout(){ session=null; save(null); updateBtn(); }
   function updateBtn(){
     var b=document.getElementById('orgaLoginBtn'); if(!b) return;
-    if(session && session.access_token){ b.textContent='\u{1F464} '+(session.email||'Orga'); b.title='Angemeldet - Klick zum Abmelden'; b.onclick=function(){ if(confirm('Abmelden?')) logout(); }; }
-    else { b.textContent='\u{1F511} Orga-Login'; b.title='Als Orga anmelden (Magic-Link)'; b.onclick=openLogin; }
+    if(session && session.access_token){ b.textContent='\u{1F464} '+(session.email||('Orga'+(session.team?' ('+session.team+')':''))); b.title='Angemeldet - Klick zum Abmelden'; b.onclick=function(){ if(confirm('Abmelden?')) logout(); }; }
+    else { b.textContent='\u{1F511} Orga-Login'; b.title='Als Orga anmelden (Orga-Code)'; b.onclick=openLogin; }
   }
   function injectBtn(){
     if(document.getElementById('orgaLoginBtn')) return;
@@ -4396,7 +4394,26 @@ document.addEventListener('click',function(e){
     var b=document.createElement('button'); b.id='orgaLoginBtn'; b.className='btn ghost sm';
     host.appendChild(b); updateBtn();
   }
-  function init(){ injectBtn(); handleHash(); if(valid(session)) updateBtn(); else if(session) refresh().then(updateBtn); }
+  function handleHash(){
+    if(location.hash && location.hash.indexOf('access_token=')>=0){
+      var p=new URLSearchParams(location.hash.slice(1));
+      var at=p.get('access_token'), rt=p.get('refresh_token'), ei=p.get('expires_in');
+      if(at){
+        session={access_token:at, refresh_token:rt, expires_at: Math.floor(Date.now()/1000)+(parseInt(ei||'3600',10)), email:null, anon:false};
+        save(session);
+        _fetch(CLOUD.url+'/auth/v1/user',{headers:{'apikey':CLOUD.key,'Authorization':'Bearer '+at}}).then(function(r){return r.ok?r.json():null;}).then(function(u){ if(u){session.email=u.email; save(session);} updateBtn(); }).catch(function(){});
+        history.replaceState(null,'',location.pathname+location.search);
+      }
+    }
+  }
+  function hookPick(){
+    if(window.pickRole && !window.pickRole.__wrapped){
+      var _pr=window.pickRole;
+      window.pickRole=function(r){ try{_pr(r);}catch(e){} if((r==='veranstalter'||r==='orga') && !(session&&session.access_token)){ setTimeout(openLogin,300); } };
+      window.pickRole.__wrapped=true;
+    }
+  }
+  function init(){ injectBtn(); hookPick(); handleHash(); if(valid(session)) updateBtn(); else if(session) refresh().then(updateBtn); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
